@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 #region Using directives
@@ -40,8 +40,10 @@ namespace Microsoft.PowerShell.Commands
         public Microsoft.PowerShell.Commands.LocalGroup Group
         {
             get { return this.group;}
+
             set { this.group = value; }
         }
+
         private Microsoft.PowerShell.Commands.LocalGroup group;
 
         /// <summary>
@@ -55,8 +57,10 @@ namespace Microsoft.PowerShell.Commands
         public string Member
         {
             get { return this.member;}
+
             set { this.member = value; }
         }
+
         private string member;
 
         /// <summary>
@@ -72,8 +76,10 @@ namespace Microsoft.PowerShell.Commands
         public string Name
         {
             get { return this.name;}
+
             set { this.name = value; }
         }
+
         private string name;
 
         /// <summary>
@@ -89,8 +95,10 @@ namespace Microsoft.PowerShell.Commands
         public System.Security.Principal.SecurityIdentifier SID
         {
             get { return this.sid;}
+
             set { this.sid = value; }
         }
+
         private System.Security.Principal.SecurityIdentifier sid;
         #endregion Parameter Properties
 
@@ -149,12 +157,12 @@ namespace Microsoft.PowerShell.Commands
             // if no members are specified, return all of them
             if (Member == null)
             {
-                //return membership;
+                // return membership;
                 rv = new List<LocalPrincipal>(membership);
             }
             else
             {
-                //var rv = new List<LocalPrincipal>();
+                // var rv = new List<LocalPrincipal>();
                 rv = new List<LocalPrincipal>();
 
                 if (WildcardPattern.ContainsWildcardCharacters(Member))
@@ -202,7 +210,7 @@ namespace Microsoft.PowerShell.Commands
             }
 
             // sort the resulting principals by mane
-            rv.Sort((p1, p2) => string.Compare(p1.Name, p2.Name, StringComparison.CurrentCultureIgnoreCase));
+            rv.Sort(static (p1, p2) => string.Compare(p1.Name, p2.Name, StringComparison.CurrentCultureIgnoreCase));
 
             return rv;
         }
@@ -222,7 +230,6 @@ namespace Microsoft.PowerShell.Commands
             return ProcessesMembership(sam.GetLocalGroupMembers(groupSid));
         }
         #endregion Private Methods
-    }//End Class
+    }
 
-}//End namespace
-
+}

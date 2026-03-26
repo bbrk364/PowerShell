@@ -1,25 +1,25 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Collections.Generic;
 using System.Globalization;
 using System.Management.Automation.Internal;
-using System.Collections.Generic;
 
 namespace System.Management.Automation.Tracing
 {
     /// <summary>
-    /// ETW logging API
+    /// ETW logging API.
     /// </summary>
     internal static class PSEtwLog
     {
 #if UNIX
-        private static PSSysLogProvider provider;
+        private static readonly PSSysLogProvider provider;
 #else
-        private static PSEtwLogProvider provider;
+        private static readonly PSEtwLogProvider provider;
 #endif
 
         /// <summary>
-        /// Class constructor
+        /// Class constructor.
         /// </summary>
         static PSEtwLog()
         {
@@ -41,36 +41,33 @@ namespace System.Management.Automation.Tracing
 
             PSEtwLog.LogOperationalInformation(PSEventId.Perftrack_ConsoleStartupStart, PSOpcode.WinStart,
                 PSTask.PowershellConsoleStartup, PSKeyword.UseAlwaysOperational);
-
         }
 
         /// <summary>
-        /// Provider interface function for logging health event
+        /// Provider interface function for logging health event.
         /// </summary>
         /// <param name="logContext"></param>
         /// <param name="eventId"></param>
         /// <param name="exception"></param>
         /// <param name="additionalInfo"></param>
-        ///
-        internal static void LogEngineHealthEvent(LogContext logContext, int eventId, Exception exception, Dictionary<String, String> additionalInfo)
+        internal static void LogEngineHealthEvent(LogContext logContext, int eventId, Exception exception, Dictionary<string, string> additionalInfo)
         {
             provider.LogEngineHealthEvent(logContext, eventId, exception, additionalInfo);
         }
 
         /// <summary>
-        /// Provider interface function for logging engine lifecycle event
+        /// Provider interface function for logging engine lifecycle event.
         /// </summary>
         /// <param name="logContext"></param>
         /// <param name="newState"></param>
         /// <param name="previousState"></param>
-        ///
         internal static void LogEngineLifecycleEvent(LogContext logContext, EngineState newState, EngineState previousState)
         {
             provider.LogEngineLifecycleEvent(logContext, newState, previousState);
         }
 
         /// <summary>
-        /// Provider interface function for logging command health event
+        /// Provider interface function for logging command health event.
         /// </summary>
         /// <param name="logContext"></param>
         /// <param name="exception"></param>
@@ -80,11 +77,10 @@ namespace System.Management.Automation.Tracing
         }
 
         /// <summary>
-        /// Provider interface function for logging command lifecycle event
+        /// Provider interface function for logging command lifecycle event.
         /// </summary>
         /// <param name="logContext"></param>
         /// <param name="newState"></param>
-        ///
         internal static void LogCommandLifecycleEvent(LogContext logContext, CommandState newState)
         {
             provider.LogCommandLifecycleEvent(() => logContext, newState);
@@ -95,13 +91,13 @@ namespace System.Management.Automation.Tracing
         /// </summary>
         /// <param name="logContext"></param>
         /// <param name="pipelineExecutionDetail"></param>
-        internal static void LogPipelineExecutionDetailEvent(LogContext logContext, List<String> pipelineExecutionDetail)
+        internal static void LogPipelineExecutionDetailEvent(LogContext logContext, List<string> pipelineExecutionDetail)
         {
             provider.LogPipelineExecutionDetailEvent(logContext, pipelineExecutionDetail);
         }
 
         /// <summary>
-        /// Provider interface function for logging provider health event
+        /// Provider interface function for logging provider health event.
         /// </summary>
         /// <param name="logContext"></param>
         /// <param name="providerName"></param>
@@ -112,32 +108,70 @@ namespace System.Management.Automation.Tracing
         }
 
         /// <summary>
-        /// Provider interface function for logging provider lifecycle event
+        /// Provider interface function for logging provider lifecycle event.
         /// </summary>
         /// <param name="logContext"></param>
         /// <param name="providerName"></param>
         /// <param name="newState"></param>
-        ///
         internal static void LogProviderLifecycleEvent(LogContext logContext, string providerName, ProviderState newState)
         {
             provider.LogProviderLifecycleEvent(logContext, providerName, newState);
         }
 
         /// <summary>
-        /// Provider interface function for logging settings event
+        /// Provider interface function for logging AmsiUtil State event.
+        /// </summary>
+        /// <param name="state">This the action performed in AmsiUtil class, like init, scan, etc.</param>
+        /// <param name="context">The amsiContext handled - Session pair.</param>
+        internal static void LogAmsiUtilStateEvent(string state, string context)
+        {
+            provider.LogAmsiUtilStateEvent(state, context);
+        }
+
+        /// <summary>
+        /// Provider interface function for logging WDAC query event.
+        /// </summary>
+        /// <param name="queryName">Name of the WDAC query.</param>
+        /// <param name="fileName">Name of script file for policy query. Can be null value.</param>
+        /// <param name="querySuccess">Query call succeed code.</param>
+        /// <param name="queryResult">Result code of WDAC query.</param>
+        internal static void LogWDACQueryEvent(
+            string queryName,
+            string fileName,
+            int querySuccess,
+            int queryResult)
+        {
+            provider.LogWDACQueryEvent(queryName, fileName ?? string.Empty, querySuccess, queryResult);
+        }
+
+        /// <summary>
+        /// Provider interface function for logging WDAC audit event.
+        /// </summary>
+        /// <param name="title">Title of WDAC audit event.</param>
+        /// <param name="message">WDAC audit event message.</param>
+        /// <param name="fqid">FullyQualifiedId of WDAC audit event.</param>
+        internal static void LogWDACAuditEvent(
+            string title,
+            string message,
+            string fqid)
+        {
+            provider.LogWDACAuditEvent(title, message, fqid);
+        }
+
+        /// <summary>
+        /// Provider interface function for logging settings event.
         /// </summary>
         /// <param name="logContext"></param>
         /// <param name="variableName"></param>
         /// <param name="value"></param>
         /// <param name="previousValue"></param>
-        ///
         internal static void LogSettingsEvent(LogContext logContext, string variableName, string value, string previousValue)
         {
             provider.LogSettingsEvent(logContext, variableName, value, previousValue);
         }
 
         /// <summary>
-        /// Logs information to the operational channel
+        /// Logs information to the operational channel.
         /// </summary>
         /// <param name="id"></param>
         /// <param name="opcode"></param>
@@ -150,7 +184,7 @@ namespace System.Management.Automation.Tracing
         }
 
         /// <summary>
-        /// Logs information to the operational channel
+        /// Logs information to the operational channel.
         /// </summary>
         /// <param name="id"></param>
         /// <param name="opcode"></param>
@@ -163,7 +197,7 @@ namespace System.Management.Automation.Tracing
         }
 
         /// <summary>
-        /// Logs Verbose to the operational channel
+        /// Logs Verbose to the operational channel.
         /// </summary>
         /// <param name="id"></param>
         /// <param name="opcode"></param>
@@ -176,7 +210,7 @@ namespace System.Management.Automation.Tracing
         }
 
         /// <summary>
-        /// Logs error message to the analytic channel
+        /// Logs error message to the analytic channel.
         /// </summary>
         /// <param name="id"></param>
         /// <param name="opcode"></param>
@@ -189,7 +223,7 @@ namespace System.Management.Automation.Tracing
         }
 
         /// <summary>
-        /// Logs warning message to the analytic channel
+        /// Logs warning message to the analytic channel.
         /// </summary>
         /// <param name="id"></param>
         /// <param name="opcode"></param>
@@ -224,8 +258,8 @@ namespace System.Management.Automation.Tracing
         {
             if (provider.IsEnabled(PSLevel.Verbose, keyword))
             {
-                string payLoadData = BitConverter.ToString(fragmentData.blob, fragmentData.offset, fragmentData.length);
-                payLoadData = string.Format(CultureInfo.InvariantCulture, "0x{0}", payLoadData.Replace("-", string.Empty));
+                string payLoadData = Convert.ToHexString(fragmentData.blob, fragmentData.offset, fragmentData.length);
+                payLoadData = string.Create(CultureInfo.InvariantCulture, $"0x{payLoadData}");
 
                 provider.WriteEvent(id, PSChannel.Analytic, opcode, PSLevel.Verbose, task, keyword,
                                     objectId, fragmentId, isStartFragment, isEndFragment, fragmentLength,
@@ -234,7 +268,7 @@ namespace System.Management.Automation.Tracing
         }
 
         /// <summary>
-        /// Logs verbose message to the analytic channel
+        /// Logs verbose message to the analytic channel.
         /// </summary>
         /// <param name="id"></param>
         /// <param name="opcode"></param>
@@ -247,7 +281,7 @@ namespace System.Management.Automation.Tracing
         }
 
         /// <summary>
-        /// Logs informational message to the analytic channel
+        /// Logs informational message to the analytic channel.
         /// </summary>
         /// <param name="id"></param>
         /// <param name="opcode"></param>
@@ -273,7 +307,7 @@ namespace System.Management.Automation.Tracing
         }
 
         /// <summary>
-        /// Logs error message to the operational channel
+        /// Logs error message to the operational channel.
         /// </summary>
         /// <param name="id"></param>
         /// <param name="opcode"></param>
@@ -304,7 +338,7 @@ namespace System.Management.Automation.Tracing
         /// Writes a transfer event mapping current activity id
         /// with a related activity id
         /// This function writes a transfer event for both the
-        /// operational and analytic channels
+        /// operational and analytic channels.
         /// </summary>
         /// <param name="relatedActivityId"></param>
         /// <param name="eventForOperationalChannel"></param>
@@ -322,7 +356,7 @@ namespace System.Management.Automation.Tracing
         }
 
         /// <summary>
-        /// Writes a transfer event
+        /// Writes a transfer event.
         /// </summary>
         /// <param name="parentActivityId"></param>
         internal static void WriteTransferEvent(Guid parentActivityId)

@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
@@ -196,7 +196,7 @@ namespace System.Management.Automation.SecurityAccountsManager.Native.NtSam
     [StructLayout(LayoutKind.Sequential)]
     internal struct USER_EXPIRES_INFORMATION
     {
-        //LARGE_INTEGER AccountExpires;
+        // LARGE_INTEGER AccountExpires;
         public Int64 AccountExpires;
     }
 

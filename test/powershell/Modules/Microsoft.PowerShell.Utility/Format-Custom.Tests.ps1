@@ -1,4 +1,4 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 Describe "Format-Custom" -Tags "CI" {
 
@@ -14,7 +14,7 @@ Describe "Format-Custom" -Tags "CI" {
     Context "Check specific flags on Format-Custom" {
 
         It "Should be able to specify the depth in output" {
-            $getprocesspester =  Get-FormatData | Format-Custom -depth 1
+            $getprocesspester =  Get-FormatData | Format-Custom -Depth 1
             ($getprocesspester).Count | Should -BeGreaterThan 0
         }
 
@@ -26,7 +26,20 @@ Describe "Format-Custom" -Tags "CI" {
 }
 
 Describe "Format-Custom DRT basic functionality" -Tags "CI" {
-	Add-Type -TypeDefinition @"
+    BeforeAll {
+        if ($null -ne $PSStyle) {
+            $outputRendering = $PSStyle.OutputRendering
+            $PSStyle.OutputRendering = 'plaintext'
+        }
+    }
+
+    AfterAll {
+        if ($null -ne $PSStyle) {
+            $PSStyle.OutputRendering = $outputRendering
+        }
+    }
+
+    Add-Type -TypeDefinition @"
     public abstract class NamedItem
     {
         public string name;
@@ -297,4 +310,204 @@ class MyLeaf2
 		$expectedResult = $expectedResult -replace "[{} `n\r]",""
 		$result | Should -Be $expectedResult
 	}
+
+    It "Format-Custom should not lost data" {
+      # See https://github.com/PowerShell/PowerShell/pull/11342 for more information
+      $data = (Get-Help Out-Null).Examples
+      $formattedData = $data | Format-Custom | Out-String
+      $formattedData | Should -BeLike "*$($data.Example.title)*"
+      $formattedData | Should -BeLike "*$($data.Example.code)*"
+      $formattedData | Should -BeLike "*$($data.Example.remarks.Text)*"
+    }
+  }
+
+Describe "Format-Custom with expression based EntrySelectedBy in a CustomControl" -Tags "CI" {
+    BeforeAll {
+        if ($null -ne $PSStyle) {
+            $outputRendering = $PSStyle.OutputRendering
+            $PSStyle.OutputRendering = 'plaintext'
+        }
+
+        $formatFilePath = Join-Path $TestDrive 'UpdateFormatDataTests.format.ps1xml'
+        $xmlContent = @'
+<?xml version="1.0" encoding="UTF-8" ?>
+<Configuration>
+    <Controls>
+        <Control>
+            <Name>MyTestControl</Name>
+            <CustomControl>
+                <CustomEntries>
+                    <CustomEntry>
+                        <EntrySelectedBy>
+                            <SelectionCondition>
+                                <TypeName>MyTestObject</TypeName>
+                                <ScriptBlock>$_.Name -eq 'SelectScriptBlock'</ScriptBlock>
+                            </SelectionCondition>
+                        </EntrySelectedBy>
+                        <CustomItem>
+                            <Text>Entry selected by ScriptBlock</Text>
+                        </CustomItem>
+                    </CustomEntry>
+                    <CustomEntry>
+                        <EntrySelectedBy>
+                            <SelectionCondition>
+                                <TypeName>MyTestObject</TypeName>
+                                <PropertyName>SelectProperty</PropertyName>
+                            </SelectionCondition>
+                        </EntrySelectedBy>
+                        <CustomItem>
+                            <Text>Entry selected by property</Text>
+                        </CustomItem>
+                    </CustomEntry>
+                    <CustomEntry>
+                        <CustomItem>
+                            <Text>Default was picked</Text>
+                        </CustomItem>
+                    </CustomEntry>
+                </CustomEntries>
+            </CustomControl>
+        </Control>
+    </Controls>
+    <ViewDefinitions>
+        <View>
+            <Name>DefaultView</Name>
+            <ViewSelectedBy>
+                <TypeName>MyTestObject</TypeName>
+            </ViewSelectedBy>
+            <GroupBy>
+                <PropertyName>Name</PropertyName>
+                <CustomControlName>MyTestControl</CustomControlName>
+            </GroupBy>
+            <TableControl>
+                <TableHeaders>
+                    <TableColumnHeader />
+                </TableHeaders>
+                <TableRowEntries>
+                    <TableRowEntry>
+                        <TableColumnItems>
+                            <TableColumnItem>
+                                <PropertyName>Name</PropertyName>
+                            </TableColumnItem>
+                        </TableColumnItems>
+                    </TableRowEntry>
+                </TableRowEntries>
+            </TableControl>
+        </View>
+    </ViewDefinitions>
+</Configuration>
+'@
+
+        Set-Content -Path $formatFilePath -Value $xmlContent
+        $ps = [powershell]::Create()
+        $iss = [initialsessionstate]::CreateDefault2()
+        $iss.Formats.Add($formatFilePath)
+        $rs = [runspacefactory]::CreateRunspace($iss)
+        $rs.Open()
+        $ps.Runspace = $rs
+    }
+
+    AfterAll {
+        if ($null -ne $PSStyle) {
+            $PSStyle.OutputRendering = $outputRendering
+        }
+
+        $rs.Close()
+        $ps.Dispose()
+    }
+
+    It 'Property expression binding should be able to access the current object' {
+        $script = {
+            [PSCustomObject]@{
+                PSTypeName = 'MyTestObject'
+                SelectProperty = $true
+                Name = 'testing'
+            }
+        }
+
+        $null = $ps.AddScript($script).AddCommand('Out-String')
+        $ps.Streams.Error.Clear()
+        $expectedOutput = @'
+
+Entry selected by property
+
+Name
+----
+testing
+
+
+'@ -replace '\r?\n', "^"
+
+        $ps.Invoke() -replace '\r?\n', "^" | Should -BeExactly $expectedOutput
+        $ps.Streams.Error | Should -BeNullOrEmpty
+    }
+
+    It 'ScriptBlock expression binding should be able to access the current object' {
+        $script = {
+            [PSCustomObject]@{
+                PSTypeName = 'MyTestObject'
+                SelectProperty = $false
+                Name = 'SelectScriptBlock'
+            }
+        }
+
+        $null = $ps.AddScript($script).AddCommand('Out-String')
+        $ps.Streams.Error.Clear()
+        $expectedOutput = @'
+
+Entry selected by ScriptBlock
+
+Name
+----
+SelectScriptBlock
+
+
+'@ -replace '\r?\n', "^"
+
+        $ps.Invoke() -replace '\r?\n', "^" | Should -BeExactly $expectedOutput
+        $ps.Streams.Error | Should -BeNullOrEmpty
+    }
+
+    Context 'ExcludeProperty parameter' {
+        It 'Should exclude specified properties' {
+            $obj = [pscustomobject]@{ Name = 'Test'; Age = 30; City = 'Seattle' }
+            $result = $obj | Format-Custom -ExcludeProperty Age | Out-String
+            $result | Should -Match 'Name'
+            $result | Should -Match 'City'
+            $result | Should -Not -Match 'Age'
+        }
+
+        It 'Should work with wildcard patterns' {
+            $obj = [pscustomobject]@{ Prop1 = 1; Prop2 = 2; Other = 3 }
+            $result = $obj | Format-Custom -ExcludeProperty Prop* | Out-String
+            $result | Should -Match 'Other'
+            $result | Should -Not -Match 'Prop1'
+            $result | Should -Not -Match 'Prop2'
+        }
+
+        It 'Should work without Property parameter (implies -Property *)' {
+            $obj = [pscustomobject]@{ A = 1; B = 2; C = 3 }
+            $result = $obj | Format-Custom -ExcludeProperty B | Out-String
+            $result | Should -Match 'A\s*='
+            $result | Should -Match 'C\s*='
+            $result | Should -Not -Match 'B\s*='
+        }
+
+        It 'Should work with Property parameter' {
+            $obj = [pscustomobject]@{ Name = 'Test'; Age = 30; City = 'Seattle'; Country = 'USA' }
+            $result = $obj | Format-Custom -Property Name, Age, City, Country -ExcludeProperty Age | Out-String
+            $result | Should -Match 'Name'
+            $result | Should -Match 'City'
+            $result | Should -Match 'Country'
+            $result | Should -Not -Match 'Age'
+        }
+
+        It 'Should handle multiple excluded properties' {
+            $obj = [pscustomobject]@{ A = 1; B = 2; C = 3; D = 4 }
+            $result = $obj | Format-Custom -ExcludeProperty B, D | Out-String
+            $result | Should -Match 'A\s*='
+            $result | Should -Match 'C\s*='
+            $result | Should -Not -Match 'B\s*='
+            $result | Should -Not -Match 'D\s*='
+        }
+    }
 }

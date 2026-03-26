@@ -1,12 +1,16 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
+
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '')]
+param()
+
 Describe "CliXml test" -Tags "CI" {
 
     BeforeAll {
         $testFilePath = Join-Path "testdrive:\" "testCliXml"
         $subFilePath = Join-Path $testFilePath ".test"
 
-        if(test-path $testFilePath)
+        if(Test-Path $testFilePath)
         {
             Remove-Item $testFilePath -Force -Recurse
         }
@@ -23,11 +27,11 @@ Describe "CliXml test" -Tags "CI" {
             [string] $expectedError
             [string] $testFile
 
-            TestData($name, $file, $inputObj, $error)
+            TestData($name, $file, $inputObj, $errorId)
             {
                 $this.testName = $name
                 $this.inputObject = $inputObj
-                $this.expectedError = $error
+                $this.expectedError = $errorId
                 $this.testFile = $file
             }
         }
@@ -169,6 +173,108 @@ Describe "CliXml test" -Tags "CI" {
             Export-Clixml -Path $testPath -InputObject "string" -WhatIf
             $testPath | Should -Not -Exist
         }
+
+        It "should import PSCredential" {
+            $UserName = "Foo"
+            $pass = ConvertTo-SecureString (New-RandomHexString) -AsPlainText -Force
+            $cred =  [PSCredential]::new($UserName, $pass)
+            $path = "$testdrive/cred.xml"
+            $cred | Export-Clixml -Path $path
+            $cred = Import-Clixml -Path $path
+            $cred.UserName | Should -BeExactly "Foo"
+            $cred.Password | Should -BeOfType System.Security.SecureString
+        }
+    }
+
+    Context "ConvertTo-CliXml"{
+        BeforeAll {
+            $gpsList = Get-Process pwsh
+            $gps = $gpsList | Select-Object -First 1
+        }
+
+        It "Create by passing as parameter" {
+            $content = ConvertTo-CliXml -Depth 1 -InputObject ($gpsList | Select-Object -First 1)
+            $isExisted = $false
+
+            foreach($item in $content)
+            {
+                foreach($gpsItem in $gpsList)
+                {
+                    $checkId = $gpsItem.Id
+                    if (($null -ne $(Select-String -InputObject $item -SimpleMatch $checkId)) -and ($null -ne $(Select-String -InputObject $item -SimpleMatch "Id")))
+                    {
+                        $isExisted = $true
+                        break;
+                    }
+                }
+            }
+
+            $isExisted | Should -BeTrue
+        }
+
+        It "Create by passing as pipeline" {
+            $content = ($gpsList | Select-Object -First 1) | ConvertTo-CliXml -Depth 1
+
+            $isExisted = $false
+
+            foreach($item in $content)
+            {
+                foreach($gpsItem in $gpsList)
+                {
+                    $checkId = $gpsItem.Id
+                    if (($null -ne $(Select-String -InputObject $item -SimpleMatch $checkId)) -and ($null -ne $(Select-String -InputObject $item -SimpleMatch "Id")))
+                    {
+                        $isExisted = $true
+                        break;
+                    }
+                }
+            }
+
+            $isExisted | Should -BeTrue
+        }
+    }
+
+    Context "ConvertFrom-CliXml" {
+        BeforeAll {
+            $gpsList = Get-Process pwsh
+            $gps = $gpsList | Select-Object -First 1
+        }
+
+        It "Create by passing as parameter" {
+            $content = ConvertTo-CliXml -Depth 1 -InputObject $gps
+
+            $content | Should -Not -Be $null
+
+            $importedProcess = ConvertFrom-CliXml -InputObject $content
+            $importedProcess.ProcessName | Should -Not -BeNullOrEmpty
+            $gps.ProcessName | Should -Be $importedProcess.ProcessName
+            $importedProcess.Id | Should -Not -BeNullOrEmpty
+            $gps.Id | Should -Be $importedProcess.Id
+        }
+
+        It "Create by passing as pipeline" {
+            $content = $gps | ConvertTo-CliXml -Depth 1
+
+            $content | Should -Not -Be $null
+
+            $importedProcess = $content | ConvertFrom-CliXml
+            $importedProcess.ProcessName | Should -Not -BeNullOrEmpty
+            $gps.ProcessName | Should -Be $importedProcess.ProcessName
+            $importedProcess.Id | Should -Not -BeNullOrEmpty
+            $gps.Id | Should -Be $importedProcess.Id
+        }
+
+        It "Should import PSCredential" {
+            $UserName = "Foo"
+            $pass = ConvertTo-SecureString (New-RandomHexString) -AsPlainText -Force
+            $cred =  [PSCredential]::new($UserName, $pass)
+
+            $content = $cred | ConvertTo-CliXml
+            $cred2 = ConvertFrom-CliXml -InputObject $content
+            $cred2.UserName | Should -BeExactly $cred.UserName
+            $cred2.Password | Should -BeOfType System.Security.SecureString
+            $cred2.GetNetworkCredential().Password | Should -BeExactly $cred.GetNetworkCredential().Password
+        }
     }
 }
 
@@ -180,23 +286,23 @@ Describe "Deserializing corrupted Cim classes should not instantiate non-Cim typ
     BeforeAll {
 
         # Only run on Windows platform.
-        # Ensure calc.exe is avaiable for test.
+        # Ensure calc.exe is available for test.
         $shouldRunTest = $IsWindows -and ((Get-Command calc.exe -ErrorAction SilentlyContinue) -ne $null)
         $skipNotWindows = ! $shouldRunTest
         if ( $shouldRunTest )
         {
-            (Get-Process -Name 'win32calc','calculator' 2>$null) | Stop-Process -Force -ErrorAction SilentlyContinue
+            (Get-Process -Name 'win32calc','calculator' 2> $null) | Stop-Process -Force -ErrorAction SilentlyContinue
         }
     }
 
     AfterAll {
         if ( $shouldRunTest )
         {
-            (Get-Process -Name 'win32calc','calculator' 2>$null) | Stop-Process -Force -ErrorAction SilentlyContinue
+            (Get-Process -Name 'win32calc','calculator' 2> $null) | Stop-Process -Force -ErrorAction SilentlyContinue
         }
     }
 
-    It "Verifies that importing the corrupted Cim class does not launch calc.exe" -skip:$skipNotWindows {
+    It "Verifies that importing the corrupted Cim class does not launch calc.exe" -Skip:$skipNotWindows {
 
         Import-Clixml -Path (Join-Path $PSScriptRoot "assets\CorruptedCim.clixml")
 
@@ -205,7 +311,7 @@ Describe "Deserializing corrupted Cim classes should not instantiate non-Cim typ
         $count = 0
         while (!$calcProc -and ($count++ -lt 20))
         {
-            $calcProc = Get-Process -Name 'win32calc','calculator' 2>$null
+            $calcProc = Get-Process -Name 'win32calc','calculator' 2> $null
             Start-Sleep -Milliseconds 500
         }
 

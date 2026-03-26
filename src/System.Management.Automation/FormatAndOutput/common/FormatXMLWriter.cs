@@ -1,19 +1,19 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
-using System.Management.Automation;
-using System.IO;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
+using System.Management.Automation;
 using System.Xml;
 
 namespace Microsoft.PowerShell.Commands
 {
     /// <summary>
-    /// Helper class for writing formatting directives to XML
+    /// Helper class for writing formatting directives to XML.
     /// </summary>
-    internal class FormatXmlWriter
+    internal sealed class FormatXmlWriter
     {
         private XmlWriter _writer;
         private bool _exportScriptBlock;
@@ -21,15 +21,15 @@ namespace Microsoft.PowerShell.Commands
         private FormatXmlWriter() { }
 
         /// <summary>
-        /// Writes a collection of format view definitions to XML file
+        /// Writes a collection of format view definitions to XML file.
         /// </summary>
-        /// <param name="typeDefinitions">collection of PSTypeDefinition</param>
-        /// <param name="filepath">path to XML file</param>
-        /// <param name="cmdlet">cmdlet from which this si used</param>
-        /// <param name="force">true - to force write the file</param>
-        /// <param name="writeScriptBlock">true - to export scriptblocks</param>
-        /// <param name="noclobber">true - do not overwrite the file</param>
-        /// <param name="isLiteralPath">true - bypass wildcard expansion on the file name</param>
+        /// <param name="typeDefinitions">Collection of PSTypeDefinition.</param>
+        /// <param name="filepath">Path to XML file.</param>
+        /// <param name="cmdlet">Cmdlet from which this si used.</param>
+        /// <param name="force">True - to force write the file.</param>
+        /// <param name="writeScriptBlock">True - to export scriptblocks.</param>
+        /// <param name="noclobber">True - do not overwrite the file.</param>
+        /// <param name="isLiteralPath">True - bypass wildcard expansion on the file name.</param>
         internal static void WriteToPs1Xml(PSCmdlet cmdlet, List<ExtendedTypeDefinition> typeDefinitions,
             string filepath, bool force, bool noclobber, bool writeScriptBlock, bool isLiteralPath)
         {
@@ -89,6 +89,7 @@ namespace Microsoft.PowerShell.Commands
                     {
                         formatdefs.Add(viewdefinition.InstanceId, viewdefinition);
                     }
+
                     viewList.Add(typedefinition);
                 }
             }
@@ -108,6 +109,7 @@ namespace Microsoft.PowerShell.Commands
                 {
                     _writer.WriteElementString("TypeName", definition.TypeName);
                 }
+
                 _writer.WriteEndElement(/*</ViewSelectedBy>*/);
 
                 var groupBy = formatdef.Control.GroupBy;
@@ -119,12 +121,15 @@ namespace Microsoft.PowerShell.Commands
                     {
                         _writer.WriteElementString("Label", groupBy.Label);
                     }
+
                     if (groupBy.CustomControl != null)
                     {
                         WriteCustomControl(groupBy.CustomControl);
                     }
+
                     _writer.WriteEndElement(/*</GroupBy>*/);
                 }
+
                 if (formatdef.Control.OutOfBand)
                 {
                     _writer.WriteElementString("OutOfBand", string.Empty);
@@ -133,6 +138,7 @@ namespace Microsoft.PowerShell.Commands
                 formatdef.Control.WriteToXml(this);
                 _writer.WriteEndElement(/*</View>*/);
             }
+
             _writer.WriteEndElement(/*</ViewDefinitions>*/);
 
             _writer.WriteEndElement(/*</Configuration>*/);
@@ -145,6 +151,7 @@ namespace Microsoft.PowerShell.Commands
             {
                 _writer.WriteElementString("AutoSize", string.Empty);
             }
+
             if (tableControl.HideTableHeaders)
             {
                 _writer.WriteElementString("HideTableHeaders", string.Empty);
@@ -158,16 +165,20 @@ namespace Microsoft.PowerShell.Commands
                 {
                     _writer.WriteElementString("Label", columnheader.Label);
                 }
+
                 if (columnheader.Width > 0)
                 {
                     _writer.WriteElementString("Width", columnheader.Width.ToString(CultureInfo.InvariantCulture));
                 }
+
                 if (columnheader.Alignment != Alignment.Undefined)
                 {
                     _writer.WriteElementString("Alignment", columnheader.Alignment.ToString());
                 }
+
                 _writer.WriteEndElement(/*</TableColumnHeader>*/);
             }
+
             _writer.WriteEndElement(/*</TableHeaders>*/);
 
             _writer.WriteStartElement("TableRowEntries");
@@ -179,10 +190,12 @@ namespace Microsoft.PowerShell.Commands
                     _writer.WriteStartElement("Wrap");
                     _writer.WriteEndElement(/*</Wrap>*/);
                 }
+
                 if (row.SelectedBy != null)
                 {
                     WriteEntrySelectedBy(row.SelectedBy);
                 }
+
                 _writer.WriteStartElement("TableColumnItems");
                 foreach (TableControlColumn coldefn in row.Columns)
                 {
@@ -191,10 +204,12 @@ namespace Microsoft.PowerShell.Commands
                     {
                         _writer.WriteElementString("Alignment", coldefn.Alignment.ToString());
                     }
+
                     if (!string.IsNullOrEmpty(coldefn.FormatString))
                     {
                         _writer.WriteElementString("FormatString", coldefn.FormatString);
                     }
+
                     WriteDisplayEntry(coldefn.DisplayEntry);
                     _writer.WriteEndElement(/*</TableColumnItem>*/);
                 }
@@ -202,6 +217,7 @@ namespace Microsoft.PowerShell.Commands
                 _writer.WriteEndElement(/*<TableColumnItems>*/);
                 _writer.WriteEndElement(/*<TableRowEntry>*/);
             }
+
             _writer.WriteEndElement(/*</TableRowEntries>*/);
 
             _writer.WriteEndElement(/*</TableControl>*/);
@@ -277,6 +293,7 @@ namespace Microsoft.PowerShell.Commands
                         _writer.WriteElementString("TypeName", typename);
                     }
                 }
+
                 if (entrySelectedBy.SelectionCondition != null)
                 {
                     foreach (var condition in entrySelectedBy.SelectionCondition)
@@ -286,6 +303,7 @@ namespace Microsoft.PowerShell.Commands
                         _writer.WriteEndElement(/*</SelectionCondition>*/);
                     }
                 }
+
                 _writer.WriteEndElement(/*</EntrySelectedBy>*/);
             }
         }
@@ -317,10 +335,12 @@ namespace Microsoft.PowerShell.Commands
                 {
                     _writer.WriteElementString("FormatString", entry.FormatString);
                 }
+
                 _writer.WriteEndElement(/*</WideItem>*/);
 
                 _writer.WriteEndElement(/*</WideEntry>*/);
             }
+
             _writer.WriteEndElement(/*</WideEntries>*/);
 
             _writer.WriteEndElement(/*</WideControl>*/);
@@ -354,34 +374,34 @@ namespace Microsoft.PowerShell.Commands
                 {
                     WriteCustomItem(item);
                 }
+
                 _writer.WriteEndElement(/*</CustomItem>*/);
                 _writer.WriteEndElement(/*</CustomEntry>*/);
             }
+
             _writer.WriteEndElement(/*</CustomEntries>*/);
             _writer.WriteEndElement(/*</CustomControl>*/);
         }
 
         internal void WriteCustomItem(CustomItemBase item)
         {
-            var newline = item as CustomItemNewline;
-            if (newline != null)
+            if (item is CustomItemNewline newline)
             {
                 for (int i = 0; i < newline.Count; i++)
                 {
                     _writer.WriteElementString("NewLine", string.Empty);
                 }
+
                 return;
             }
 
-            var text = item as CustomItemText;
-            if (text != null)
+            if (item is CustomItemText text)
             {
                 _writer.WriteElementString("Text", text.Text);
                 return;
             }
 
-            var expr = item as CustomItemExpression;
-            if (expr != null)
+            if (item is CustomItemExpression expr)
             {
                 _writer.WriteStartElement("ExpressionBinding");
                 if (expr.EnumerateCollection)
@@ -426,6 +446,7 @@ namespace Microsoft.PowerShell.Commands
             {
                 WriteCustomItem(frameItem);
             }
+
             _writer.WriteEndElement(/*</CustomItem>*/);
             _writer.WriteEndElement(/*</Frame>*/);
         }

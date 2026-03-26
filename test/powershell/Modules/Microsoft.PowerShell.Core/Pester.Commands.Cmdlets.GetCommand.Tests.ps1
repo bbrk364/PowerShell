@@ -1,4 +1,4 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
 Describe "Tests Get-Command with relative paths and wildcards" -Tag "CI" {
@@ -10,31 +10,39 @@ Describe "Tests Get-Command with relative paths and wildcards" -Tag "CI" {
         #$null = New-Item -ItemType File -Path (Join-Path $TestDrive WildCardCommandA.exe) -ErrorAction Ignore
         #$null = New-Item -ItemType File -Path (Join-Path $TestDRive WildCardCommand[B].exe) -ErrorAction Ignore
         if ( $IsLinux -or $IsMacOS ) {
-            /bin/chmod 777 "$file1"
-            /bin/chmod 777 "$file2"
+            /bin/chmod a+rw "$file1"
+            /bin/chmod a+rw "$file2"
         }
         $commandInfo = Get-Command Get-Date -ShowCommandInfo
     }
 
-    It "Test wildcard with drive relative directory path" {
+    # this test doesn't test anything on non-windows platforms
+    It "Test wildcard with drive relative directory path" -Skip:(!$IsWindows) {
         $pathName = Join-Path $TestDrive "WildCardCommandA*"
         $driveOffset = $pathName.IndexOf(":")
-        $pathName = $pathName.Substring($driveOffset + 1)
-        $result = Get-Command -Name $pathName
-        $result | Should -Not -BeNullOrEmpty
-        $result.Name | Should -Be WildCardCommandA.exe
+        $driveName = $pathName.Substring(0,$driveOffset + 1)
+        Push-Location -Path $driveName
+        try {
+            $pathName = $pathName.Substring($driveOffset + 1)
+            $result = Get-Command -Name $pathName
+            $result | Should -Not -BeNullOrEmpty
+            $result.Name | Should -Be WildCardCommandA.exe
+        }
+        catch {
+            Pop-Location
+        }
     }
 
     It "Test wildcard with relative directory path" {
-        push-location $TestDrive
+        Push-Location $TestDrive
         $result = Get-Command -Name .\WildCardCommandA*
-        pop-location
+        Pop-Location
         $result | Should -Not -BeNullOrEmpty
         $result | Should -Be WildCardCommandA.exe
     }
 
     It "Test with PowerShell wildcard and relative path" {
-        push-location $TestDrive
+        Push-Location $TestDrive
 
         # This should use the wildcard to find WildCardCommandA.exe
         $result = Get-Command -Name .\WildCardCommand[A].exe
@@ -51,7 +59,7 @@ Describe "Tests Get-Command with relative paths and wildcards" -Tag "CI" {
 
     It "Get-Command -ShowCommandInfo property field test" {
         $properties = ($commandInfo | Get-Member -MemberType NoteProperty)
-        $propertiesAsString =  $properties.name | out-string
+        $propertiesAsString =  $properties.name | Out-String
         $propertiesAsString | Should -MatchExactly 'CommandType'
         $propertiesAsString | Should -MatchExactly 'Definition'
         $propertiesAsString | Should -MatchExactly 'Module'
@@ -78,7 +86,7 @@ Describe "Tests Get-Command with relative paths and wildcards" -Tag "CI" {
 
     It "Get-Command -ShowCommandInfo ParameterSets property field test" {
         $properties = ($commandInfo.ParameterSets[0] | Get-Member -MemberType NoteProperty)
-        $propertiesAsString =  $properties.name | out-string
+        $propertiesAsString =  $properties.name | Out-String
         $propertiesAsString | Should -MatchExactly 'IsDefault'
         $propertiesAsString | Should -MatchExactly 'Name'
         $propertiesAsString | Should -MatchExactly 'Parameters'
@@ -86,7 +94,7 @@ Describe "Tests Get-Command with relative paths and wildcards" -Tag "CI" {
 
     It "Get-Command -ShowCommandInfo Parameters property field test" {
         $properties = ($commandInfo.ParameterSets[0].Parameters | Get-Member -MemberType NoteProperty)
-        $propertiesAsString =  $properties.name | out-string
+        $propertiesAsString =  $properties.name | Out-String
         $propertiesAsString | Should -MatchExactly 'HasParameterSet'
         $propertiesAsString | Should -MatchExactly 'IsMandatory'
         $propertiesAsString | Should -MatchExactly 'Name'

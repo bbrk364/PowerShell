@@ -1,6 +1,10 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
-Describe "Get-Credential Test" -tag "CI" {
+
+[System.Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '')]
+param()
+
+Describe "Get-Credential Test" -Tag "CI" {
     BeforeAll {
         $th = New-TestHost
         $th.UI.StringForSecureString = "This is a test"
@@ -75,7 +79,7 @@ Describe "Get-Credential Test" -tag "CI" {
         $netcred.Password | Should -Be "This is a test"
         $th.ui.Streams.Prompt[-1] | Should -Match "Credential:[^:]+:[^:]+"
     }
-    it "Get-Credential Joe" {
+    It "Get-Credential Joe" {
         $cred = $ps.AddScript("Get-Credential Joe").Invoke() | Select-Object -First 1
         $cred | Should -BeOfType System.Management.Automation.PSCredential
         $netcred = $cred.GetNetworkCredential()
@@ -83,7 +87,7 @@ Describe "Get-Credential Test" -tag "CI" {
         $netcred.Password | Should -Be "This is a test"
         $th.ui.Streams.Prompt[-1] | Should -Match "Credential:[^:]+:[^:]+"
     }
-    it "Get-Credential -Credential Joe" {
+    It "Get-Credential -Credential Joe" {
         $cred = $ps.AddScript("Get-Credential Joe").Invoke() | Select-Object -First 1
         $cred | Should -BeOfType System.Management.Automation.PSCredential
         $netcred = $cred.GetNetworkCredential()
@@ -91,7 +95,7 @@ Describe "Get-Credential Test" -tag "CI" {
         $netcred.Password | Should -Be "This is a test"
         $th.ui.Streams.Prompt[-1] | Should -Match "Credential:[^:]+:[^:]+"
     }
-    it "Get-Credential `$credential" {
+    It "Get-Credential `$credential" {
         #[SuppressMessage("Microsoft.Security", "CS002:SecretInNextLine", Justification="Demo/doc/test secret.")]
         $password = ConvertTo-SecureString -String "CredTest" -AsPlainText -Force
         $credential = [pscredential]::new("John", $password)

@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 #region Using directives
@@ -12,7 +12,6 @@ using System.Threading;
 
 namespace Microsoft.Management.Infrastructure.CimCmdlets
 {
-
     /// <summary>
     /// <para>
     /// Subscription result event args
@@ -25,14 +24,15 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         /// Returns an Object value for an operation context
         /// </para>
         /// </summary>
-        public Object Context
+        public object Context
         {
             get
             {
                 return context;
             }
         }
-        protected Object context;
+
+        protected object context;
     }
 
     /// <summary>
@@ -47,24 +47,17 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         /// subscription result
         /// </para>
         /// </summary>
-        public CimSubscriptionResult Result
-        {
-            get
-            {
-                return result;
-            }
-        }
-        private CimSubscriptionResult result;
+        public CimSubscriptionResult Result { get; }
 
         /// <summary>
-        /// <para>Constructor</para>
+        /// Initializes a new instance of the <see cref="CimSubscriptionResultEventArgs"/> class.
         /// </summary>
         /// <param name="theResult"></param>
         public CimSubscriptionResultEventArgs(
             CimSubscriptionResult theResult)
         {
             this.context = null;
-            this.result = theResult;
+            this.Result = theResult;
         }
     }
 
@@ -80,24 +73,17 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         /// subscription result
         /// </para>
         /// </summary>
-        public Exception Exception
-        {
-            get
-            {
-                return exception;
-            }
-        }
-        private Exception exception;
+        public Exception Exception { get; }
 
         /// <summary>
-        /// <para>Constructor</para>
+        /// Initializes a new instance of the <see cref="CimSubscriptionExceptionEventArgs"/> class.
         /// </summary>
         /// <param name="theResult"></param>
         public CimSubscriptionExceptionEventArgs(
             Exception theException)
         {
             this.context = null;
-            this.exception = theException;
+            this.Exception = theException;
         }
     }
 
@@ -116,9 +102,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         public event EventHandler<CimSubscriptionEventArgs> OnNewSubscriptionResult;
 
         /// <summary>
-        /// <para>
-        /// Constructor
-        /// </para>
+        /// Initializes a new instance of the <see cref="CimRegisterCimIndication"/> class.
         /// </summary>
         public CimRegisterCimIndication()
             : base()
@@ -129,7 +113,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         /// <summary>
         /// Start an indication subscription target to the given computer.
         /// </summary>
-        /// <param name="computerName">null stands for localhost</param>
+        /// <param name="computerName">Null stands for localhost.</param>
         /// <param name="nameSpace"></param>
         /// <param name="queryDialect"></param>
         /// <param name="queryExpression"></param>
@@ -139,7 +123,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
             string nameSpace,
             string queryDialect,
             string queryExpression,
-            UInt32 operationTimeout)
+            uint operationTimeout)
         {
             DebugHelper.WriteLogEx("queryDialect = '{0}'; queryExpression = '{1}'", 0, queryDialect, queryExpression);
             this.TargetComputerName = computerName;
@@ -151,24 +135,23 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         /// <summary>
         /// Start an indication subscription through a given <see cref="CimSession"/>.
         /// </summary>
-        /// <param name="cimSession">Cannot be null</param>
+        /// <param name="cimSession">Cannot be null.</param>
         /// <param name="nameSpace"></param>
         /// <param name="queryDialect"></param>
         /// <param name="queryExpression"></param>
         /// <param name="operationTimeout"></param>
-        /// <exception cref="ArgumentNullException">throw if cimSession is null</exception>
+        /// <exception cref="ArgumentNullException">Throw if cimSession is null.</exception>
         public void RegisterCimIndication(
             CimSession cimSession,
             string nameSpace,
             string queryDialect,
             string queryExpression,
-            UInt32 operationTimeout)
+            uint operationTimeout)
         {
             DebugHelper.WriteLogEx("queryDialect = '{0}'; queryExpression = '{1}'", 0, queryDialect, queryExpression);
-            if (cimSession == null)
-            {
-                throw new ArgumentNullException(String.Format(CultureInfo.CurrentUICulture, Strings.NullArgument, @"cimSession"));
-            }
+
+            ArgumentNullException.ThrowIfNull(cimSession, string.Format(CultureInfo.CurrentUICulture, CimCmdletStrings.NullArgument, nameof(cimSession)));
+
             this.TargetComputerName = cimSession.ComputerName;
             CimSessionProxy proxy = CreateSessionProxy(cimSession, operationTimeout);
             proxy.SubscribeAsync(nameSpace, queryDialect, queryExpression);
@@ -202,7 +185,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         /// <param name="cimSession">
         /// <seealso cref="CimSession"/> object raised the event
         /// </param>
-        /// <param name="actionArgs">event argument</param>
+        /// <param name="actionArgs">Event argument.</param>
         private void CimIndicationHandler(object cimSession, CmdletActionEventArgs actionArgs)
         {
             DebugHelper.WriteLogEx("action is {0}. Disposed {1}", 0, actionArgs.Action, this.Disposed);
@@ -213,10 +196,9 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
             }
 
             // NOTES: should move after this.Disposed, but need to log the exception
-            CimWriteError cimWriteError = actionArgs.Action as CimWriteError;
-            if (cimWriteError != null)
+            if (actionArgs.Action is CimWriteError cimWriteError)
             {
-                this.exception = cimWriteError.Exception;
+                this.Exception = cimWriteError.Exception;
                 if (!this.ackedEvent.IsSet)
                 {
                     // an exception happened
@@ -224,21 +206,21 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                     this.ackedEvent.Set();
                     return;
                 }
+
                 EventHandler<CimSubscriptionEventArgs> temp = this.OnNewSubscriptionResult;
                 if (temp != null)
                 {
                     DebugHelper.WriteLog("Raise an exception event", 2);
 
-                    temp(this, new CimSubscriptionExceptionEventArgs(this.exception));
+                    temp(this, new CimSubscriptionExceptionEventArgs(this.Exception));
                 }
-                DebugHelper.WriteLog("Got an exception: {0}", 2, exception);
+
+                DebugHelper.WriteLog("Got an exception: {0}", 2, Exception);
             }
 
-            CimWriteResultObject cimWriteResultObject = actionArgs.Action as CimWriteResultObject;
-            if (cimWriteResultObject != null)
+            if (actionArgs.Action is CimWriteResultObject cimWriteResultObject)
             {
-                CimSubscriptionResult result = cimWriteResultObject.Result as CimSubscriptionResult;
-                if (result != null)
+                if (cimWriteResultObject.Result is CimSubscriptionResult result)
                 {
                     EventHandler<CimSubscriptionEventArgs> temp = this.OnNewSubscriptionResult;
                     if (temp != null)
@@ -265,13 +247,13 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         }
 
         /// <summary>
-        /// block the ps thread until ACK message or Error happened.
+        /// Block the ps thread until ACK message or Error happened.
         /// </summary>
         private void WaitForAckMessage()
         {
             DebugHelper.WriteLogEx();
             this.ackedEvent.Wait();
-            if (this.exception != null)
+            if (this.Exception != null)
             {
                 DebugHelper.WriteLogEx("error happened", 0);
                 if (this.Cmdlet != null)
@@ -280,16 +262,17 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
 
                     // throw terminating error
                     ErrorRecord errorRecord = ErrorToErrorRecord.ErrorRecordFromAnyException(
-                        new InvocationContext(this.TargetComputerName, null), this.exception, null);
+                        new InvocationContext(this.TargetComputerName, null), this.Exception, null);
                     this.Cmdlet.ThrowTerminatingError(errorRecord);
                 }
                 else
                 {
                     DebugHelper.WriteLogEx("Throw exception", 1);
                     // throw exception out
-                    throw this.exception;
+                    throw this.Exception;
                 }
             }
+
             DebugHelper.WriteLogEx("ACK happened", 0);
         }
         #endregion
@@ -298,22 +281,22 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         /// <summary>
         /// The cmdlet object who issue this subscription,
         /// to throw ThrowTerminatingError
-        /// in case there is a subscription failure
+        /// in case there is a subscription failure.
         /// </summary>
         /// <param name="cmdlet"></param>
         internal Cmdlet Cmdlet
         {
-            set;
             get;
+            set;
         }
 
         /// <summary>
-        /// target computername
+        /// Target computername.
         /// </summary>
-        internal String TargetComputerName
+        internal string TargetComputerName
         {
-            set;
             get;
+            set;
         }
 
         #endregion
@@ -329,7 +312,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         /// <returns></returns>
         private CimSessionProxy CreateSessionProxy(
             string computerName,
-            UInt32 timeout)
+            uint timeout)
         {
             CimSessionProxy proxy = CreateCimSessionProxy(computerName);
             proxy.OperationTimeout = timeout;
@@ -337,14 +320,14 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         }
 
         /// <summary>
-        /// Create <see cref="CimSessionProxy"/> and set properties
+        /// Create <see cref="CimSessionProxy"/> and set properties.
         /// </summary>
         /// <param name="session"></param>
         /// <param name="timeout"></param>
         /// <returns></returns>
         private CimSessionProxy CreateSessionProxy(
             CimSession session,
-            UInt32 timeout)
+            uint timeout)
         {
             CimSessionProxy proxy = CreateCimSessionProxy(session);
             proxy.OperationTimeout = timeout;
@@ -355,18 +338,11 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         #region private members
 
         /// <summary>
-        /// Exception occurred while start the subscription
+        /// Exception occurred while start the subscription.
         /// </summary>
-        internal Exception Exception
-        {
-            get
-            {
-                return exception;
-            }
-        }
-        private Exception exception;
+        internal Exception Exception { get; private set; }
 
         #endregion
 
-    }//End Class
-}//End namespace
+    }
+}

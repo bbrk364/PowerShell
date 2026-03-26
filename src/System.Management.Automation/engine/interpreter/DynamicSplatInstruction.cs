@@ -20,7 +20,7 @@ namespace System.Management.Automation.Interpreter
     /// <summary>
     /// Implements dynamic call site with many arguments. Wraps the arguments into <see cref="ArgumentArray"/>.
     /// </summary>
-    internal sealed partial class DynamicSplatInstruction : Instruction
+    internal sealed class DynamicSplatInstruction : Instruction
     {
         private readonly CallSite<Func<CallSite, ArgumentArray, object>> _site;
         private readonly int _argumentCount;
@@ -32,6 +32,7 @@ namespace System.Management.Automation.Interpreter
         }
 
         public override int ProducedStack { get { return 1; } }
+
         public override int ConsumedStack { get { return _argumentCount; } }
 
         public override int Run(InterpretedFrame frame)

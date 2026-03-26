@@ -1,14 +1,13 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
 # no progress output during these tests
 $ProgressPreference = "SilentlyContinue"
 
-$RepositoryName = 'INTGallery'
-$SourceLocation = 'https://dtlgalleryint.cloudapp.net'
-$RegisteredINTRepo = $false
-$ContosoServer = 'ContosoServer'
-$FabrikamServerScript = 'Fabrikam-ServerScript'
+$RepositoryName = 'PSGallery'
+$SourceLocation = 'https://www.powershellgallery.com'
+$TestModule = 'newTestModule'
+$TestScript = 'TestTestScript'
 $Initialized = $false
 
 #region Utility functions
@@ -25,7 +24,7 @@ if(IsInbox)
 {
     $script:ProgramFilesPSPath = Microsoft.PowerShell.Management\Join-Path -Path $env:ProgramFiles -ChildPath "WindowsPowerShell"
 }
-elseif(IsCoreCLR){
+elseif(IsCoreCLR) {
     if(IsWindows) {
         $script:ProgramFilesPSPath = Microsoft.PowerShell.Management\Join-Path -Path $env:ProgramFiles -ChildPath 'PowerShell'
     }
@@ -93,11 +92,11 @@ function Initialize
     if($repo)
     {
         $script:RepositoryName = $repo.Name
+        Set-PackageSource -Name $repo.Name -Trusted
     }
     else
     {
         Register-PSRepository -Name $RepositoryName -SourceLocation $SourceLocation -InstallationPolicy Trusted
-        $script:RegisteredINTRepo = $true
     }
 }
 
@@ -105,7 +104,24 @@ function Initialize
 
 function Remove-InstalledModules
 {
-    Get-InstalledModule -Name $ContosoServer -AllVersions -ErrorAction SilentlyContinue | PowerShellGet\Uninstall-Module -Force
+    try {
+        $mod = Get-InstalledModule -Name $TestModule -AllVersions -ErrorAction SilentlyContinue
+        if ($null -eq $mod) {
+            return
+        }
+
+        if (Get-Module -Name $TestModule -ErrorAction Ignore) {
+            Remove-Module -Force -Name $TestModule
+        }
+
+        $installedPath = $mod.InstalledLocation
+        if (Test-Path $installedPath) {
+            Remove-Item -Force -Recurse $installedPath -ErrorAction Ignore
+        }
+    }
+    catch {
+        Write-Warning "Remove-InstalledModules: $_"
+    }
 }
 
 Describe "PowerShellGet - Module tests" -tags "Feature" {
@@ -122,22 +138,17 @@ Describe "PowerShellGet - Module tests" -tags "Feature" {
     }
 
     It "Should find a module correctly" {
-        $psgetModuleInfo = Find-Module -Name $ContosoServer -Repository $RepositoryName
-        $psgetModuleInfo.Name | Should -Be $ContosoServer
+        $psgetModuleInfo = Find-Module -Name $TestModule -Repository $RepositoryName
+        $psgetModuleInfo.Name | Should -Be $TestModule
         $psgetModuleInfo.Repository | Should -Be $RepositoryName
     }
 
-    It "Should install a module correctly to the required location with CurrentUser scope" {
-        Install-Module -Name $ContosoServer -Repository $RepositoryName -Scope CurrentUser
-        $installedModuleInfo = Get-InstalledModule -Name $ContosoServer
-
-        $installedModuleInfo | Should -Not -BeNullOrEmpty
-        $installedModuleInfo.Name | Should -Be $ContosoServer
-        $installedModuleInfo.InstalledLocation.StartsWith($script:MyDocumentsModulesPath, [System.StringComparison]::OrdinalIgnoreCase) | Should -BeTrue
-
-        $module = Get-Module $ContosoServer -ListAvailable
-        $module.Name | Should -Be $ContosoServer
-        $module.ModuleBase | Should -Be $installedModuleInfo.InstalledLocation
+    It "Should install a module correctly to the required location with default CurrentUser scope" {
+        Install-Module -Name $TestModule -Repository $RepositoryName
+        $module = Get-Module -Name $TestModule -ListAvailable
+        $module | Should -Not -BeNullOrEmpty
+        $module.Name | Should -Be $TestModule
+        $module.ModuleBase.StartsWith($script:MyDocumentsModulesPath, [System.StringComparison]::OrdinalIgnoreCase) | Should -BeTrue
     }
 
     AfterAll {
@@ -145,7 +156,7 @@ Describe "PowerShellGet - Module tests" -tags "Feature" {
     }
 }
 
-Describe "PowerShellGet - Module tests (Admin)" -tags @('Feature', 'RequireAdminOnWindows') {
+Describe "PowerShellGet - Module tests (Admin)" -Tags @('Feature', 'RequireAdminOnWindows', 'RequireSudoOnUnix') {
 
     BeforeAll {
         if ($script:Initialized -eq $false) {
@@ -158,18 +169,12 @@ Describe "PowerShellGet - Module tests (Admin)" -tags @('Feature', 'RequireAdmin
         Remove-InstalledModules
     }
 
-    ## Marked as 'Pending' on Linux for now because the test requires root privilege but we cannot do it now in our Travis CI Linux build
-    It "Should install a module correctly to the required location with default AllUsers scope" -Pending:$IsLinux {
-        Install-Module -Name $ContosoServer -Repository $RepositoryName
-        $installedModuleInfo = Get-InstalledModule -Name $ContosoServer
+    It "Should install a module correctly to the required location with AllUsers scope" {
+        Install-Module -Name $TestModule -Repository $RepositoryName -Scope AllUsers -ErrorAction Stop
 
-        $installedModuleInfo | Should -Not -BeNullOrEmpty
-        $installedModuleInfo.Name | Should -Be $ContosoServer
-        $installedModuleInfo.InstalledLocation.StartsWith($script:programFilesModulesPath, [System.StringComparison]::OrdinalIgnoreCase) | Should -BeTrue
-
-        $module = Get-Module $ContosoServer -ListAvailable
-        $module.Name | Should -Be $ContosoServer
-        $module.ModuleBase | Should -Be $installedModuleInfo.InstalledLocation
+        $module = Get-Module $TestModule -ListAvailable
+        $module.Name | Should -Be $TestModule
+        $module.ModuleBase.StartsWith($script:programFilesModulesPath, [System.StringComparison]::OrdinalIgnoreCase) | Should -BeTrue
     }
 
     AfterAll {
@@ -179,7 +184,20 @@ Describe "PowerShellGet - Module tests (Admin)" -tags @('Feature', 'RequireAdmin
 
 function Remove-InstalledScripts
 {
-    Get-InstalledScript -Name $FabrikamServerScript -ErrorAction SilentlyContinue | Uninstall-Script -Force
+    $installedScript = Get-InstalledScript -Name $TestScript -ErrorAction SilentlyContinue
+    if ($null -eq $installedScript) {
+        return
+    }
+
+	$scriptPath = Join-Path ${installedScript}.InstalledLocation "${TestScript}.ps1"
+	if (test-Path -Type Leaf -Path $scriptPath) {
+		Remove-Item -Force -Path $scriptPath -ErrorAction Ignore
+	}
+
+	$xmlPath = Join-Path ${installedScript}.InstalledLocation InstalledScriptInfos "${TestScript}_InstalledScriptInfo.xml"
+	if (test-Path -Type Leaf -Path $xmlPath) {
+		Remove-Item -Force -Path $xmlPath -ErrorAction Ignore
+	}
 }
 
 Describe "PowerShellGet - Script tests" -tags "Feature" {
@@ -196,17 +214,17 @@ Describe "PowerShellGet - Script tests" -tags "Feature" {
     }
 
     It "Should find a script correctly" {
-        $psgetScriptInfo = Find-Script -Name $FabrikamServerScript -Repository $RepositoryName
-        $psgetScriptInfo.Name | Should -Be $FabrikamServerScript
+        $psgetScriptInfo = Find-Script -Name $TestScript -Repository $RepositoryName
+        $psgetScriptInfo.Name | Should -Be $TestScript
         $psgetScriptInfo.Repository | Should -Be $RepositoryName
     }
 
-    It "Should install a script correctly to the required location with CurrentUser scope" {
-        Install-Script -Name $FabrikamServerScript -Repository $RepositoryName -Scope CurrentUser -NoPathUpdate
-        $installedScriptInfo = Get-InstalledScript -Name $FabrikamServerScript
+    It "Should install a script correctly to the required location with default CurrentUser scope" {
+        Install-Script -Name $TestScript -Repository $RepositoryName -NoPathUpdate
+        $installedScriptInfo = Get-InstalledScript -Name $TestScript
 
         $installedScriptInfo | Should -Not -BeNullOrEmpty
-        $installedScriptInfo.Name | Should -Be $FabrikamServerScript
+        $installedScriptInfo.Name | Should -Be $TestScript
         $installedScriptInfo.InstalledLocation.StartsWith($script:MyDocumentsScriptsPath, [System.StringComparison]::OrdinalIgnoreCase) | Should -BeTrue
     }
 
@@ -215,7 +233,7 @@ Describe "PowerShellGet - Script tests" -tags "Feature" {
     }
 }
 
-Describe "PowerShellGet - Script tests (Admin)" -tags @('Feature', 'RequireAdminOnWindows') {
+Describe "PowerShellGet - Script tests (Admin)" -Tags @('Feature', 'RequireAdminOnWindows', 'RequireSudoOnUnix') {
 
     BeforeAll {
         if ($script:Initialized -eq $false) {
@@ -228,13 +246,12 @@ Describe "PowerShellGet - Script tests (Admin)" -tags @('Feature', 'RequireAdmin
         Remove-InstalledScripts
     }
 
-    ## Marked as 'Pending' on Linux for now because the test requires root privilege but we cannot do it now in our Travis CI Linux build
-    It "Should install a script correctly to the required location with default AllUsers scope" -Pending:$IsLinux {
-        Install-Script -Name $FabrikamServerScript -Repository $RepositoryName -NoPathUpdate
-        $installedScriptInfo = Get-InstalledScript -Name $FabrikamServerScript
+    It "Should install a script correctly to the required location with AllUsers scope" {
+        Install-Script -Name $TestScript -Repository $RepositoryName -NoPathUpdate -Scope AllUsers -ErrorAction Stop
+        $installedScriptInfo = Get-InstalledScript -Name $TestScript
 
         $installedScriptInfo | Should -Not -BeNullOrEmpty
-        $installedScriptInfo.Name | Should -Be $FabrikamServerScript
+        $installedScriptInfo.Name | Should -Be $TestScript
         $installedScriptInfo.InstalledLocation.StartsWith($script:ProgramFilesScriptsPath, [System.StringComparison]::OrdinalIgnoreCase) | Should -BeTrue
     }
 
@@ -273,9 +290,4 @@ Describe 'PowerShellGet Type tests' -tags @('CI') {
             $_.Value | ForEach-Object { $Type.DeclaredMembers.Name -contains $_ | Should -BeTrue }
         }
     }
-}
-
-if($RegisteredINTRepo)
-{
-    Get-PSRepository -Name $RepositoryName -ErrorAction SilentlyContinue | Unregister-PSRepository
 }

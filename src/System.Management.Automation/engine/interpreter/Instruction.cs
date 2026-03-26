@@ -17,18 +17,23 @@ using System.Collections.Generic;
 
 namespace System.Management.Automation.Interpreter
 {
+#nullable enable
     internal interface IInstructionProvider
     {
         void AddInstructions(LightCompiler compiler);
     }
+#nullable restore
 
-    internal abstract partial class Instruction
+    internal abstract class Instruction
     {
         public const int UnknownInstrIndex = int.MaxValue;
 
         public virtual int ConsumedStack { get { return 0; } }
+
         public virtual int ProducedStack { get { return 0; } }
+
         public virtual int ConsumedContinuations { get { return 0; } }
+
         public virtual int ProducedContinuations { get { return 0; } }
 
         public int StackBalance
@@ -69,8 +74,11 @@ namespace System.Management.Automation.Interpreter
         public static readonly Instruction Instance = new NotInstruction();
 
         private NotInstruction() { }
+
         public override int ConsumedStack { get { return 1; } }
+
         public override int ProducedStack { get { return 1; } }
+
         public override int Run(InterpretedFrame frame)
         {
             frame.Push((bool)frame.Pop() ? ScriptingRuntimeHelpers.False : ScriptingRuntimeHelpers.True);

@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 #region Using directives
@@ -29,8 +29,8 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         /// </para>
         /// </summary>
         /// <param name="inner"></param>
-        /// <param name="context">the context starting the operation, which generated the error</param>
-        /// <param name="cimResultContext">the CimResultContext used to provide ErrorSource, etc. info.</param>
+        /// <param name="context">The context starting the operation, which generated the error.</param>
+        /// <param name="cimResultContext">The CimResultContext used to provide ErrorSource, etc. info.</param>
         /// <returns></returns>
         internal static ErrorRecord ErrorRecordFromAnyException(
             InvocationContext context,
@@ -39,17 +39,15 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         {
             Debug.Assert(inner != null, "Caller should verify inner != null");
 
-            CimException cimException = inner as CimException;
-            if (cimException != null)
+            if (inner is CimException cimException)
             {
                 return CreateFromCimException(context, cimException, cimResultContext);
             }
 
-            var containsErrorRecord = inner as IContainsErrorRecord;
-            if (containsErrorRecord != null)
+            if (inner is IContainsErrorRecord containsErrorRecord)
             {
                 return InitializeErrorRecord(context,
-                    exception : inner,
+                    exception: inner,
                     errorId: "CimCmdlet_" + containsErrorRecord.ErrorRecord.FullyQualifiedErrorId,
                     errorCategory: containsErrorRecord.ErrorRecord.CategoryInfo.Category,
                     cimResultContext: cimResultContext);
@@ -57,7 +55,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
             else
             {
                 return InitializeErrorRecord(context,
-                    exception :inner,
+                    exception: inner,
                     errorId: "CimCmdlet_" + inner.GetType().Name,
                     errorCategory: ErrorCategory.NotSpecified,
                     cimResultContext: cimResultContext);
@@ -70,7 +68,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         /// </summary>
         /// <param name="context"></param>
         /// <param name="cimException"></param>
-        /// <param name="cimResultContext">the CimResultContext used to provide ErrorSource, etc. info.</param>
+        /// <param name="cimResultContext">The CimResultContext used to provide ErrorSource, etc. info.</param>
         /// <returns></returns>
         internal static ErrorRecord CreateFromCimException(
             InvocationContext context,
@@ -89,7 +87,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         /// <param name="exception"></param>
         /// <param name="errorId"></param>
         /// <param name="errorCategory"></param>
-        /// <param name="cimResultContext">the CimResultContext used to provide ErrorSource, etc. info.</param>
+        /// <param name="cimResultContext">The CimResultContext used to provide ErrorSource, etc. info.</param>
         /// <returns></returns>
         internal static ErrorRecord InitializeErrorRecord(
             InvocationContext context,
@@ -111,7 +109,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         /// </summary>
         /// <param name="context"></param>
         /// <param name="cimException"></param>
-        /// <param name="cimResultContext">the CimResultContext used to provide ErrorSource, etc. info.</param>
+        /// <param name="cimResultContext">The CimResultContext used to provide ErrorSource, etc. info.</param>
         /// <returns></returns>
         internal static ErrorRecord InitializeErrorRecord(
             InvocationContext context,
@@ -129,6 +127,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
             {
                 errorRecord.CategoryInfo.TargetName = cimException.ErrorSource;
             }
+
             return errorRecord;
         }
 
@@ -139,7 +138,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         /// <param name="exception"></param>
         /// <param name="errorId"></param>
         /// <param name="errorCategory"></param>
-        /// <param name="cimResultContext">the CimResultContext used to provide ErrorSource, etc. info.</param>
+        /// <param name="cimResultContext">The CimResultContext used to provide ErrorSource, etc. info.</param>
         /// <returns></returns>
         internal static ErrorRecord InitializeErrorRecordCore(
             InvocationContext context,
@@ -153,6 +152,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
             {
                 theTargetObject = cimResultContext.ErrorSource;
             }
+
             if (theTargetObject == null)
             {
                 if (context != null)
@@ -163,7 +163,8 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                     }
                 }
             }
-            ErrorRecord coreErrorRecord = new ErrorRecord(
+
+            ErrorRecord coreErrorRecord = new(
                 exception: exception,
                 errorId: errorId,
                 errorCategory: errorCategory,
@@ -174,7 +175,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                 return coreErrorRecord;
             }
 
-            System.Management.Automation.Remoting.OriginInfo originInfo = new System.Management.Automation.Remoting.OriginInfo(
+            System.Management.Automation.Remoting.OriginInfo originInfo = new(
                 context.ComputerName,
                 Guid.Empty);
 
@@ -183,8 +184,6 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                 originInfo);
 
             DebugHelper.WriteLogEx("Created RemotingErrorRecord.", 0);
-            // errorRecord.SetInvocationInfo(jobContext.CmdletInvocationInfo);
-            // errorRecord.PreserveInvocationInfoOnce = true;
             return errorRecord;
         }
 
@@ -316,24 +315,26 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
     internal sealed class CimWriteError : CimSyncAction
     {
         /// <summary>
-        /// Constructor with an <see cref="CimInstance"/> error
+        /// Initializes a new instance of the <see cref="CimWriteError"/> class
+        /// with the specified <see cref="CimInstance"/>.
         /// </summary>
         /// <param name="error"></param>
         public CimWriteError(CimInstance error, InvocationContext context)
         {
-            this.error = error;
-            this.invocationContext = context;
+            this.Error = error;
+            this.CimInvocationContext = context;
         }
 
         /// <summary>
-        /// Construct with an exception object
+        /// Initializes a new instance of the <see cref="CimWriteError"/> class
+        /// with the specified <see cref="Exception"/>.
         /// </summary>
         /// <param name="exception"></param>
         public CimWriteError(Exception exception, InvocationContext context, CimResultContext cimResultContext)
         {
-            this.exception = exception;
-            this.invocationContext = context;
-            this.cimResultContext = cimResultContext;
+            this.Exception = exception;
+            this.CimInvocationContext = context;
+            this.ResultContext = cimResultContext;
         }
 
         /// <summary>
@@ -347,10 +348,10 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
             Debug.Assert(cmdlet != null, "Caller should verify that cmdlet != null");
             try
             {
-                Exception errorException = (error != null) ? new CimException(error) : this.Exception;
+                Exception errorException = (Error != null) ? new CimException(Error) : this.Exception;
 
                 // PS engine takes care of handling error action
-                cmdlet.WriteError(ErrorToErrorRecord.ErrorRecordFromAnyException(this.invocationContext, errorException, this.cimResultContext));
+                cmdlet.WriteError(ErrorToErrorRecord.ErrorRecordFromAnyException(this.CimInvocationContext, errorException, this.ResultContext));
 
                 // if user wants to continue, we will get here
                 this.responseType = CimResponseType.Yes;
@@ -374,59 +375,20 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         /// Error instance
         /// </para>
         /// </summary>
-        private CimInstance error;
 
-        internal CimInstance Error
-        {
-            get
-            {
-                return error;
-            }
-        }
+        internal CimInstance Error { get; }
 
         /// <summary>
         /// <para>
         /// Exception object
         /// </para>
         /// </summary>
-        internal Exception Exception
-        {
-            get
-            {
-                return exception;
-            }
-        }
-        private Exception exception;
+        internal Exception Exception { get; }
 
-        /// <summary>
-        /// <para>
-        /// <see cref="InvocationContext"/> object that contains
-        /// the information while issuing the current operation
-        /// </para>
-        /// </summary>
-        private InvocationContext invocationContext;
+        internal InvocationContext CimInvocationContext { get; }
 
-        internal InvocationContext CimInvocationContext
-        {
-            get
-            {
-                return invocationContext;
-            }
-        }
-
-        /// <summary>
-        /// <see cref="CimResultConte"/>
-        /// </summary>
-        private CimResultContext cimResultContext;
-
-        internal CimResultContext ResultContext
-        {
-            get
-            {
-                return cimResultContext;
-            }
-        }
+        internal CimResultContext ResultContext { get; }
 
         #endregion
-    }//End Class
-}//End namespace
+    }
+}

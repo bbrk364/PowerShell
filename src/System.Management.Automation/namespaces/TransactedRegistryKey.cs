@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 //
@@ -111,7 +111,7 @@ namespace Microsoft.PowerShell.Commands.Internal
 
         // Names of keys.  This array must be in the same order as the HKEY values listed above.
         //
-        private static readonly String[] s_hkeyNames = new String[] {
+        private static readonly string[] s_hkeyNames = new string[] {
                 "HKEY_CLASSES_ROOT",
                 "HKEY_CURRENT_USER",
                 "HKEY_LOCAL_MACHINE",
@@ -131,7 +131,7 @@ namespace Microsoft.PowerShell.Commands.Internal
 
         private SafeRegistryHandle _hkey = null;
         private int _state = 0;
-        private String _keyName;
+        private string _keyName;
         private RegistryKeyPermissionCheck _checkMode;
         private System.Transactions.Transaction _myTransaction;
         private SafeTransactionHandle _myTransactionHandle;
@@ -141,10 +141,7 @@ namespace Microsoft.PowerShell.Commands.Internal
         // If that call fails with ERROR_INVALID_TRANSACTION, we have possibly run into bug 181242. To workaround
         // this, we open the key without a transaction and then open it again with
         // a transaction and return THAT hkey.
-
-        // Suppressed because there is no way for arbitrary data to be passed.
-        [SuppressMessage("Microsoft.Security", "CA2118:ReviewSuppressUnmanagedCodeSecurityUsage")]
-        private int RegOpenKeyTransactedWrapper(SafeRegistryHandle hKey, String lpSubKey,
+        private int RegOpenKeyTransactedWrapper(SafeRegistryHandle hKey, string lpSubKey,
                     int ulOptions, int samDesired, out SafeRegistryHandle hkResult,
                     SafeTransactionHandle hTransaction, IntPtr pExtendedParameter)
         {
@@ -190,11 +187,13 @@ namespace Microsoft.PowerShell.Commands.Internal
                             hKeyToReturn.Dispose();
                             hKeyToReturn = txKey;
                         }
+
                         nonTxKey.Dispose();
                         nonTxKey = null;
                     }
                 }
             }
+
             hkResult = hKeyToReturn;
             return error;
         }
@@ -215,6 +214,7 @@ namespace Microsoft.PowerShell.Commands.Internal
             {
                 _state |= STATE_SYSTEMKEY;
             }
+
             if (writable)
             {
                 _state |= STATE_WRITEACCESS;
@@ -255,6 +255,7 @@ namespace Microsoft.PowerShell.Commands.Internal
             {
                 safeTransactionHandle = SafeTransactionHandle.Create();
             }
+
             return safeTransactionHandle;
         }
 
@@ -297,7 +298,7 @@ namespace Microsoft.PowerShell.Commands.Internal
                 }
                 catch (TransactionException)
                 {
-                    //ignore.
+                    // ignore.
                 }
                 finally
                 {
@@ -337,16 +338,14 @@ namespace Microsoft.PowerShell.Commands.Internal
         /// <summary>
         /// <para>Creates a new subkey, or opens an existing one.
         /// Utilizes Transaction.Current for its transaction.</para>
+        /// </summary>
         /// <param name='subkey'>Name or path to subkey to create or open. Cannot be null or an empty string,
         /// otherwise an ArgumentException is thrown.</param>
         /// <returns>A TransactedRegistryKey object for the subkey, which is associated with Transaction.Current.
         /// returns null if the operation failed.</returns>
-        /// </summary>
-        [ResourceExposure(ResourceScope.Machine)]
-        [ResourceConsumption(ResourceScope.Machine)]
         // Suppressed to be consistent with naming in Microsoft.Win32.RegistryKey
         [SuppressMessage("Microsoft.Naming", "CA1702:CompoundWordsShouldBeCasedCorrectly")]
-        public TransactedRegistryKey CreateSubKey(String subkey)
+        public TransactedRegistryKey CreateSubKey(string subkey)
         {
             return CreateSubKey(subkey, _checkMode);
         }
@@ -354,19 +353,17 @@ namespace Microsoft.PowerShell.Commands.Internal
         /// <summary>
         /// <para>Creates a new subkey, or opens an existing one.
         /// Utilizes Transaction.Current for its transaction.</para>
+        /// </summary>
+        /// <returns>A TransactedRegistryKey object for the subkey, which is associated with Transaction.Current.
+        /// returns null if the operation failed.</returns>
         /// <param name='subkey'>Name or path to subkey to create or open. Cannot be null or an empty string,
         /// otherwise an ArgumentException is thrown.</param>
         /// <param name='permissionCheck'>One of the Microsoft.Win32.RegistryKeyPermissionCheck values that
         /// specifies whether the key is opened for read or read/write access.</param>
-        /// <returns>A TransactedRegistryKey object for the subkey, which is associated with Transaction.Current.
-        /// returns null if the operation failed.</returns>
-        /// </summary>
         [ComVisible(false)]
-        [ResourceExposure(ResourceScope.Machine)]
-        [ResourceConsumption(ResourceScope.Machine)]
         // Suppressed to be consistent with naming in Microsoft.Win32.RegistryKey
         [SuppressMessage("Microsoft.Naming", "CA1702:CompoundWordsShouldBeCasedCorrectly")]
-        public TransactedRegistryKey CreateSubKey(String subkey, RegistryKeyPermissionCheck permissionCheck)
+        public TransactedRegistryKey CreateSubKey(string subkey, RegistryKeyPermissionCheck permissionCheck)
         {
             return CreateSubKeyInternal(subkey, permissionCheck, (TransactedRegistrySecurity)null);
         }
@@ -374,30 +371,26 @@ namespace Microsoft.PowerShell.Commands.Internal
         /// <summary>
         /// <para>Creates a new subkey, or opens an existing one.
         /// Utilizes Transaction.Current for its transaction.</para>
+        /// </summary>
+        /// <returns>A TransactedRegistryKey object for the subkey, which is associated with Transaction.Current.
+        /// returns null if the operation failed.</returns>
         /// <param name='subkey'>Name or path to subkey to create or open. Cannot be null or an empty string,
         /// otherwise an ArgumentException is thrown.</param>
         /// <param name='permissionCheck'>One of the Microsoft.Win32.RegistryKeyPermissionCheck values that
         /// specifies whether the key is opened for read or read/write access.</param>
         /// <param name='registrySecurity'>A TransactedRegistrySecurity object that specifies the access control security for the new key.</param>
-        /// <returns>A TransactedRegistryKey object for the subkey, which is associated with Transaction.Current.
-        /// returns null if the operation failed.</returns>
-        /// </summary>
         [ComVisible(false)]
-        [ResourceExposure(ResourceScope.Machine)]
-        [ResourceConsumption(ResourceScope.Machine)]
         // Suppressed to be consistent with naming in Microsoft.Win32.RegistryKey
         [SuppressMessage("Microsoft.Naming", "CA1702:CompoundWordsShouldBeCasedCorrectly")]
-        public unsafe TransactedRegistryKey CreateSubKey(String subkey, RegistryKeyPermissionCheck permissionCheck, TransactedRegistrySecurity registrySecurity)
+        public unsafe TransactedRegistryKey CreateSubKey(string subkey, RegistryKeyPermissionCheck permissionCheck, TransactedRegistrySecurity registrySecurity)
         {
             return CreateSubKeyInternal(subkey, permissionCheck, registrySecurity);
         }
 
         [ComVisible(false)]
-        [ResourceExposure(ResourceScope.Machine)]
-        [ResourceConsumption(ResourceScope.Machine)]
         // Suppressed to be consistent with naming in Microsoft.Win32.RegistryKey
         [SuppressMessage("Microsoft.Naming", "CA1702:CompoundWordsShouldBeCasedCorrectly")]
-        private unsafe TransactedRegistryKey CreateSubKeyInternal(String subkey, RegistryKeyPermissionCheck permissionCheck, object registrySecurityObj)
+        private unsafe TransactedRegistryKey CreateSubKeyInternal(string subkey, RegistryKeyPermissionCheck permissionCheck, object registrySecurityObj)
         {
             ValidateKeyName(subkey);
             // RegCreateKeyTransacted requires a non-empty key name, so let's deal with that here.
@@ -437,6 +430,7 @@ namespace Microsoft.PowerShell.Commands.Internal
                 Microsoft.PowerShell.Commands.Internal.Buffer.memcpy(sd, 0, pSecDescriptor, 0, sd.Length);
                 secAttrs.pSecurityDescriptor = pSecDescriptor;
             }
+
             int disposition = 0;
 
             // By default, the new key will be writable.
@@ -481,14 +475,12 @@ namespace Microsoft.PowerShell.Commands.Internal
         /// <para>Deletes the specified subkey. Will throw an exception if the subkey has
         /// subkeys. To delete a tree of subkeys use, DeleteSubKeyTree.
         /// Utilizes Transaction.Current for its transaction.</para>
-        /// <param name='subkey'>The subkey to delete.</param>
         /// <exception cref="InvalidOperationException">Thrown if the subkey as child subkeys.</exception>
         /// </summary>
-        [ResourceExposure(ResourceScope.Machine)]
-        [ResourceConsumption(ResourceScope.Machine)]
+        /// <param name='subkey'>The subkey to delete.</param>
         // Suppressed to be consistent with naming in Microsoft.Win32.RegistryKey
         [SuppressMessage("Microsoft.Naming", "CA1702:CompoundWordsShouldBeCasedCorrectly")]
-        public void DeleteSubKey(String subkey)
+        public void DeleteSubKey(string subkey)
         {
             DeleteSubKey(subkey, true);
         }
@@ -497,19 +489,17 @@ namespace Microsoft.PowerShell.Commands.Internal
         /// <para>Deletes the specified subkey. Will throw an exception if the subkey has
         /// subkeys. To delete a tree of subkeys use, DeleteSubKeyTree.
         /// Utilizes Transaction.Current for its transaction.</para>
-        /// <param name='subkey'>The subkey to delete.</param>
-        /// <param name='throwOnMissingSubKey'>Specify true if an ArgumentException should be thrown if
-        /// the specified subkey does not exist. If false is specified, a missing subkey does not throw
-        /// an exception.</param>
         /// <exception cref="InvalidOperationException">Thrown if the subkey as child subkeys.</exception>
         /// <exception cref="ArgumentException">Thrown if true is specified for throwOnMissingSubKey and the
         /// specified subkey does not exist.</exception>
         /// </summary>
-        [ResourceExposure(ResourceScope.Machine)]
-        [ResourceConsumption(ResourceScope.Machine)]
+        /// <param name='subkey'>The subkey to delete.</param>
+        /// <param name='throwOnMissingSubKey'>Specify true if an ArgumentException should be thrown if
+        /// the specified subkey does not exist. If false is specified, a missing subkey does not throw
+        /// an exception.</param>
         // Suppressed to be consistent with naming in Microsoft.Win32.RegistryKey
         [SuppressMessage("Microsoft.Naming", "CA1702:CompoundWordsShouldBeCasedCorrectly")]
-        public void DeleteSubKey(String subkey, bool throwOnMissingSubKey)
+        public void DeleteSubKey(string subkey, bool throwOnMissingSubKey)
         {
             ValidateKeyName(subkey);
             EnsureWriteable();
@@ -562,13 +552,11 @@ namespace Microsoft.PowerShell.Commands.Internal
         /// <summary>
         /// <para>Recursively deletes a subkey and any child subkeys.
         /// Utilizes Transaction.Current for its transaction.</para>
-        /// <param name="subkey">The subkey to delete.</param>
         /// </summary>
-        [ResourceExposure(ResourceScope.Machine)]
-        [ResourceConsumption(ResourceScope.Machine)]
+        /// <param name="subkey">The subkey to delete.</param>
         // Suppressed to be consistent with naming in Microsoft.Win32.RegistryKey
         [SuppressMessage("Microsoft.Naming", "CA1702:CompoundWordsShouldBeCasedCorrectly")]
-        public void DeleteSubKeyTree(String subkey)
+        public void DeleteSubKeyTree(string subkey)
         {
             ValidateKeyName(subkey);
 
@@ -594,7 +582,7 @@ namespace Microsoft.PowerShell.Commands.Internal
                 {
                     if (key.InternalSubKeyCount() > 0)
                     {
-                        String[] keys = key.InternalGetSubKeyNames();
+                        string[] keys = key.InternalGetSubKeyNames();
 
                         for (int i = 0; i < keys.Length; i++)
                         {
@@ -608,7 +596,10 @@ namespace Microsoft.PowerShell.Commands.Internal
                 }
 
                 ret = Win32Native.RegDeleteKeyTransacted(_hkey, subkey, 0, 0, safeTransactionHandle, IntPtr.Zero);
-                if (ret != 0) Win32Error(ret, null);
+                if (ret != 0)
+                {
+                    Win32Error(ret, null);
+                }
             }
             else
             {
@@ -618,8 +609,6 @@ namespace Microsoft.PowerShell.Commands.Internal
 
         // An internal version which does no security checks or argument checking.  Skipping the
         // security checks should give us a slight perf gain on large trees.
-        [ResourceExposure(ResourceScope.Machine)]
-        [ResourceConsumption(ResourceScope.Machine)]
         // Suppressed to be consistent with naming in Microsoft.Win32.RegistryKey
         [SuppressMessage("Microsoft.Naming", "CA1702:CompoundWordsShouldBeCasedCorrectly")]
         private void DeleteSubKeyTreeInternal(string subkey)
@@ -634,7 +623,7 @@ namespace Microsoft.PowerShell.Commands.Internal
                 {
                     if (key.InternalSubKeyCount() > 0)
                     {
-                        String[] keys = key.InternalGetSubKeyNames();
+                        string[] keys = key.InternalGetSubKeyNames();
 
                         for (int i = 0; i < keys.Length; i++)
                         {
@@ -648,7 +637,10 @@ namespace Microsoft.PowerShell.Commands.Internal
                 }
 
                 ret = Win32Native.RegDeleteKeyTransacted(_hkey, subkey, 0, 0, safeTransactionHandle, IntPtr.Zero);
-                if (ret != 0) Win32Error(ret, null);
+                if (ret != 0)
+                {
+                    Win32Error(ret, null);
+                }
             }
             else
             {
@@ -659,11 +651,9 @@ namespace Microsoft.PowerShell.Commands.Internal
         /// <summary>
         /// <para>Deletes the specified value from this key.
         /// Utilizes Transaction.Current for its transaction.</para>
-        /// <param name="name">Name of the value to delete.</param>
         /// </summary>
-        [ResourceExposure(ResourceScope.None)]
-        [ResourceConsumption(ResourceScope.Machine, ResourceScope.Machine)]
-        public void DeleteValue(String name)
+        /// <param name="name">Name of the value to delete.</param>
+        public void DeleteValue(string name)
         {
             DeleteValue(name, true);
         }
@@ -671,14 +661,12 @@ namespace Microsoft.PowerShell.Commands.Internal
         /// <summary>
         /// <para>Deletes the specified value from this key.
         /// Utilizes Transaction.Current for its transaction.</para>
+        /// </summary>
         /// <param name="name">Name of the value to delete.</param>
         /// <param name="throwOnMissingValue">Specify true if an ArgumentException should be thrown if
         /// the specified value does not exist. If false is specified, a missing value does not throw
         /// an exception.</param>
-        /// </summary>
-        [ResourceExposure(ResourceScope.None)]
-        [ResourceConsumption(ResourceScope.Machine, ResourceScope.Machine)]
-        public void DeleteValue(String name, bool throwOnMissingValue)
+        public void DeleteValue(string name, bool throwOnMissingValue)
         {
             EnsureWriteable();
             CheckValueWritePermission(name);
@@ -701,6 +689,7 @@ namespace Microsoft.PowerShell.Commands.Internal
                     errorCode = Win32Native.ERROR_SUCCESS;
                 }
             }
+
             if (Win32Native.ERROR_SUCCESS != errorCode)
             {
                 Win32Error(errorCode, null);
@@ -742,12 +731,10 @@ namespace Microsoft.PowerShell.Commands.Internal
         /// <para>Retrieves a subkey. If readonly is true, then the subkey is opened with
         /// read-only access.
         /// Utilizes Transaction.Current for its transaction.</para>
+        /// </summary>
+        /// <returns>The subkey requested or null if the operation failed.</returns>
         /// <param name="name">Name or path of the subkey to open.</param>
         /// <param name="writable">Set to true of you only need readonly access.</param>
-        /// <returns>The subkey requested or null if the operation failed.</returns>
-        /// </summary>
-        [ResourceExposure(ResourceScope.Machine)]
-        [ResourceConsumption(ResourceScope.Machine)]
         // Suppressed to be consistent with naming in Microsoft.Win32.RegistryKey
         [SuppressMessage("Microsoft.Naming", "CA1702:CompoundWordsShouldBeCasedCorrectly")]
         public TransactedRegistryKey OpenSubKey(string name, bool writable)
@@ -785,17 +772,15 @@ namespace Microsoft.PowerShell.Commands.Internal
         /// <summary>
         /// <para>Retrieves a subkey.
         /// Utilizes Transaction.Current for its transaction.</para>
+        /// </summary>
+        /// <returns>The subkey requested or null if the operation failed.</returns>
         /// <param name="name">Name or path of the subkey to open.</param>
         /// <param name="permissionCheck">One of the Microsoft.Win32.RegistryKeyPermissionCheck values that specifies
         /// whether the key is opened for read or read/write access.</param>
-        /// <returns>The subkey requested or null if the operation failed.</returns>
-        /// </summary>
         [ComVisible(false)]
-        [ResourceExposure(ResourceScope.Machine)]
-        [ResourceConsumption(ResourceScope.Machine)]
         // Suppressed to be consistent with naming in Microsoft.Win32.RegistryKey
         [SuppressMessage("Microsoft.Naming", "CA1702:CompoundWordsShouldBeCasedCorrectly")]
-        public TransactedRegistryKey OpenSubKey(String name, RegistryKeyPermissionCheck permissionCheck)
+        public TransactedRegistryKey OpenSubKey(string name, RegistryKeyPermissionCheck permissionCheck)
         {
             ValidateKeyMode(permissionCheck);
             return InternalOpenSubKey(name, permissionCheck, GetRegistryKeyAccess(permissionCheck));
@@ -804,27 +789,23 @@ namespace Microsoft.PowerShell.Commands.Internal
         /// <summary>
         /// <para>Retrieves a subkey.
         /// Utilizes Transaction.Current for its transaction.</para>
+        /// </summary>
+        /// <returns>The subkey requested or null if the operation failed.</returns>
         /// <param name="name">Name or path of the subkey to open.</param>
         /// <param name="permissionCheck">One of the Microsoft.Win32.RegistryKeyPermissionCheck values that specifies
         /// whether the key is opened for read or read/write access.</param>
         /// <param name="rights">A bitwise combination of Microsoft.Win32.RegistryRights values that specifies the desired security access.</param>
-        /// <returns>The subkey requested or null if the operation failed.</returns>
-        /// </summary>
         [ComVisible(false)]
-        [ResourceExposure(ResourceScope.Machine)]
-        [ResourceConsumption(ResourceScope.Machine)]
         // Suppressed to be consistent with naming in Microsoft.Win32.RegistryKey
         [SuppressMessage("Microsoft.Naming", "CA1702:CompoundWordsShouldBeCasedCorrectly")]
-        public TransactedRegistryKey OpenSubKey(String name, RegistryKeyPermissionCheck permissionCheck, RegistryRights rights)
+        public TransactedRegistryKey OpenSubKey(string name, RegistryKeyPermissionCheck permissionCheck, RegistryRights rights)
         {
             return InternalOpenSubKey(name, permissionCheck, (int)rights);
         }
 
-        [ResourceExposure(ResourceScope.Machine)]
-        [ResourceConsumption(ResourceScope.Machine)]
         // Suppressed to be consistent with naming in Microsoft.Win32.RegistryKey
         [SuppressMessage("Microsoft.Naming", "CA1702:CompoundWordsShouldBeCasedCorrectly")]
-        private TransactedRegistryKey InternalOpenSubKey(String name, RegistryKeyPermissionCheck permissionCheck, int rights)
+        private TransactedRegistryKey InternalOpenSubKey(string name, RegistryKeyPermissionCheck permissionCheck, int rights)
         {
             ValidateKeyName(name);
             ValidateKeyMode(permissionCheck);
@@ -862,11 +843,9 @@ namespace Microsoft.PowerShell.Commands.Internal
 
         // This required no security checks. This is to get around the Deleting SubKeys which only require
         // write permission. They call OpenSubKey which required read. Now instead call this function w/o security checks
-        [ResourceExposure(ResourceScope.Machine)]
-        [ResourceConsumption(ResourceScope.Machine)]
         // Suppressed to be consistent with naming in Microsoft.Win32.RegistryKey
         [SuppressMessage("Microsoft.Naming", "CA1702:CompoundWordsShouldBeCasedCorrectly")]
-        internal TransactedRegistryKey InternalOpenSubKey(String name, bool writable)
+        internal TransactedRegistryKey InternalOpenSubKey(string name, bool writable)
         {
             ValidateKeyName(name);
             EnsureNotDisposed();
@@ -884,20 +863,19 @@ namespace Microsoft.PowerShell.Commands.Internal
                 key._keyName = _keyName + "\\" + name;
                 return key;
             }
+
             return null;
         }
 
         /// <summary>
         /// <para>Retrieves a subkey for readonly access.
         /// Utilizes Transaction.Current for its transaction.</para>
-        /// <param name="name">Name or path of the subkey to open.</param>
-        /// <returns>The subkey requested or null if the operation failed.</returns>
         /// </summary>
-        [ResourceExposure(ResourceScope.Machine)]
-        [ResourceConsumption(ResourceScope.Machine)]
+        /// <returns>The subkey requested or null if the operation failed.</returns>
+        /// <param name="name">Name or path of the subkey to open.</param>
         // Suppressed to be consistent with naming in Microsoft.Win32.RegistryKey
         [SuppressMessage("Microsoft.Naming", "CA1702:CompoundWordsShouldBeCasedCorrectly")]
-        public TransactedRegistryKey OpenSubKey(String name)
+        public TransactedRegistryKey OpenSubKey(string name)
         {
             return OpenSubKey(name, false);
         }
@@ -905,8 +883,8 @@ namespace Microsoft.PowerShell.Commands.Internal
         /// <summary>
         /// <para>Retrieves the count of subkeys.
         /// Utilizes Transaction.Current for its transaction.</para>
-        /// <returns>The count of subkeys.</returns>
         /// </summary>
+        /// <returns>The count of subkeys.</returns>
         // Suppressed to be consistent with naming in Microsoft.Win32.RegistryKey
         [SuppressMessage("Microsoft.Naming", "CA1702:CompoundWordsShouldBeCasedCorrectly")]
         public int SubKeyCount
@@ -948,11 +926,11 @@ namespace Microsoft.PowerShell.Commands.Internal
         /// <summary>
         /// <para>Retrieves an array of strings containing all the subkey names.
         /// Utilizes Transaction.Current for its transaction.</para>
-        /// <returns>A string array containing all the subkey names.</returns>
         /// </summary>
+        /// <returns>A string array containing all the subkey names.</returns>
         // Suppressed to be consistent with naming in Microsoft.Win32.RegistryKey
         [SuppressMessage("Microsoft.Naming", "CA1702:CompoundWordsShouldBeCasedCorrectly")]
-        public String[] GetSubKeyNames()
+        public string[] GetSubKeyNames()
         {
             CheckKeyReadPermission();
             return InternalGetSubKeyNames();
@@ -960,12 +938,12 @@ namespace Microsoft.PowerShell.Commands.Internal
 
         // Suppressed to be consistent with naming in Microsoft.Win32.RegistryKey
         [SuppressMessage("Microsoft.Naming", "CA1702:CompoundWordsShouldBeCasedCorrectly")]
-        internal String[] InternalGetSubKeyNames()
+        internal string[] InternalGetSubKeyNames()
         {
             EnsureNotDisposed();
             // Don't require a transaction. We don't want to throw for "Base" keys.
             int subkeys = InternalSubKeyCount();
-            String[] names = new String[subkeys];  // Returns 0-length array if empty.
+            string[] names = new string[subkeys];  // Returns 0-length array if empty.
 
             if (subkeys > 0)
             {
@@ -995,8 +973,8 @@ namespace Microsoft.PowerShell.Commands.Internal
         /// <summary>
         /// <para>Retrieves the count of values.
         /// Utilizes Transaction.Current for its transaction.</para>
-        /// <returns>A count of values.</returns>
         /// </summary>
+        /// <returns>A count of values.</returns>
         public int ValueCount
         {
             get
@@ -1032,16 +1010,16 @@ namespace Microsoft.PowerShell.Commands.Internal
         /// <summary>
         /// <para>Retrieves an array of strings containing all the value names.
         /// Utilizes Transaction.Current for its transaction.</para>
-        /// <returns>All the value names.</returns>
         /// </summary>
-        public String[] GetValueNames()
+        /// <returns>All the value names.</returns>
+        public string[] GetValueNames()
         {
             CheckKeyReadPermission();
             EnsureNotDisposed();
             // Don't require a transaction. We don't want to throw for "Base" keys.
 
             int values = InternalValueCount();
-            String[] names = new String[values];
+            string[] names = new string[values];
 
             if (values > 0)
             {
@@ -1087,6 +1065,7 @@ namespace Microsoft.PowerShell.Commands.Internal
                             name = new StringBuilder(currentlen);
                         }
                     }
+
                     names[i] = name.ToString();
                 }
             }
@@ -1099,10 +1078,10 @@ namespace Microsoft.PowerShell.Commands.Internal
         /// doesn't exist. Utilizes Transaction.Current for its transaction.</para>
         /// <para>Note that name can be null or "", at which point the
         /// unnamed or default value of this Registry key is returned, if any.</para>
-        /// <param name="name">Name of value to retrieve.</param>
-        /// <returns>The data associated with the value.</returns>
         /// </summary>
-        public Object GetValue(String name)
+        /// <returns>The data associated with the value.</returns>
+        /// <param name="name">Name of value to retrieve.</param>
+        public object GetValue(string name)
         {
             CheckValueReadPermission(name);
             return InternalGetValue(name, null, false, true);
@@ -1113,11 +1092,11 @@ namespace Microsoft.PowerShell.Commands.Internal
         /// doesn't exist. Utilizes Transaction.Current for its transaction.</para>
         /// <para>Note that name can be null or "", at which point the
         /// unnamed or default value of this Registry key is returned, if any.</para>
+        /// </summary>
+        /// <returns>The data associated with the value.</returns>
         /// <param name="name">Name of value to retrieve.</param>
         /// <param name="defaultValue">Value to return if name doesn't exist.</param>
-        /// <returns>The data associated with the value.</returns>
-        /// </summary>
-        public Object GetValue(String name, Object defaultValue)
+        public object GetValue(string name, object defaultValue)
         {
             CheckValueReadPermission(name);
             return InternalGetValue(name, defaultValue, false, true);
@@ -1128,27 +1107,28 @@ namespace Microsoft.PowerShell.Commands.Internal
         /// doesn't exist. Utilizes Transaction.Current for its transaction.</para>
         /// <para>Note that name can be null or "", at which point the
         /// unnamed or default value of this Registry key is returned, if any.</para>
+        /// </summary>
+        /// <returns>The data associated with the value.</returns>
         /// <param name="name">Name of value to retrieve.</param>
         /// <param name="defaultValue">Value to return if name doesn't exist.</param>
         /// <param name="options">One of the Microsoft.Win32.RegistryValueOptions values that specifies
         /// optional processing of the retrieved value.</param>
-        /// <returns>The data associated with the value.</returns>
-        /// </summary>
         [ComVisible(false)]
-        public Object GetValue(String name, Object defaultValue, RegistryValueOptions options)
+        public object GetValue(string name, object defaultValue, RegistryValueOptions options)
         {
             if (options < RegistryValueOptions.None || options > RegistryValueOptions.DoNotExpandEnvironmentNames)
             {
                 string resourceTemplate = RegistryProviderStrings.Arg_EnumIllegalVal;
-                string resource = String.Format(CultureInfo.CurrentCulture, resourceTemplate, options.ToString());
+                string resource = string.Format(CultureInfo.CurrentCulture, resourceTemplate, options.ToString());
                 throw new ArgumentException(resource);
             }
+
             bool doNotExpand = (options == RegistryValueOptions.DoNotExpandEnvironmentNames);
             CheckValueReadPermission(name);
             return InternalGetValue(name, defaultValue, doNotExpand, true);
         }
 
-        internal Object InternalGetValue(String name, Object defaultValue, bool doNotExpand, bool checkSecurity)
+        internal object InternalGetValue(string name, object defaultValue, bool doNotExpand, bool checkSecurity)
         {
             if (checkSecurity)
             {
@@ -1158,7 +1138,7 @@ namespace Microsoft.PowerShell.Commands.Internal
 
             // Don't require a transaction. We don't want to throw for "Base" keys.
 
-            Object data = defaultValue;
+            object data = defaultValue;
             int type = 0;
             int datasize = 0;
 
@@ -1182,6 +1162,7 @@ namespace Microsoft.PowerShell.Commands.Internal
                         ret = Win32Native.RegQueryValueEx(_hkey, name, null, ref type, blob, ref datasize);
                         data = blob;
                     }
+
                     break;
                 case Win32Native.REG_QWORD:
                     {    // also REG_QWORD_LITTLE_ENDIAN
@@ -1190,6 +1171,7 @@ namespace Microsoft.PowerShell.Commands.Internal
                             // prevent an AV in the edge case that datasize is larger than sizeof(long)
                             goto case Win32Native.REG_BINARY;
                         }
+
                         long blob = 0;
                         BCLDebug.Assert(datasize == 8, "datasize==8");
                         // Here, datasize must be 8 when calling this
@@ -1197,6 +1179,7 @@ namespace Microsoft.PowerShell.Commands.Internal
 
                         data = blob;
                     }
+
                     break;
                 case Win32Native.REG_DWORD:
                     {    // also REG_DWORD_LITTLE_ENDIAN
@@ -1205,6 +1188,7 @@ namespace Microsoft.PowerShell.Commands.Internal
                             // prevent an AV in the edge case that datasize is larger than sizeof(int)
                             goto case Win32Native.REG_QWORD;
                         }
+
                         int blob = 0;
                         BCLDebug.Assert(datasize == 4, "datasize==4");
                         // Here, datasize must be four when calling this
@@ -1212,6 +1196,7 @@ namespace Microsoft.PowerShell.Commands.Internal
 
                         data = blob;
                     }
+
                     break;
 
                 case Win32Native.REG_SZ:
@@ -1220,6 +1205,7 @@ namespace Microsoft.PowerShell.Commands.Internal
                         ret = Win32Native.RegQueryValueEx(_hkey, name, null, ref type, blob, ref datasize);
                         data = blob.ToString();
                     }
+
                     break;
 
                 case Win32Native.REG_EXPAND_SZ:
@@ -1231,10 +1217,11 @@ namespace Microsoft.PowerShell.Commands.Internal
                         else
                             data = Environment.ExpandEnvironmentVariables(blob.ToString());
                     }
+
                     break;
                 case Win32Native.REG_MULTI_SZ:
                     {
-                        IList<String> strings = new List<String>();
+                        IList<string> strings = new List<string>();
 
                         char[] blob = new char[datasize / 2];
                         ret = Win32Native.RegQueryValueEx(_hkey, name, null, ref type, blob, ref datasize);
@@ -1255,27 +1242,29 @@ namespace Microsoft.PowerShell.Commands.Internal
                                 BCLDebug.Assert(blob[nextNull] == (char)0, "blob[nextNull] should be 0");
                                 if (nextNull - cur > 0)
                                 {
-                                    strings.Add(new String(blob, cur, nextNull - cur));
+                                    strings.Add(new string(blob, cur, nextNull - cur));
                                 }
                                 else
                                 {
                                     // we found an empty string.  But if we're at the end of the data,
                                     // it's just the extra null terminator.
                                     if (nextNull != len - 1)
-                                        strings.Add(String.Empty);
+                                        strings.Add(string.Empty);
                                 }
                             }
                             else
                             {
-                                strings.Add(new String(blob, cur, len - cur));
+                                strings.Add(new string(blob, cur, len - cur));
                             }
+
                             cur = nextNull + 1;
                         }
 
-                        data = new String[strings.Count];
-                        strings.CopyTo((String[])data, 0);
-                        //data = strings.GetAllItems(String.class);
+                        data = new string[strings.Count];
+                        strings.CopyTo((string[])data, 0);
+                        // data = strings.GetAllItems(String.class);
                     }
+
                     break;
                 case Win32Native.REG_NONE:
                 case Win32Native.REG_LINK:
@@ -1289,9 +1278,9 @@ namespace Microsoft.PowerShell.Commands.Internal
         /// <summary>
         /// <para>Retrieves the registry data type of the value associated with the specified name.
         /// Utilizes Transaction.Current for its transaction.</para>
-        /// <param name="name">The value name whose data type is to be retrieved.</param>
-        /// <returns>A RegistryValueKind value representing the registry data type of the value associated with name.</returns>
         /// </summary>
+        /// <returns>A RegistryValueKind value representing the registry data type of the value associated with name.</returns>
+        /// <param name="name">The value name whose data type is to be retrieved.</param>
         [ComVisible(false)]
         public RegistryValueKind GetValueKind(string name)
         {
@@ -1313,7 +1302,7 @@ namespace Microsoft.PowerShell.Commands.Internal
         /**
          * Retrieves the current state of the dirty property.
          *
-         * A key is marked as dirty if any operation has occured that modifies the
+         * A key is marked as dirty if any operation has occurred that modifies the
          * contents of the key.
          *
          * @return <b>true</b> if the key has been modified.
@@ -1335,9 +1324,9 @@ namespace Microsoft.PowerShell.Commands.Internal
 
         /// <summary>
         /// <para>Retrieves the name of the key.</para>
-        /// <returns>The name of the key.</returns>
         /// </summary>
-        public String Name
+        /// <returns>The name of the key.</returns>
+        public string Name
         {
             get
             {
@@ -1353,25 +1342,24 @@ namespace Microsoft.PowerShell.Commands.Internal
 
         /// <summary>
         /// <para>Sets the specified value. Utilizes Transaction.Current for its transaction.</para>
+        /// </summary>
         /// <param name="name">Name of value to store data in.</param>
         /// <param name="value">Data to store.</param>
-        /// </summary>
-        public void SetValue(String name, Object value)
+        public void SetValue(string name, object value)
         {
             SetValue(name, value, RegistryValueKind.Unknown);
         }
 
         /// <summary>
         /// <para>Sets the specified value. Utilizes Transaction.Current for its transaction.</para>
+        /// </summary>
         /// <param name="name">Name of value to store data in.</param>
         /// <param name="value">Data to store.</param>
         /// <param name="valueKind">The registry data type to use when storing the data.</param>
-        /// </summary>
         [ComVisible(false)]
-        public unsafe void SetValue(String name, Object value, RegistryValueKind valueKind)
+        public unsafe void SetValue(string name, object value, RegistryValueKind valueKind)
         {
-            if (value == null)
-                throw new ArgumentNullException(RegistryProviderStrings.Arg_Value);
+            ArgumentNullException.ThrowIfNull(value, RegistryProviderStrings.Arg_Value);
 
             if (name != null && name.Length > MaxValueNameLength)
             {
@@ -1410,12 +1398,13 @@ namespace Microsoft.PowerShell.Commands.Internal
                     case RegistryValueKind.ExpandString:
                     case RegistryValueKind.String:
                         {
-                            String data = value.ToString();
+                            string data = value.ToString();
                             // divide by 2 to account for unicode.
                             if (MaxValueDataLength / 2 < data.Length)
                             {
                                 throw new ArgumentException(RegistryProviderStrings.Arg_ValueDataLenBug);
                             }
+
                             ret = Win32Native.RegSetValueEx(_hkey,
                                 name,
                                 0,
@@ -1441,14 +1430,17 @@ namespace Microsoft.PowerShell.Commands.Internal
                                 {
                                     throw new ArgumentException(RegistryProviderStrings.Arg_RegSetStrArrNull);
                                 }
+
                                 sizeInBytes += (dataStrings[i].Length + 1) * 2;
                             }
+
                             sizeInBytes += 2;
 
                             if (MaxValueDataLength < sizeInBytes)
                             {
                                 throw new ArgumentException(RegistryProviderStrings.Arg_ValueDataLenBug);
                             }
+
                             byte[] basePtr = new byte[sizeInBytes];
                             fixed (byte* b = basePtr)
                             {
@@ -1473,6 +1465,7 @@ namespace Microsoft.PowerShell.Commands.Internal
                                     basePtr,
                                     sizeInBytes);
                             }
+
                             break;
                         }
 
@@ -1482,6 +1475,7 @@ namespace Microsoft.PowerShell.Commands.Internal
                         {
                             throw new ArgumentException(RegistryProviderStrings.Arg_ValueDataLenBug);
                         }
+
                         ret = Win32Native.RegSetValueEx(_hkey,
                             name,
                             0,
@@ -1544,7 +1538,7 @@ namespace Microsoft.PowerShell.Commands.Internal
                 Win32Error(ret, null);
         }
 
-        private RegistryValueKind CalculateValueKind(Object value)
+        private RegistryValueKind CalculateValueKind(object value)
         {
             // This logic matches what used to be in SetValue(string name, object value) in the v1.0 and v1.1 days.
             // Even though we could add detection for an int64 in here, we want to maintain compatibility with the
@@ -1555,12 +1549,12 @@ namespace Microsoft.PowerShell.Commands.Internal
             {
                 if (value is byte[])
                     return RegistryValueKind.Binary;
-                else if (value is String[])
+                else if (value is string[])
                     return RegistryValueKind.MultiString;
                 else
                 {
                     string resourceTemplate = RegistryProviderStrings.Arg_RegSetBadArrType;
-                    string resource = String.Format(CultureInfo.CurrentCulture, resourceTemplate, value.GetType().Name);
+                    string resource = string.Format(CultureInfo.CurrentCulture, resourceTemplate, value.GetType().Name);
                     throw new ArgumentException(resource);
                 }
             }
@@ -1575,9 +1569,9 @@ namespace Microsoft.PowerShell.Commands.Internal
          */
         /// <summary>
         /// <para>Retrieves a string representation of this key.</para>
-        /// <returns>A string representing the key.</returns>
         /// </summary>
-        public override String ToString()
+        /// <returns>A string representing the key.</returns>
+        public override string ToString()
         {
             EnsureNotDisposed();
             return _keyName;
@@ -1586,9 +1580,9 @@ namespace Microsoft.PowerShell.Commands.Internal
         /// <summary>
         /// <para>Returns the access control security for the current registry key.
         /// Utilizes Transaction.Current for its transaction.</para>
+        /// </summary>
         /// <returns>A TransactedRegistrySecurity object that describes the access control
         /// permissions on the registry key represented by the current TransactedRegistryKey.</returns>
-        /// </summary>
         public TransactedRegistrySecurity GetAccessControl()
         {
             return GetAccessControl(AccessControlSections.Access | AccessControlSections.Owner | AccessControlSections.Group);
@@ -1597,10 +1591,10 @@ namespace Microsoft.PowerShell.Commands.Internal
         /// <summary>
         /// <para>Returns the access control security for the current registry key.
         /// Utilizes Transaction.Current for its transaction.</para>
-        /// <param name="includeSections">A bitwise combination of AccessControlSections values that specifies the type of security information to get.</param>
+        /// </summary>
         /// <returns>A TransactedRegistrySecurity object that describes the access control
         /// permissions on the registry key represented by the current TransactedRegistryKey.</returns>
-        /// </summary>
+        /// <param name="includeSections">A bitwise combination of AccessControlSections values that specifies the type of security information to get.</param>
         public TransactedRegistrySecurity GetAccessControl(AccessControlSections includeSections)
         {
             EnsureNotDisposed();
@@ -1611,13 +1605,12 @@ namespace Microsoft.PowerShell.Commands.Internal
         /// <summary>
         /// <para>Applies Windows access control security to an existing registry key.
         /// Utilizes Transaction.Current for its transaction.</para>
-        /// <param name="registrySecurity">A TransactedRegistrySecurity object that specifies the access control security to apply to the current subkey.</param>
         /// </summary>
+        /// <param name="registrySecurity">A TransactedRegistrySecurity object that specifies the access control security to apply to the current subkey.</param>
         public void SetAccessControl(TransactedRegistrySecurity registrySecurity)
         {
             EnsureWriteable();
-            if (registrySecurity == null)
-                throw new ArgumentNullException("registrySecurity");
+            ArgumentNullException.ThrowIfNull(registrySecurity);
             // Require a transaction. This will throw for "Base" keys because they aren't associated with a transaction.
             VerifyTransaction();
 
@@ -1631,7 +1624,7 @@ namespace Microsoft.PowerShell.Commands.Internal
          * error, and depending on the error, insert a string into the message
          * gotten from the ResourceManager.
          */
-        internal void Win32Error(int errorCode, String str)
+        internal void Win32Error(int errorCode, string str)
         {
             switch (errorCode)
             {
@@ -1639,7 +1632,7 @@ namespace Microsoft.PowerShell.Commands.Internal
                     if (str != null)
                     {
                         string resourceTemplate = RegistryProviderStrings.UnauthorizedAccess_RegistryKeyGeneric_Key;
-                        string resource = String.Format(CultureInfo.CurrentCulture, resourceTemplate, str);
+                        string resource = string.Format(CultureInfo.CurrentCulture, resourceTemplate, str);
                         throw new UnauthorizedAccessException(resource);
                     }
                     else
@@ -1647,19 +1640,19 @@ namespace Microsoft.PowerShell.Commands.Internal
 
                 case Win32Native.ERROR_INVALID_HANDLE:
                     // **
-                    //* For normal RegistryKey instances we dispose the SafeRegHandle and throw IOException.
-                    //* However, for HKEY_PERFORMANCE_DATA (on a local or remote machine) we avoid disposing the
-                    //* SafeRegHandle and only throw the IOException.  This is to workaround reentrancy issues
-                    //* in PerformanceCounter.NextValue() where the API could throw {NullReference, ObjectDisposed, ArgumentNull}Exception
-                    //* on reentrant calls because of this error code path in RegistryKey
-                    //*
-                    //* Normally we'd make our caller synchronize access to a shared RegistryKey instead of doing something like this,
-                    //* however we shipped PerformanceCounter.NextValue() un-synchronized in v2.0RTM and customers have taken a dependency on
-                    //* this behavior (being able to simultaneously query multiple remote-machine counters on multiple threads, instead of
-                    //* having serialized access).
-                    //*
-                    //* FUTURE: Consider changing PerformanceCounterLib to handle its own Win32 RegistryKey API calls instead of depending
-                    //* on Microsoft.Win32.RegistryKey, so that RegistryKey can be clean of special-cases for HKEY_PERFORMANCE_DATA.
+                    // * For normal RegistryKey instances we dispose the SafeRegHandle and throw IOException.
+                    // * However, for HKEY_PERFORMANCE_DATA (on a local or remote machine) we avoid disposing the
+                    // * SafeRegHandle and only throw the IOException.  This is to workaround reentrancy issues
+                    // * in PerformanceCounter.NextValue() where the API could throw {NullReference, ObjectDisposed, ArgumentNull}Exception
+                    // * on reentrant calls because of this error code path in RegistryKey
+                    // *
+                    // * Normally we'd make our caller synchronize access to a shared RegistryKey instead of doing something like this,
+                    // * however we shipped PerformanceCounter.NextValue() un-synchronized in v2.0RTM and customers have taken a dependency on
+                    // * this behavior (being able to simultaneously query multiple remote-machine counters on multiple threads, instead of
+                    // * having serialized access).
+                    // *
+                    // * FUTURE: Consider changing PerformanceCounterLib to handle its own Win32 RegistryKey API calls instead of depending
+                    // * on Microsoft.Win32.RegistryKey, so that RegistryKey can be clean of special-cases for HKEY_PERFORMANCE_DATA.
                     //
                     _hkey.SetHandleAsInvalid();
                     _hkey = null;
@@ -1668,7 +1661,7 @@ namespace Microsoft.PowerShell.Commands.Internal
                 case Win32Native.ERROR_FILE_NOT_FOUND:
                     {
                         string resourceTemplate = RegistryProviderStrings.Arg_RegKeyNotFound;
-                        string resource = String.Format(CultureInfo.CurrentCulture, resourceTemplate, errorCode.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                        string resource = string.Format(CultureInfo.CurrentCulture, resourceTemplate, errorCode.ToString(System.Globalization.CultureInfo.InvariantCulture));
                         throw new IOException(resource);
                     }
 
@@ -1676,7 +1669,8 @@ namespace Microsoft.PowerShell.Commands.Internal
                     throw new IOException(Win32Native.GetMessage(errorCode), errorCode);
             }
         }
-        internal static void Win32ErrorStatic(int errorCode, String str)
+
+        internal static void Win32ErrorStatic(int errorCode, string str)
         {
             switch (errorCode)
             {
@@ -1684,7 +1678,7 @@ namespace Microsoft.PowerShell.Commands.Internal
                     if (str != null)
                     {
                         string resourceTemplate = RegistryProviderStrings.UnauthorizedAccess_RegistryKeyGeneric_Key;
-                        string resource = String.Format(CultureInfo.CurrentCulture, resourceTemplate, str);
+                        string resource = string.Format(CultureInfo.CurrentCulture, resourceTemplate, str);
                         throw new UnauthorizedAccessException(resource);
                     }
                     else
@@ -1695,10 +1689,10 @@ namespace Microsoft.PowerShell.Commands.Internal
             }
         }
 
-        internal static String FixupName(String name)
+        internal static string FixupName(string name)
         {
             BCLDebug.Assert(name != null, "[FixupName]name!=null");
-            if (name.IndexOf('\\') == -1)
+            if (name.Contains('\\'))
                 return name;
 
             StringBuilder sb = new StringBuilder(name);
@@ -1733,6 +1727,7 @@ namespace Microsoft.PowerShell.Commands.Internal
                             break;
                     }
                 }
+
                 i++;
             }
 
@@ -1747,10 +1742,12 @@ namespace Microsoft.PowerShell.Commands.Internal
                         i++;
                         continue;
                     }
+
                     path[j] = path[i];
                     i++;
                     j++;
                 }
+
                 path.Length += j - i;
             }
         }
@@ -1783,6 +1780,7 @@ namespace Microsoft.PowerShell.Commands.Internal
                     CheckSubKeyReadPermission(subkeyName);
                 }
             }
+
             CheckSubTreePermission(subkeyName, subKeyCheck);
         }
 
@@ -1956,6 +1954,7 @@ namespace Microsoft.PowerShell.Commands.Internal
             {
                 winAccess = Win32Native.KEY_READ | Win32Native.KEY_WRITE;
             }
+
             return winAccess;
         }
 
@@ -1977,6 +1976,7 @@ namespace Microsoft.PowerShell.Commands.Internal
                     BCLDebug.Assert(false, "unexpected code path");
                     break;
             }
+
             return winAccess;
         }
 
@@ -2001,12 +2001,9 @@ namespace Microsoft.PowerShell.Commands.Internal
 
         private static void ValidateKeyName(string name)
         {
-            if (name == null)
-            {
-                throw new ArgumentNullException(RegistryProviderStrings.Arg_Name);
-            }
+            ArgumentNullException.ThrowIfNull(name, RegistryProviderStrings.Arg_Name);
 
-            int nextSlash = name.IndexOf("\\", StringComparison.OrdinalIgnoreCase);
+            int nextSlash = name.IndexOf('\\');
             int current = 0;
             while (nextSlash != -1)
             {
@@ -2014,7 +2011,7 @@ namespace Microsoft.PowerShell.Commands.Internal
                     throw new ArgumentException(RegistryProviderStrings.Arg_RegKeyStrLenBug);
 
                 current = nextSlash + 1;
-                nextSlash = name.IndexOf("\\", current, StringComparison.OrdinalIgnoreCase);
+                nextSlash = name.IndexOf('\\', current);
             }
 
             if ((name.Length - current) > MaxKeyLength)
@@ -2046,6 +2043,7 @@ namespace Microsoft.PowerShell.Commands.Internal
             {
                 throw new InvalidOperationException(RegistryProviderStrings.InvalidOperation_NotAssociatedWithTransaction);
             }
+
             if (!_myTransaction.Equals(Transaction.Current))
             {
                 throw new InvalidOperationException(RegistryProviderStrings.InvalidOperation_MustUseSameTransaction);

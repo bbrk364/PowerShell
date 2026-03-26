@@ -1,13 +1,14 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Collections;
-using System.Collections.ObjectModel;
 using System.Collections.Generic;
-using System.Threading;
+using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis; // for fxcop
 using System.Reflection;
 using System.Runtime.Serialization;
+using System.Threading;
+
 using Dbg = System.Management.Automation.Diagnostics;
 
 namespace System.Management.Automation
@@ -26,7 +27,7 @@ namespace System.Management.Automation
         #region Constructor
 
         /// <summary>
-        /// Constructor
+        /// Constructor.
         /// </summary>
         /// <param name="psInstanceId">
         /// PowerShell InstanceId which added this data.
@@ -75,7 +76,7 @@ namespace System.Management.Automation
         #region Constructor
 
         /// <summary>
-        /// Constructor
+        /// Constructor.
         /// </summary>
         /// <param name="psInstanceId">
         /// PowerShell InstanceId which added this data.
@@ -98,7 +99,7 @@ namespace System.Management.Automation
         /// <summary>
         /// The item about to be added.
         /// </summary>
-        public Object ItemAdded { get; }
+        public object ItemAdded { get; }
 
         /// <summary>
         /// PowerShell InstanceId which added this data.
@@ -115,12 +116,11 @@ namespace System.Management.Automation
     /// <summary>build
     /// Thread Safe buffer used with PowerShell Hosting interfaces.
     /// </summary>
-    [Serializable]
     public class PSDataCollection<T> : IList<T>, ICollection<T>, IEnumerable<T>, IList, ICollection, IEnumerable, IDisposable, ISerializable
     {
         #region Private Data
 
-        private IList<T> _data;
+        private readonly IList<T> _data;
         private ManualResetEvent _readWaitHandle;
         private bool _isOpen = true;
         private bool _releaseOnEnumeration;
@@ -133,13 +133,13 @@ namespace System.Management.Automation
 
         /// <summary>
         /// Whether the enumerator needs to be blocking
-        /// by default
+        /// by default.
         /// </summary>
         private bool _blockingEnumerator = false;
 
         /// <summary>
-        /// whether the ref count was incremented when
-        /// BlockingEnumerator was updated
+        /// Whether the ref count was incremented when
+        /// BlockingEnumerator was updated.
         /// </summary>
         private bool _refCountIncrementedForBlockingEnumerator = false;
 
@@ -152,7 +152,7 @@ namespace System.Management.Automation
         #region Public Constructors
 
         /// <summary>
-        /// Default Constructor
+        /// Default Constructor.
         /// </summary>
         public PSDataCollection() : this(new List<T>())
         {
@@ -195,10 +195,10 @@ namespace System.Management.Automation
         #region type converters
 
         /// <summary>
-        /// Wrap the argument in a PSDataCollection
+        /// Wrap the argument in a PSDataCollection.
         /// </summary>
-        /// <param name="valueToConvert">The value to convert</param>
-        /// <returns>New collection of value, marked as Complete</returns>
+        /// <param name="valueToConvert">The value to convert.</param>
+        /// <returns>New collection of value, marked as Complete.</returns>
         [SuppressMessage("Microsoft.Usage", "CA2225:OperatorOverloadsHaveNamedAlternates",
             Justification = "There are already alternates to the implicit casts, ToXXX and FromXXX methods are unnecessary and redundant")]
         public static implicit operator PSDataCollection<T>(bool valueToConvert)
@@ -207,10 +207,10 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Wrap the argument in a PSDataCollection
+        /// Wrap the argument in a PSDataCollection.
         /// </summary>
-        /// <param name="valueToConvert">The value to convert</param>
-        /// <returns>New collection of value, marked as Complete</returns>
+        /// <param name="valueToConvert">The value to convert.</param>
+        /// <returns>New collection of value, marked as Complete.</returns>
         [SuppressMessage("Microsoft.Usage", "CA2225:OperatorOverloadsHaveNamedAlternates",
             Justification = "There are already alternates to the implicit casts, ToXXX and FromXXX methods are unnecessary and redundant")]
         public static implicit operator PSDataCollection<T>(string valueToConvert)
@@ -219,10 +219,10 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Wrap the argument in a PSDataCollection
+        /// Wrap the argument in a PSDataCollection.
         /// </summary>
-        /// <param name="valueToConvert">The value to convert</param>
-        /// <returns>New collection of value, marked as Complete</returns>
+        /// <param name="valueToConvert">The value to convert.</param>
+        /// <returns>New collection of value, marked as Complete.</returns>
         [SuppressMessage("Microsoft.Usage", "CA2225:OperatorOverloadsHaveNamedAlternates",
             Justification = "There are already alternates to the implicit casts, ToXXX and FromXXX methods are unnecessary and redundant")]
         public static implicit operator PSDataCollection<T>(int valueToConvert)
@@ -231,10 +231,10 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Wrap the argument in a PSDataCollection
+        /// Wrap the argument in a PSDataCollection.
         /// </summary>
-        /// <param name="valueToConvert">The value to convert</param>
-        /// <returns>New collection of value, marked as Complete</returns>
+        /// <param name="valueToConvert">The value to convert.</param>
+        /// <returns>New collection of value, marked as Complete.</returns>
         [SuppressMessage("Microsoft.Usage", "CA2225:OperatorOverloadsHaveNamedAlternates",
             Justification = "There are already alternates to the implicit casts, ToXXX and FromXXX methods are unnecessary and redundant")]
         public static implicit operator PSDataCollection<T>(byte valueToConvert)
@@ -251,10 +251,10 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Wrap the argument in a PSDataCollection
+        /// Wrap the argument in a PSDataCollection.
         /// </summary>
-        /// <param name="valueToConvert">The value to convert</param>
-        /// <returns>New collection of value, marked as Complete</returns>
+        /// <param name="valueToConvert">The value to convert.</param>
+        /// <returns>New collection of value, marked as Complete.</returns>
         [SuppressMessage("Microsoft.Usage", "CA2225:OperatorOverloadsHaveNamedAlternates",
             Justification = "There are already alternates to the implicit casts, ToXXX and FromXXX methods are unnecessary and redundant")]
         public static implicit operator PSDataCollection<T>(Hashtable valueToConvert)
@@ -266,10 +266,10 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Wrap the argument in a PSDataCollection
+        /// Wrap the argument in a PSDataCollection.
         /// </summary>
-        /// <param name="valueToConvert">The value to convert</param>
-        /// <returns>New collection of value, marked as Complete</returns>
+        /// <param name="valueToConvert">The value to convert.</param>
+        /// <returns>New collection of value, marked as Complete.</returns>
         [SuppressMessage("Microsoft.Usage", "CA2225:OperatorOverloadsHaveNamedAlternates",
             Justification = "There are already alternates to the implicit casts, ToXXX and FromXXX methods are unnecessary and redundant")]
         public static implicit operator PSDataCollection<T>(T valueToConvert)
@@ -281,10 +281,10 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Wrap the argument in a PSDataCollection
+        /// Wrap the argument in a PSDataCollection.
         /// </summary>
-        /// <param name="arrayToConvert">The value to convert</param>
-        /// <returns>New collection of value, marked as Complete</returns>
+        /// <param name="arrayToConvert">The value to convert.</param>
+        /// <returns>New collection of value, marked as Complete.</returns>
         [SuppressMessage("Microsoft.Usage", "CA2225:OperatorOverloadsHaveNamedAlternates",
             Justification = "There are already alternates to the implicit casts, ToXXX and FromXXX methods are unnecessary and redundant")]
         public static implicit operator PSDataCollection<T>(object[] arrayToConvert)
@@ -297,6 +297,7 @@ namespace System.Management.Automation
                     psdc.Add(LanguagePrimitives.ConvertTo<T>(ae));
                 }
             }
+
             psdc.Complete();
             return psdc;
         }
@@ -323,22 +324,20 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Creates a PSDataCollection from an ISerializable context
+        /// Creates a PSDataCollection from an ISerializable context.
         /// </summary>
-        /// <param name="info">Serialization information for this instance</param>
-        /// <param name="context">The streaming context for this instance</param>
+        /// <param name="info">Serialization information for this instance.</param>
+        /// <param name="context">The streaming context for this instance.</param>
         protected PSDataCollection(SerializationInfo info, StreamingContext context)
         {
             if (info == null)
             {
-                throw PSTraceSource.NewArgumentNullException("info");
+                throw PSTraceSource.NewArgumentNullException(nameof(info));
             }
 
-            IList<T> listToUse = info.GetValue("Data", typeof(IList<T>)) as IList<T>;
-
-            if (listToUse == null)
+            if (info.GetValue("Data", typeof(IList<T>)) is not IList<T> listToUse)
             {
-                throw PSTraceSource.NewArgumentNullException("info");
+                throw PSTraceSource.NewArgumentNullException(nameof(info));
             }
 
             _data = listToUse;
@@ -359,7 +358,7 @@ namespace System.Management.Automation
         public event EventHandler<DataAddingEventArgs> DataAdding;
 
         /// <summary>
-        /// Event fired when objects are done being added to the underlying buffer
+        /// Event fired when objects are done being added to the underlying buffer.
         /// </summary>
         public event EventHandler<DataAddedEventArgs> DataAdded;
 
@@ -390,7 +389,11 @@ namespace System.Management.Automation
         /// </summary>
         public int DataAddedCount
         {
-            get { return _dataAddedFrequency; }
+            get
+            {
+                return _dataAddedFrequency;
+            }
+
             set
             {
                 bool raiseDataAdded = false;
@@ -435,6 +438,7 @@ namespace System.Management.Automation
                 _serializeInput = value;
             }
         }
+
         private bool _serializeInput = false;
 
         /// <summary>
@@ -459,6 +463,7 @@ namespace System.Management.Automation
                     return _sourceGuid;
                 }
             }
+
             set
             {
                 lock (SyncObject)
@@ -470,7 +475,7 @@ namespace System.Management.Automation
 
         /// <summary>
         /// If this flag is set to true, the items in the collection will be set to null when it is
-        /// traversed using a PSDataCollectionEnumerator
+        /// traversed using a PSDataCollectionEnumerator.
         /// </summary>
         internal bool ReleaseOnEnumeration
         {
@@ -481,6 +486,7 @@ namespace System.Management.Automation
                     return _releaseOnEnumeration;
                 }
             }
+
             set
             {
                 lock (SyncObject)
@@ -491,7 +497,7 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// This flag is true when the collection has been enumerated at least once by a PSDataCollectionEnumerator
+        /// This flag is true when the collection has been enumerated at least once by a PSDataCollectionEnumerator.
         /// </summary>
         internal bool IsEnumerated
         {
@@ -502,6 +508,7 @@ namespace System.Management.Automation
                     return _isEnumerated;
                 }
             }
+
             set
             {
                 lock (SyncObject)
@@ -513,7 +520,7 @@ namespace System.Management.Automation
 
         /// <summary>
         /// Completes insertions to the buffer.
-        /// Subsequent Inserts to the buffer will result in an InvalidOperationException
+        /// Subsequent Inserts to the buffer will result in an InvalidOperationException.
         /// </summary>
         public void Complete()
         {
@@ -545,20 +552,14 @@ namespace System.Management.Automation
                 // raise the events outside of the lock.
                 if (raiseEvents)
                 {
-                    if (_readWaitHandle != null)
-                    {
-                        // unblock any readers waiting on the handle
-                        _readWaitHandle.Set();
-                    }
+                    // unblock any readers waiting on the handle
+                    _readWaitHandle?.Set();
 
                     // A temporary variable is used as the Completed may
                     // reach null (because of -='s) after the null check
-                    EventHandler tempCompleted = Completed;
-                    if (tempCompleted != null)
-                    {
-                        tempCompleted(this, EventArgs.Empty);
-                    }
+                    Completed?.Invoke(this, EventArgs.Empty);
                 }
+
                 if (raiseDataAdded)
                 {
                     RaiseDataAddedEvent(_lastPsInstanceId, _lastIndex);
@@ -573,7 +574,7 @@ namespace System.Management.Automation
         /// the data collection, a reference count is added
         /// which causes the enumerator to be blocking. This
         /// prevents the use of PSDataCollection without a
-        /// PowerShell object. This property fixes the same
+        /// PowerShell object. This property fixes the same.
         /// </summary>
         public bool BlockingEnumerator
         {
@@ -584,6 +585,7 @@ namespace System.Management.Automation
                     return _blockingEnumerator;
                 }
             }
+
             set
             {
                 lock (SyncObject)
@@ -648,20 +650,22 @@ namespace System.Management.Automation
                     return _data[index];
                 }
             }
+
             set
             {
                 lock (SyncObject)
                 {
                     if ((index < 0) || (index >= _data.Count))
                     {
-                        throw PSTraceSource.NewArgumentOutOfRangeException("index", index,
+                        throw PSTraceSource.NewArgumentOutOfRangeException(nameof(index), index,
                             PSDataBufferStrings.IndexOutOfRange, 0, _data.Count - 1);
                     }
 
                     if (_serializeInput)
                     {
-                        value = (T)(Object)GetSerializedObject(value);
+                        value = (T)(object)GetSerializedObject(value);
                     }
+
                     _data[index] = value;
                 }
             }
@@ -727,9 +731,10 @@ namespace System.Management.Automation
             {
                 if ((index < 0) || (index >= _data.Count))
                 {
-                    throw PSTraceSource.NewArgumentOutOfRangeException("index", index,
+                    throw PSTraceSource.NewArgumentOutOfRangeException(nameof(index), index,
                         PSDataBufferStrings.IndexOutOfRange, 0, _data.Count - 1);
                 }
+
                 RemoveItem(index);
             }
         }
@@ -739,7 +744,7 @@ namespace System.Management.Automation
         #region ICollection Generic Overrides
 
         /// <summary>
-        /// Gets the number of elements contained in the buffer
+        /// Gets the number of elements contained in the buffer.
         /// </summary>
         public int Count
         {
@@ -767,7 +772,7 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Adds an item to the thread-safe buffer
+        /// Adds an item to the thread-safe buffer.
         /// </summary>
         /// <param name="item">
         /// item to add
@@ -783,16 +788,13 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Removes all items from the buffer
+        /// Removes all items from the buffer.
         /// </summary>
         public void Clear()
         {
             lock (SyncObject)
             {
-                if (_data != null)
-                {
-                    _data.Clear();
-                }
+                _data?.Clear();
             }
         }
 
@@ -811,7 +813,7 @@ namespace System.Management.Automation
             {
                 if (_serializeInput)
                 {
-                    item = (T)(Object)GetSerializedObject(item);
+                    item = (T)(object)GetSerializedObject(item);
                 }
 
                 return _data.Contains(item);
@@ -1051,6 +1053,7 @@ namespace System.Management.Automation
             {
                 return this[index];
             }
+
             set
             {
                 PSDataCollection<T>.VerifyValueType(value);
@@ -1074,7 +1077,7 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Gets the object used to synchronize access to the thread-safe buffer
+        /// Gets the object used to synchronize access to the thread-safe buffer.
         /// </summary>
         object ICollection.SyncRoot
         {
@@ -1161,7 +1164,7 @@ namespace System.Management.Automation
         /// <returns>
         /// A new collection with a copy of all the elements in the current collection.
         /// </returns>
-        /// <param name="readCount">maximum number of elements to read</param>
+        /// <param name="readCount">Maximum number of elements to read.</param>
         internal Collection<T> ReadAndRemove(int readCount)
         {
             Dbg.Assert(_data != null, "Collection cannot be null");
@@ -1252,14 +1255,14 @@ namespace System.Management.Automation
 
             if (_serializeInput)
             {
-                item = (T)(Object)GetSerializedObject(item);
+                item = (T)(object)GetSerializedObject(item);
             }
 
             _data.Insert(index, item);
         }
 
         /// <summary>
-        /// Removes the item at a specified index
+        /// Removes the item at a specified index.
         /// </summary>
         /// <param name="index">
         /// The zero-based index of the buffer where the object is to be removed.
@@ -1278,15 +1281,15 @@ namespace System.Management.Automation
         #region Serializable
 
         /// <summary>
-        /// Implements the ISerializable contract for serializing a PSDataCollection
+        /// Implements the ISerializable contract for serializing a PSDataCollection.
         /// </summary>
-        /// <param name="info">Serialization information for this instance</param>
-        /// <param name="context">The streaming context for this instance</param>
+        /// <param name="info">Serialization information for this instance.</param>
+        /// <param name="context">The streaming context for this instance.</param>
         public virtual void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             if (info == null)
             {
-                throw PSTraceSource.NewArgumentNullException("info");
+                throw PSTraceSource.NewArgumentNullException(nameof(info));
             }
 
             info.AddValue("Data", _data);
@@ -1302,7 +1305,7 @@ namespace System.Management.Automation
 
         /// <summary>
         /// Waitable handle for caller's to block until new data
-        /// is added to the underlying buffer
+        /// is added to the underlying buffer.
         /// </summary>
         internal WaitHandle WaitHandle
         {
@@ -1312,14 +1315,12 @@ namespace System.Management.Automation
                 {
                     lock (SyncObject)
                     {
-                        if (_readWaitHandle == null)
-                        {
-                            // Create the handle signaled if there are objects in the buffer
-                            // or the buffer has been closed.
-                            _readWaitHandle = new ManualResetEvent(_data.Count > 0 || !_isOpen);
-                        }
+                        // Create the handle signaled if there are objects in the buffer
+                        // or the buffer has been closed.
+                        _readWaitHandle ??= new ManualResetEvent(_data.Count > 0 || !_isOpen);
                     }
                 }
+
                 return _readWaitHandle;
             }
         }
@@ -1387,26 +1388,18 @@ namespace System.Management.Automation
         private Guid _lastPsInstanceId;
         private int _lastIndex;
 
-        private void RaiseDataAddingEvent(Guid psInstanceId, Object itemAdded)
+        private void RaiseDataAddingEvent(Guid psInstanceId, object itemAdded)
         {
             // A temporary variable is used as the DataAdding may
             // reach null (because of -='s) after the null check
-            EventHandler<DataAddingEventArgs> tempDataAdding = DataAdding;
-            if (tempDataAdding != null)
-            {
-                tempDataAdding(this, new DataAddingEventArgs(psInstanceId, itemAdded));
-            }
+            DataAdding?.Invoke(this, new DataAddingEventArgs(psInstanceId, itemAdded));
         }
 
         private void RaiseDataAddedEvent(Guid psInstanceId, int index)
         {
             // A temporary variable is used as the DataAdded may
             // reach null (because of -='s) after the null check
-            EventHandler<DataAddedEventArgs> tempDataAdded = DataAdded;
-            if (tempDataAdded != null)
-            {
-                tempDataAdded(this, new DataAddedEventArgs(psInstanceId, index));
-            }
+            DataAdded?.Invoke(this, new DataAddedEventArgs(psInstanceId, index));
         }
 
         /// <summary>
@@ -1445,7 +1438,7 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Adds an item to the thread-safe buffer
+        /// Adds an item to the thread-safe buffer.
         /// </summary>
         /// <param name="psInstanceId">
         /// InstanceId of PowerShell instance adding this data.
@@ -1500,7 +1493,7 @@ namespace System.Management.Automation
         {
             if (collection == null)
             {
-                throw PSTraceSource.NewArgumentNullException("collection");
+                throw PSTraceSource.NewArgumentNullException(nameof(collection));
             }
 
             int index = -1;
@@ -1519,7 +1512,7 @@ namespace System.Management.Automation
                 {
                     InsertItem(psInstanceId, _data.Count, (T)o);
 
-                    // set raise events if atleast one item is
+                    // set raise events if at least one item is
                     // added.
                     raiseEvents = true;
                 }
@@ -1554,13 +1547,13 @@ namespace System.Management.Automation
                 Dbg.Assert(_refCount > 0, "RefCount cannot be <= 0");
 
                 _refCount--;
-                if (_refCount != 0 && (!_blockingEnumerator || _refCount != 1)) return;
+                if (_refCount != 0 && (!_blockingEnumerator || _refCount != 1))
+                {
+                    return;
+                }
 
                 // release threads blocked on waithandle
-                if (_readWaitHandle != null)
-                {
-                    _readWaitHandle.Set();
-                }
+                _readWaitHandle?.Set();
 
                 // release any threads to notify refCount is 0. Enumerator
                 // blocks on this syncObject and it needs to be notified
@@ -1585,7 +1578,7 @@ namespace System.Management.Automation
         {
             if (_serializeInput)
             {
-                item = (T)(Object)GetSerializedObject(item);
+                item = (T)(object)GetSerializedObject(item);
             }
 
             int count = _data.Count;
@@ -1596,6 +1589,7 @@ namespace System.Management.Automation
                     return index;
                 }
             }
+
             return -1;
         }
 
@@ -1616,19 +1610,19 @@ namespace System.Management.Automation
             {
                 if (typeof(T).IsValueType)
                 {
-                    throw PSTraceSource.NewArgumentNullException("value", PSDataBufferStrings.ValueNullReference);
+                    throw PSTraceSource.NewArgumentNullException(nameof(value), PSDataBufferStrings.ValueNullReference);
                 }
             }
-            else if (!(value is T))
+            else if (value is not T)
             {
-                throw PSTraceSource.NewArgumentException("value", PSDataBufferStrings.CannotConvertToGenericType,
+                throw PSTraceSource.NewArgumentException(nameof(value), PSDataBufferStrings.CannotConvertToGenericType,
                                                          value.GetType().FullName,
                                                          typeof(T).FullName);
             }
         }
 
         // Serializes an object, as long as it's not serialized.
-        private PSObject GetSerializedObject(Object value)
+        private static PSObject GetSerializedObject(object value)
         {
             // This is a safe cast, as this method is only called with "SerializeInput" is set,
             // and that method throws if the collection type is not PSObject.
@@ -1641,7 +1635,7 @@ namespace System.Management.Automation
             }
             else
             {
-                Object deserialized = PSSerializer.Deserialize(PSSerializer.Serialize(value));
+                object deserialized = PSSerializer.Deserialize(PSSerializer.Serialize(value));
                 if (deserialized == null)
                 {
                     return null;
@@ -1653,14 +1647,14 @@ namespace System.Management.Automation
             }
         }
 
-        private bool SerializationWouldHaveNoEffect(PSObject result)
+        private static bool SerializationWouldHaveNoEffect(PSObject result)
         {
             if (result == null)
             {
                 return true;
             }
 
-            Object baseObject = PSObject.Base(result);
+            object baseObject = PSObject.Base(result);
             if (baseObject == null)
             {
                 return true;
@@ -1688,19 +1682,20 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Sync object for this collection
+        /// Sync object for this collection.
         /// </summary>
-        internal Object SyncObject { get; } = new object();
+        internal object SyncObject { get; } = new object();
 
         /// <summary>
-        /// Reference count variable
+        /// Reference count variable.
         /// </summary>
-        internal Int32 RefCount
+        internal int RefCount
         {
             get
             {
                 return _refCount;
             }
+
             set
             {
                 lock (SyncObject)
@@ -1715,7 +1710,7 @@ namespace System.Management.Automation
         #region Idle event
 
         /// <summary>
-        /// Indicates whether or not the collection should pulse idle events
+        /// Indicates whether or not the collection should pulse idle events.
         /// </summary>
         internal bool PulseIdleEvent
         {
@@ -1725,7 +1720,7 @@ namespace System.Management.Automation
         internal event EventHandler<EventArgs> IdleEvent;
 
         /// <summary>
-        /// Fires an idle event
+        /// Fires an idle event.
         /// </summary>
         internal void FireIdleEvent()
         {
@@ -1733,7 +1728,7 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Pulses the collection
+        /// Pulses the collection.
         /// </summary>
         internal void Pulse()
         {
@@ -1748,7 +1743,7 @@ namespace System.Management.Automation
         #region IDisposable Overrides
 
         /// <summary>
-        /// Public dispose method
+        /// Public dispose method.
         /// </summary>
         public void Dispose()
         {
@@ -1758,9 +1753,9 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Release all the resources
+        /// Release all the resources.
         /// </summary>
-        /// <param name="disposing">if true, release all managed resources</param>
+        /// <param name="disposing">If true, release all managed resources.</param>
         protected void Dispose(bool disposing)
         {
             if (disposing)
@@ -1776,6 +1771,7 @@ namespace System.Management.Automation
                     {
                         return;
                     }
+
                     _isDisposed = true;
                 }
 
@@ -1789,10 +1785,7 @@ namespace System.Management.Automation
                         _readWaitHandle = null;
                     }
 
-                    if (_data != null)
-                    {
-                        _data.Clear();
-                    }
+                    _data?.Clear();
                 }
             }
         }
@@ -1806,8 +1799,8 @@ namespace System.Management.Automation
     /// Needed to provide a way to get to the non-blocking
     /// MoveNext implementation.
     /// </summary>
-    /// <typeparam name="W"></typeparam>
-    internal interface IBlockingEnumerator<out W> : IEnumerator<W>
+    /// <typeparam name="T"></typeparam>
+    internal interface IBlockingEnumerator<out T> : IEnumerator<T>
     {
         bool MoveNext(bool block);
     }
@@ -1819,22 +1812,22 @@ namespace System.Management.Automation
     /// either all the PowerShell operations are completed or the
     /// PSDataCollection is closed.
     /// </summary>
-    /// <typeparam name="W"></typeparam>
-    internal sealed class PSDataCollectionEnumerator<W> : IBlockingEnumerator<W>
+    /// <typeparam name="T"></typeparam>
+    internal sealed class PSDataCollectionEnumerator<T> : IBlockingEnumerator<T>
     {
         #region Private Data
 
-        private W _currentElement;
+        private T _currentElement;
         private int _index;
-        private PSDataCollection<W> _collToEnumerate;
-        private bool _neverBlock;
+        private readonly PSDataCollection<T> _collToEnumerate;
+        private readonly bool _neverBlock;
 
         #endregion
 
         #region Constructor
 
         /// <summary>
-        /// Constructor
+        /// Constructor.
         /// </summary>
         /// <param name="collection">
         /// PSDataCollection to enumerate.
@@ -1842,7 +1835,7 @@ namespace System.Management.Automation
         /// <param name="neverBlock">
         /// Controls if the enumerator is blocking by default or not.
         /// </param>
-        internal PSDataCollectionEnumerator(PSDataCollection<W> collection, bool neverBlock)
+        internal PSDataCollectionEnumerator(PSDataCollection<T> collection, bool neverBlock)
         {
             Dbg.Assert(collection != null,
                 "Collection cannot be null");
@@ -1851,7 +1844,7 @@ namespace System.Management.Automation
 
             _collToEnumerate = collection;
             _index = 0;
-            _currentElement = default(W);
+            _currentElement = default(T);
             _collToEnumerate.IsEnumerated = true;
             _neverBlock = neverBlock;
         }
@@ -1869,7 +1862,7 @@ namespace System.Management.Automation
         /// if the enumerator is positioned before the first element or after
         /// the last element; the value of the property is undefined.
         /// </remarks>
-        W IEnumerator<W>.Current
+        T IEnumerator<T>.Current
         {
             get
             {
@@ -1908,7 +1901,7 @@ namespace System.Management.Automation
         /// </remarks>
         public bool MoveNext()
         {
-            return MoveNext(_neverBlock == false);
+            return MoveNext(!_neverBlock);
         }
 
         /// <summary>
@@ -1918,27 +1911,28 @@ namespace System.Management.Automation
         /// true if the enumerator successfully advanced to the next element;
         /// otherwise, false.
         /// </returns>
-        /// <param name="block">true - to block when no elements are available</param>
+        /// <param name="block">True - to block when no elements are available.</param>
         public bool MoveNext(bool block)
         {
             lock (_collToEnumerate.SyncObject)
             {
-                do
+                while (true)
                 {
                     if (_index < _collToEnumerate.Count)
                     {
                         _currentElement = _collToEnumerate[_index];
                         if (_collToEnumerate.ReleaseOnEnumeration)
                         {
-                            _collToEnumerate[_index] = default(W);
+                            _collToEnumerate[_index] = default(T);
                         }
+
                         _index++;
                         return true;
                     }
 
                     // we have reached the end if either the collection is closed
                     // or no powershell instance is bound to this collection.
-                    if ((0 == _collToEnumerate.RefCount) || (!_collToEnumerate.IsOpen))
+                    if ((_collToEnumerate.RefCount == 0) || (!_collToEnumerate.IsOpen))
                     {
                         return false;
                     }
@@ -1961,7 +1955,7 @@ namespace System.Management.Automation
                     {
                         return false;
                     }
-                } while (true);
+                }
             }
         }
 
@@ -1971,12 +1965,11 @@ namespace System.Management.Automation
         /// </summary>
         public void Reset()
         {
-            _currentElement = default(W);
+            _currentElement = default(T);
             _index = 0;
         }
 
         /// <summary>
-        ///
         /// </summary>
         void IDisposable.Dispose()
         {
@@ -1993,7 +1986,7 @@ namespace System.Management.Automation
     /// </summary>
     internal sealed class PSInformationalBuffers
     {
-        private Guid _psInstanceId;
+        private readonly Guid _psInstanceId;
 
         /// <summary>
         /// Default constructor.
@@ -2025,12 +2018,17 @@ namespace System.Management.Automation
         /// </summary>
         internal PSDataCollection<ProgressRecord> Progress
         {
-            get { return progress; }
+            get
+            {
+                return progress;
+            }
+
             set
             {
                 progress = value;
             }
         }
+
         internal PSDataCollection<ProgressRecord> progress;
 
         /// <summary>
@@ -2039,12 +2037,17 @@ namespace System.Management.Automation
         /// </summary>
         internal PSDataCollection<VerboseRecord> Verbose
         {
-            get { return verbose; }
+            get
+            {
+                return verbose;
+            }
+
             set
             {
                 verbose = value;
             }
         }
+
         internal PSDataCollection<VerboseRecord> verbose;
 
         /// <summary>
@@ -2053,12 +2056,17 @@ namespace System.Management.Automation
         /// </summary>
         internal PSDataCollection<DebugRecord> Debug
         {
-            get { return debug; }
+            get
+            {
+                return debug;
+            }
+
             set
             {
                 debug = value;
             }
         }
+
         internal PSDataCollection<DebugRecord> debug;
 
         /// <summary>
@@ -2078,65 +2086,35 @@ namespace System.Management.Automation
         /// The item is added to the buffer along with PowerShell InstanceId.
         /// </summary>
         /// <param name="item"></param>
-        internal void AddProgress(ProgressRecord item)
-        {
-            if (progress != null)
-            {
-                progress.InternalAdd(_psInstanceId, item);
-            }
-        }
+        internal void AddProgress(ProgressRecord item) => progress?.InternalAdd(_psInstanceId, item);
 
         /// <summary>
         /// Adds item to the verbose buffer.
         /// The item is added to the buffer along with PowerShell InstanceId.
         /// </summary>
         /// <param name="item"></param>
-        internal void AddVerbose(VerboseRecord item)
-        {
-            if (verbose != null)
-            {
-                verbose.InternalAdd(_psInstanceId, item);
-            }
-        }
+        internal void AddVerbose(VerboseRecord item) => verbose?.InternalAdd(_psInstanceId, item);
 
         /// <summary>
         /// Adds item to the debug buffer.
         /// The item is added to the buffer along with PowerShell InstanceId.
         /// </summary>
         /// <param name="item"></param>
-        internal void AddDebug(DebugRecord item)
-        {
-            if (debug != null)
-            {
-                debug.InternalAdd(_psInstanceId, item);
-            }
-        }
+        internal void AddDebug(DebugRecord item) => debug?.InternalAdd(_psInstanceId, item);
 
         /// <summary>
         /// Adds item to the warning buffer.
         /// The item is added to the buffer along with PowerShell InstanceId.
         /// </summary>
         /// <param name="item"></param>
-        internal void AddWarning(WarningRecord item)
-        {
-            if (Warning != null)
-            {
-                Warning.InternalAdd(_psInstanceId, item);
-            }
-        }
+        internal void AddWarning(WarningRecord item) => Warning?.InternalAdd(_psInstanceId, item);
 
         /// <summary>
         /// Adds item to the information buffer.
         /// The item is added to the buffer along with PowerShell InstanceId.
         /// </summary>
         /// <param name="item"></param>
-        internal void AddInformation(InformationRecord item)
-        {
-            if (Information != null)
-            {
-                Information.InternalAdd(_psInstanceId, item);
-            }
-        }
+        internal void AddInformation(InformationRecord item) => Information?.InternalAdd(_psInstanceId, item);
 
         #endregion
     }

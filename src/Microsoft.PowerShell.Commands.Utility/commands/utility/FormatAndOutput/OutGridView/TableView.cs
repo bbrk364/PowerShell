@@ -1,17 +1,18 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
+
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.IO;
+using System.Management.Automation;
+using System.Management.Automation.Internal;
+
+using Microsoft.PowerShell.Commands.Internal.Format;
 
 namespace Microsoft.PowerShell.Commands
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Collections.ObjectModel;
-    using System.Management.Automation;
-    using System.Management.Automation.Internal;
-    using Microsoft.PowerShell.Commands.Internal.Format;
-    using System.IO;
-
-    internal class TableView
+    internal sealed class TableView
     {
         private PSPropertyExpressionFactory _expressionFactory;
         private TypeInfoDataBase _typeInfoDatabase;
@@ -24,7 +25,7 @@ namespace Microsoft.PowerShell.Commands
             _typeInfoDatabase = db;
 
             // Initialize Format Error Manager.
-            FormatErrorPolicy formatErrorPolicy = new FormatErrorPolicy();
+            FormatErrorPolicy formatErrorPolicy = new();
 
             formatErrorPolicy.ShowErrorsAsMessages = _typeInfoDatabase.defaultSettingsSection.formatErrorPolicy.ShowErrorsAsMessages;
             formatErrorPolicy.ShowErrorsInFormattedOutput = _typeInfoDatabase.defaultSettingsSection.formatErrorPolicy.ShowErrorsInFormattedOutput;
@@ -34,7 +35,7 @@ namespace Microsoft.PowerShell.Commands
 
         internal HeaderInfo GenerateHeaderInfo(PSObject input, TableControlBody tableBody, OutGridViewCommand parentCmdlet)
         {
-            HeaderInfo headerInfo = new HeaderInfo();
+            HeaderInfo headerInfo = new();
 
             // This verification is needed because the database returns "LastWriteTime" value for file system objects
             // as strings and it is used to detect this situation and use the actual field value.
@@ -68,14 +69,11 @@ namespace Microsoft.PowerShell.Commands
 
                     if (token != null)
                     {
-                        FieldPropertyToken fpt = token as FieldPropertyToken;
-                        if (fpt != null)
+                        if (token is FieldPropertyToken fpt)
                         {
-                            if (displayName == null)
-                            {
-                                // Database does not provide a label(DisplayName) for the current property, use the expression value instead.
-                                displayName = fpt.expression.expressionValue;
-                            }
+                            // If Database does not provide a label(DisplayName) for the current property, use the expression value instead.
+                            displayName ??= fpt.expression.expressionValue;
+
                             if (fpt.expression.isScriptBlock)
                             {
                                 PSPropertyExpression ex = _expressionFactory.CreateFromExpressionToken(fpt.expression);
@@ -99,18 +97,19 @@ namespace Microsoft.PowerShell.Commands
                         }
                         else
                         {
-                            TextToken tt = token as TextToken;
-                            if (tt != null)
+                            if (token is TextToken tt)
                             {
                                 displayName = _typeInfoDatabase.displayResourceManagerCache.GetTextTokenString(tt);
                                 columnInfo = new OriginalColumnInfo(tt.text, displayName, tt.text, parentCmdlet);
                             }
                         }
                     }
+
                     if (columnInfo != null)
                     {
                         headerInfo.AddColumn(columnInfo);
                     }
+
                     col++;
                 }
             }
@@ -120,7 +119,7 @@ namespace Microsoft.PowerShell.Commands
 
         internal HeaderInfo GenerateHeaderInfo(PSObject input, OutGridViewCommand parentCmdlet)
         {
-            HeaderInfo headerInfo = new HeaderInfo();
+            HeaderInfo headerInfo = new();
             List<MshResolvedExpressionParameterAssociation> activeAssociationList;
 
             // Get properties from the default property set of the object
@@ -165,14 +164,14 @@ namespace Microsoft.PowerShell.Commands
                     if (key != AutomationNull.Value)
                         propertyName = (string)key;
                 }
-                if (propertyName == null)
-                {
-                    propertyName = association.ResolvedExpression.ToString();
-                }
+
+                propertyName ??= association.ResolvedExpression.ToString();
+
                 ColumnInfo columnInfo = new OriginalColumnInfo(propertyName, propertyName, propertyName, parentCmdlet);
 
                 headerInfo.AddColumn(columnInfo);
             }
+
             return headerInfo;
         }
 
@@ -184,17 +183,17 @@ namespace Microsoft.PowerShell.Commands
         /// </summary>
         /// <returns>None.</returns>
         /// <remarks>This method updates "activeAssociationList" instance property.</remarks>
-        private void FilterActiveAssociationList(List<MshResolvedExpressionParameterAssociation> activeAssociationList)
+        private static void FilterActiveAssociationList(List<MshResolvedExpressionParameterAssociation> activeAssociationList)
         {
             // we got a valid set of properties from the default property set
             // make sure we do not have too many properties
 
             // NOTE: this is an arbitrary number, chosen to be a sensitive default
-            int nMax = 256;
+            const int nMax = 256;
 
             if (activeAssociationList.Count > nMax)
             {
-                List<MshResolvedExpressionParameterAssociation> tmp = new List<MshResolvedExpressionParameterAssociation>(activeAssociationList);
+                List<MshResolvedExpressionParameterAssociation> tmp = new(activeAssociationList);
                 activeAssociationList.Clear();
                 for (int k = 0; k < nMax; k++)
                     activeAssociationList.Add(tmp[k]);
@@ -215,7 +214,7 @@ namespace Microsoft.PowerShell.Commands
             TableRowDefinition matchingRowDefinition = null;
 
             var typeNames = so.InternalTypeNames;
-            TypeMatch match = new TypeMatch(_expressionFactory, _typeInfoDatabase, typeNames);
+            TypeMatch match = new(_expressionFactory, _typeInfoDatabase, typeNames);
 
             foreach (TableRowDefinition x in tableBody.optionalDefinitionList)
             {
@@ -225,10 +224,8 @@ namespace Microsoft.PowerShell.Commands
                     break;
                 }
             }
-            if (matchingRowDefinition == null)
-            {
-                matchingRowDefinition = match.BestMatch as TableRowDefinition;
-            }
+
+            matchingRowDefinition ??= match.BestMatch as TableRowDefinition;
 
             if (matchingRowDefinition == null)
             {
@@ -245,10 +242,8 @@ namespace Microsoft.PowerShell.Commands
                             break;
                         }
                     }
-                    if (matchingRowDefinition == null)
-                    {
-                        matchingRowDefinition = match.BestMatch as TableRowDefinition;
-                    }
+
+                    matchingRowDefinition ??= match.BestMatch as TableRowDefinition;
                 }
             }
 
@@ -259,7 +254,7 @@ namespace Microsoft.PowerShell.Commands
             }
 
             // we have an override, we need to compute the merge of the active cells
-            List<TableRowItemDefinition> activeRowItemDefinitionList = new List<TableRowItemDefinition>();
+            List<TableRowItemDefinition> activeRowItemDefinitionList = new();
             int col = 0;
             foreach (TableRowItemDefinition rowItem in matchingRowDefinition.rowItemDefinitionList)
             {
@@ -274,6 +269,7 @@ namespace Microsoft.PowerShell.Commands
                     // Use the override
                     activeRowItemDefinitionList.Add(rowItem);
                 }
+
                 col++;
             }
 

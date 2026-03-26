@@ -1,17 +1,13 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 #if !UNIX
 
 using System;
+using System.Collections.ObjectModel;
+using System.IO;
 using System.Management.Automation;
 using Dbg = System.Management.Automation.Diagnostics;
-using System.Collections;
-using System.IO;
-using System.Management.Automation.Provider;
-using System.Runtime.InteropServices;
-using System.Collections.ObjectModel;
-using System.Diagnostics.CodeAnalysis;
 
 namespace Microsoft.PowerShell.Commands
 {
@@ -21,7 +17,7 @@ namespace Microsoft.PowerShell.Commands
     public abstract class CatalogCommandsBase : PSCmdlet
     {
         /// <summary>
-        /// Path of folder/file to generate or validate the catalog file
+        /// Path of folder/file to generate or validate the catalog file.
         /// </summary>
         [Parameter(Position = 0, Mandatory = true, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true, ParameterSetName = "ByPath")]
         public string CatalogFilePath
@@ -30,15 +26,17 @@ namespace Microsoft.PowerShell.Commands
             {
                 return catalogFilePath;
             }
+
             set
             {
                 catalogFilePath = value;
             }
         }
+
         private string catalogFilePath;
 
         /// <summary>
-        /// Path of folder/file to generate or validate the catalog file
+        /// Path of folder/file to generate or validate the catalog file.
         /// </summary>
         [Parameter(Position = 1, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true, ParameterSetName = "ByPath")]
         public string[] Path
@@ -47,16 +45,18 @@ namespace Microsoft.PowerShell.Commands
             {
                 return path;
             }
+
             set
             {
                 path = value;
             }
         }
+
         private string[] path;
         //
         // name of this command
         //
-        private string commandName;
+        private readonly string commandName;
 
         /// <summary>
         /// Initializes a new instance of the CatalogCommandsBase class,
@@ -75,7 +75,7 @@ namespace Microsoft.PowerShell.Commands
         /// <summary>
         /// Processes records from the input pipeline.
         /// For each input object, the command either generate the Catalog or
-        /// Validates the existing Catalog
+        /// Validates the existing Catalog.
         /// </summary>
         protected override void ProcessRecord()
         {
@@ -86,7 +86,7 @@ namespace Microsoft.PowerShell.Commands
             Dbg.Assert((CatalogFilePath != null) && (CatalogFilePath.Length > 0),
                        "CatalogCommands: Param binder did not bind catalogFilePath");
 
-            Collection<string> paths = new Collection<string>();
+            Collection<string> paths = new();
 
             if (Path != null)
             {
@@ -117,7 +117,7 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        /// Performs the action i.e. Generate or Validate the Windows Catalog File
+        /// Performs the action i.e. Generate or Validate the Windows Catalog File.
         /// </summary>
         /// <param name="path">
         /// The name of the Folder or file on which to perform the action.
@@ -130,10 +130,10 @@ namespace Microsoft.PowerShell.Commands
 
     /// <summary>
     /// Defines the implementation of the 'New-FileCatalog' cmdlet.
-    /// This cmdlet generates the catalog for File or Folder
+    /// This cmdlet generates the catalog for File or Folder.
     /// </summary>
     [Cmdlet(VerbsCommon.New, "FileCatalog", SupportsShouldProcess = true, DefaultParameterSetName = "ByPath",
-        HelpUri = "https://go.microsoft.com/fwlink/?LinkId=786749")]
+        HelpUri = "https://go.microsoft.com/fwlink/?LinkId=2096596")]
     [OutputType(typeof(FileInfo))]
     public sealed class NewFileCatalogCommand : CatalogCommandsBase
     {
@@ -143,15 +143,16 @@ namespace Microsoft.PowerShell.Commands
         public NewFileCatalogCommand() : base("New-FileCatalog") { }
 
         /// <summary>
-        /// Catalog version
+        /// Catalog version.
         /// </summary>
-        [Parameter()]
+        [Parameter]
         public int CatalogVersion
         {
             get
             {
                 return catalogVersion;
             }
+
             set
             {
                 catalogVersion = value;
@@ -159,10 +160,10 @@ namespace Microsoft.PowerShell.Commands
         }
 
         // Based on the Catalog version we will decide which hashing Algorithm to use
-        private int catalogVersion = 1;
+        private int catalogVersion = 2;
 
         /// <summary>
-        /// Generate the Catalog for the Path
+        /// Generate the Catalog for the Path.
         /// </summary>
         /// <param name="path">
         /// File or Folder Path
@@ -181,7 +182,7 @@ namespace Microsoft.PowerShell.Commands
                 path.Add(SessionState.Path.CurrentFileSystemLocation.Path);
             }
 
-            FileInfo catalogFileInfo = new FileInfo(catalogFilePath);
+            FileInfo catalogFileInfo = new(catalogFilePath);
 
             // If Path points to the expected cat file make sure
             // parent Directory exists other wise CryptoAPI fails to create a .cat file
@@ -207,10 +208,10 @@ namespace Microsoft.PowerShell.Commands
 
     /// <summary>
     /// Defines the implementation of the 'Test-FileCatalog' cmdlet.
-    /// This cmdlet validates the Integrity of catalog
+    /// This cmdlet validates the Integrity of catalog.
     /// </summary>
     [Cmdlet(VerbsDiagnostic.Test, "FileCatalog", SupportsShouldProcess = true, DefaultParameterSetName = "ByPath",
-        HelpUri = "https://go.microsoft.com/fwlink/?LinkId=786750")]
+        HelpUri = "https://go.microsoft.com/fwlink/?LinkId=2096921")]
     [OutputType(typeof(CatalogValidationStatus))]
     [OutputType(typeof(CatalogInformation))]
     public sealed class TestFileCatalogCommand : CatalogCommandsBase
@@ -222,24 +223,27 @@ namespace Microsoft.PowerShell.Commands
 
         /// <summary>
         /// </summary>
-        [Parameter()]
+        [Parameter]
         public SwitchParameter Detailed
         {
             get { return detailed; }
+
             set { detailed = value; }
         }
+
         private bool detailed = false;
 
         /// <summary>
-        /// Patterns used to exclude files from DiskPaths and Catalog
+        /// Patterns used to exclude files from DiskPaths and Catalog.
         /// </summary>
-        [Parameter()]
+        [Parameter]
         public string[] FilesToSkip
         {
             get
             {
                 return filesToSkip;
             }
+
             set
             {
                 filesToSkip = value;
@@ -250,11 +254,12 @@ namespace Microsoft.PowerShell.Commands
                 }
             }
         }
+
         private string[] filesToSkip = null;
         internal WildcardPattern[] excludedPatterns = null;
 
         /// <summary>
-        /// Validate the Integrity of given Catalog
+        /// Validate the Integrity of given Catalog.
         /// </summary>
         /// <param name="path">
         /// File or Folder Path

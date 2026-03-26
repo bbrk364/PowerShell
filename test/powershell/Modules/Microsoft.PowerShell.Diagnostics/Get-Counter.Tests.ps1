@@ -1,13 +1,5 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
-<############################################################################################
- # File: Get-Counter.Tests.ps1
- # Provides Pester tests for the Get-Counter cmdlet.
- ############################################################################################>
-
-# Counter CmdLets are removed see issue #4272
-# Tests are disabled
- return
 
  $cmdletName = "Get-Counter"
 
@@ -181,7 +173,7 @@ Describe "Feature tests for Get-Counter cmdlet" -Tags "Feature" {
             $counterData = Get-Counter -Counter $counterPath -SampleInterval $sampleInterval -MaxSamples $counterCount
             $endTime = Get-Date
             $counterData.Length | Should -Be $counterCount
-            ($endTime - $startTime).TotalSeconds | Should -Not -BeLessThan ($counterCount * $sampleInterval)
+            ($endTime - $startTime).TotalSeconds -as [int] | Should -Not -BeLessThan ($counterCount * $sampleInterval)
         }
 
         It "Can process array of counter names" -Skip:$(SkipCounterTests) {

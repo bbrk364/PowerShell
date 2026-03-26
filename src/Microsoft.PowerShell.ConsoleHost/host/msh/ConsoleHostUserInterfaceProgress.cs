@@ -1,23 +1,22 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
 using System.Management.Automation;
-using Dbg = System.Management.Automation.Diagnostics;
+using System.Management.Automation.Host;
 using System.Threading;
+
+using Dbg = System.Management.Automation.Diagnostics;
 
 namespace Microsoft.PowerShell
 {
     internal partial
-    class ConsoleHostUserInterface : System.Management.Automation.Host.PSHostUserInterface
+    class ConsoleHostUserInterface : PSHostUserInterface
     {
         /// <summary>
-        ///
         /// Called at the end of a prompt loop to take down any progress display that might have appeared and purge any
         /// outstanding progress activity state.
-        ///
         /// </summary>
-
         internal
         void
         ResetProgress()
@@ -47,20 +46,25 @@ namespace Microsoft.PowerShell
                     _progPane.Hide();
                     _progPane = null;
                 }
+
                 _pendingProgress = null;
+
+                if (SupportsVirtualTerminal && !PSHost.IsStdOutputRedirected && PSStyle.Instance.Progress.UseOSCIndicator)
+                {
+                    // OSC sequence to turn off progress indicator
+                    // https://github.com/microsoft/terminal/issues/6700
+                    Console.Write("\x1b]9;4;0\x1b\\");
+                }
             }
         }
 
         /// <summary>
-        ///
         /// Invoked by ConsoleHostUserInterface.WriteProgress to update the set of outstanding activities for which
         /// ProgressRecords have been received.
-        ///
         /// </summary>
-
         private
         void
-        HandleIncomingProgressRecord(Int64 sourceId, ProgressRecord record)
+        HandleIncomingProgressRecord(long sourceId, ProgressRecord record)
         {
             Dbg.Assert(record != null, "record should not be null");
 
@@ -88,7 +92,7 @@ namespace Microsoft.PowerShell
                     progPaneUpdateFlag = 1;
 
                     // The timer will be auto restarted every 'UpdateTimerThreshold' ms
-                    _progPaneUpdateTimer = new Timer( new TimerCallback(ProgressPaneUpdateTimerElapsed), null, UpdateTimerThreshold, UpdateTimerThreshold);
+                    _progPaneUpdateTimer = new Timer(new TimerCallback(ProgressPaneUpdateTimerElapsed), null, UpdateTimerThreshold, UpdateTimerThreshold);
                 }
             }
 
@@ -96,16 +100,34 @@ namespace Microsoft.PowerShell
             {
                 // Update the progress pane only when the timer set up the update flag or WriteProgress is completed.
                 // As a result, we do not block WriteProgress and whole script and eliminate unnecessary console locks and updates.
+                if (SupportsVirtualTerminal && !PSHost.IsStdOutputRedirected && PSStyle.Instance.Progress.UseOSCIndicator)
+                {
+                    int percentComplete = record.PercentComplete;
+                    if (percentComplete < 0)
+                    {
+                        // Write-Progress allows for negative percent complete, but not greater than 100
+                        // but OSC sequence is limited from 0 to 100.
+                        percentComplete = 0;
+                    }
+
+                    // OSC sequence to turn on progress indicator
+                    // https://github.com/microsoft/terminal/issues/6700
+                    Console.Write($"\x1b]9;4;1;{percentComplete}\x1b\\");
+                }
+
+                // If VT is not supported, we change ProgressView to classic
+                if (!SupportsVirtualTerminal)
+                {
+                    PSStyle.Instance.Progress.View = ProgressView.Classic;
+                }
+
                 _progPane.Show(_pendingProgress);
             }
         }
 
         /// <summary>
-        ///
         /// TimerCallback for '_progPaneUpdateTimer' to update 'progPaneUpdateFlag'
-        ///
         /// </summary>
-
         private
         void
         ProgressPaneUpdateTimerElapsed(object sender)
@@ -117,25 +139,19 @@ namespace Microsoft.PowerShell
         void
         PreWrite()
         {
-            if (_progPane != null)
-            {
-                _progPane.Hide();
-            }
+            _progPane?.Hide();
         }
 
         private
         void
         PostWrite()
         {
-            if (_progPane != null)
-            {
-                _progPane.Show();
-            }
+            _progPane?.Show();
         }
 
         private
         void
-        PostWrite(string value)
+        PostWrite(ReadOnlySpan<char> value, bool newLine)
         {
             PostWrite();
 
@@ -143,7 +159,7 @@ namespace Microsoft.PowerShell
             {
                 try
                 {
-                    _parent.WriteToTranscript(value);
+                    _parent.WriteToTranscript(value, newLine);
                 }
                 catch (Exception)
                 {
@@ -156,20 +172,14 @@ namespace Microsoft.PowerShell
         void
         PreRead()
         {
-            if (_progPane != null)
-            {
-                _progPane.Hide();
-            }
+            _progPane?.Hide();
         }
 
         private
         void
         PostRead()
         {
-            if (_progPane != null)
-            {
-                _progPane.Show();
-            }
+            _progPane?.Show();
         }
 
         private
@@ -183,7 +193,7 @@ namespace Microsoft.PowerShell
                 try
                 {
                     // Reads always terminate with the enter key, so add that.
-                    _parent.WriteToTranscript(value + Crlf);
+                    _parent.WriteLineToTranscript(value);
                 }
                 catch (Exception)
                 {
@@ -196,8 +206,9 @@ namespace Microsoft.PowerShell
         private PendingProgress _pendingProgress = null;
         // The timer set up 'progPaneUpdateFlag' every 'UpdateTimerThreshold' milliseconds to update 'ProgressPane'
         private Timer _progPaneUpdateTimer = null;
+
         private const int UpdateTimerThreshold = 200;
+
         private int progPaneUpdateFlag = 0;
     }
 }   // namespace
-

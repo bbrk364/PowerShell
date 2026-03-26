@@ -1,22 +1,22 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Runtime.CompilerServices;
-using System.Globalization;
-using System.Reflection;
-using System.Runtime.Serialization;
 using System.Management.Automation.Internal;
 using System.Management.Automation.Language;
 using System.Management.Automation.Runspaces;
-using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
+using System.Runtime.Serialization;
 
 namespace System.Management.Automation
 {
@@ -24,7 +24,6 @@ namespace System.Management.Automation
     /// An object representing a pre-compiled block of powershell script.
     /// </summary>
     /// <remarks>
-    ///
     /// This class track a block of script in a compiled form. It is also
     /// used for direct invocation of the script block.
     ///
@@ -80,14 +79,13 @@ namespace System.Management.Automation
     /// runspace API.
     ///
     /// This class will handle the logic for direct invocation of script blocks.
-    ///
     /// </remarks>
     public partial class ScriptBlock
     {
         /// <summary>
         /// Create a script block object based on a script string to be parsed immediately.
         /// </summary>
-        /// <param name="context">Engine context for this script block</param>
+        /// <param name="context">Engine context for this script block.</param>
         /// <param name="script">The string to compile.</param>
         internal static ScriptBlock Create(ExecutionContext context, string script)
         {
@@ -96,6 +94,7 @@ namespace System.Management.Automation
             {
                 sb.SessionStateInternal = context.EngineSessionState;
             }
+
             return sb;
         }
 
@@ -104,15 +103,13 @@ namespace System.Management.Automation
         /// context is provided.
         /// </summary>
         /// <param name="script">The string to compile.</param>
-        public static ScriptBlock Create(string script)
-        {
-            return Create(new Language.Parser(), null, script);
-        }
+        public static ScriptBlock Create(string script) => Create(
+            parser: new Parser(),
+            fileName: null,
+            fileContents: script);
 
         internal static ScriptBlock CreateDelayParsedScriptBlock(string script, bool isProductCode)
-        {
-            return new ScriptBlock(new CompiledScriptBlockData(script, isProductCode));
-        }
+            => new ScriptBlock(new CompiledScriptBlockData(script, isProductCode)) { DebuggerHidden = true };
 
         /// <summary>
         /// Returns a new scriptblock bound to a module. Any local variables in the
@@ -127,7 +124,7 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Returns PowerShell object representing the pipeline contained in this ScriptBlock
+        /// Returns PowerShell object representing the pipeline contained in this ScriptBlock.
         /// </summary>
         /// <remarks>
         /// Some ScriptBlocks are too complicated to be converted into a PowerShell object.
@@ -166,11 +163,13 @@ namespace System.Management.Automation
         /// <exception cref="InvalidOperationException">
         /// Thrown when there is no ExecutionContext associated with this ScriptBlock object.
         /// </exception>
-        public PowerShell GetPowerShell(params object[] args)
-        {
-            ExecutionContext context = LocalPipeline.GetExecutionContextFromTLS();
-            return GetPowerShellImpl(context, null, false, false, null, args);
-        }
+        public PowerShell GetPowerShell(params object[] args) => GetPowerShellImpl(
+            context: LocalPipeline.GetExecutionContextFromTLS(),
+            variables: null,
+            isTrustedInput: false,
+            filterNonUsingVariables: false,
+            createLocalScope: null,
+            args);
 
         /// <summary>
         /// Returns PowerShell object representing the pipeline contained in this ScriptBlock,
@@ -188,10 +187,13 @@ namespace System.Management.Automation
         /// can be null
         /// </param>
         public PowerShell GetPowerShell(bool isTrustedInput, params object[] args)
-        {
-            ExecutionContext context = LocalPipeline.GetExecutionContextFromTLS();
-            return GetPowerShellImpl(context, null, isTrustedInput, false, null, args);
-        }
+            => GetPowerShellImpl(
+                context: LocalPipeline.GetExecutionContextFromTLS(),
+                variables: null,
+                isTrustedInput,
+                filterNonUsingVariables: false,
+                createLocalScope: null,
+                args);
 
         /// <summary>
         /// Returns PowerShell object representing the pipeline contained in this ScriptBlock, using variables
@@ -233,6 +235,7 @@ namespace System.Management.Automation
                 suppliedVariables = new Dictionary<string, object>(variables, StringComparer.OrdinalIgnoreCase);
                 context = null;
             }
+
             return GetPowerShellImpl(context, suppliedVariables, false, false, null, args);
         }
 
@@ -269,10 +272,11 @@ namespace System.Management.Automation
         /// Thrown when there is no ExecutionContext associated with this ScriptBlock object and no
         /// variables are supplied.
         /// </exception>
-        public PowerShell GetPowerShell(Dictionary<string, object> variables, out Dictionary<string, object> usingVariables, params object[] args)
-        {
-            return GetPowerShell(variables, out usingVariables, false, args);
-        }
+        public PowerShell GetPowerShell(
+            Dictionary<string, object> variables,
+            out Dictionary<string, object> usingVariables,
+            params object[] args)
+            => GetPowerShell(variables, out usingVariables, isTrustedInput: false, args);
 
         /// <summary>
         /// Returns PowerShell object representing the pipeline contained in this ScriptBlock, using variables
@@ -311,7 +315,11 @@ namespace System.Management.Automation
         /// Thrown when there is no ExecutionContext associated with this ScriptBlock object and no
         /// variables are supplied.
         /// </exception>
-        public PowerShell GetPowerShell(Dictionary<string, object> variables, out Dictionary<string, object> usingVariables, bool isTrustedInput, params object[] args)
+        public PowerShell GetPowerShell(
+            Dictionary<string, object> variables,
+            out Dictionary<string, object> usingVariables,
+            bool isTrustedInput,
+            params object[] args)
         {
             ExecutionContext context = LocalPipeline.GetExecutionContextFromTLS();
             Dictionary<string, object> suppliedVariables = null;
@@ -328,55 +336,66 @@ namespace System.Management.Automation
             return powershell;
         }
 
-        internal PowerShell GetPowerShell(ExecutionContext context, bool isTrustedInput, bool? useLocalScope, object[] args)
-        {
-            return GetPowerShellImpl(context, null, isTrustedInput, false, useLocalScope, args);
-        }
+        internal PowerShell GetPowerShell(
+            ExecutionContext context,
+            bool isTrustedInput,
+            bool? useLocalScope,
+            object[] args)
+            => GetPowerShellImpl(
+                context,
+                variables: null,
+                isTrustedInput,
+                filterNonUsingVariables: false,
+                useLocalScope,
+                args);
 
         /// <summary>
         /// Get a steppable pipeline object.
         /// </summary>
-        /// <returns>A steppable pipeline object</returns>
-        [SuppressMessage("Microsoft.Naming", "CA1704:IdentifiersShouldBeSpelledCorrectly", MessageId = "Steppable", Justification = "Review this during API naming")]
+        /// <returns>A steppable pipeline object.</returns>
+        [SuppressMessage(
+            "Microsoft.Naming",
+            "CA1704:IdentifiersShouldBeSpelledCorrectly",
+            MessageId = "Steppable",
+            Justification = "Review this during API naming")]
         public SteppablePipeline GetSteppablePipeline()
-        {
-            return GetSteppablePipelineImpl(CommandOrigin.Internal, null);
-        }
+            => GetSteppablePipelineImpl(commandOrigin: CommandOrigin.Internal, args: null);
 
         /// <summary>
         /// Get a steppable pipeline object.
         /// </summary>
-        /// <returns>A steppable pipeline object</returns>
-        [SuppressMessage("Microsoft.Naming", "CA1704:IdentifiersShouldBeSpelledCorrectly", MessageId = "Steppable", Justification = "Review this during API naming")]
+        /// <returns>A steppable pipeline object.</returns>
+        [SuppressMessage(
+            "Microsoft.Naming",
+            "CA1704:IdentifiersShouldBeSpelledCorrectly",
+            MessageId = "Steppable",
+            Justification = "Review this during API naming")]
         public SteppablePipeline GetSteppablePipeline(CommandOrigin commandOrigin)
-        {
-            return GetSteppablePipelineImpl(commandOrigin, null);
-        }
+            => GetSteppablePipelineImpl(commandOrigin, args: null);
 
         /// <summary>
         /// Get a steppable pipeline object.
         /// </summary>
-        /// <returns>A steppable pipeline object</returns>
-        [SuppressMessage("Microsoft.Naming", "CA1704:IdentifiersShouldBeSpelledCorrectly", MessageId = "Steppable", Justification = "Review this during API naming")]
+        /// <returns>A steppable pipeline object.</returns>
+        [SuppressMessage(
+            "Microsoft.Naming",
+            "CA1704:IdentifiersShouldBeSpelledCorrectly",
+            MessageId = "Steppable",
+            Justification = "Review this during API naming")]
         public SteppablePipeline GetSteppablePipeline(CommandOrigin commandOrigin, object[] args)
-        {
-            return GetSteppablePipelineImpl(commandOrigin, args);
-        }
+            => GetSteppablePipelineImpl(commandOrigin, args);
 
         /// <summary>
         /// Execute this node with the specified arguments. The arguments show
         /// up in the script as $args with $_ being the first argument.
         /// </summary>
-        ///
         /// <param name="args">The arguments to this script.</param>
         /// <returns>The object(s) generated during the execution of
-        /// the script block returned as a collection of PSObjects</returns>
-        /// <exception cref="RuntimeException">Thrown if a script runtime exceptionexception occurred</exception>
-        /// <exception cref="FlowControlException">An internal (non-public) exception from a flow control statement</exception>
-        public Collection<PSObject> Invoke(params object[] args)
-        {
-            return DoInvoke(AutomationNull.Value, AutomationNull.Value, args);
-        }
+        /// the script block returned as a collection of PSObjects.</returns>
+        /// <exception cref="RuntimeException">Thrown if a script runtime exceptionexception occurred.</exception>
+        /// <exception cref="FlowControlException">An internal (non-public) exception from a flow control statement.</exception>
+        public Collection<PSObject> Invoke(params object[] args) =>
+            DoInvoke(dollarUnder: AutomationNull.Value, input: AutomationNull.Value, args);
 
         /// <summary>
         /// A method that allows a scriptblock to be invoked with additional context in the form of a
@@ -386,9 +405,9 @@ namespace System.Management.Automation
         /// This overload of the function takes a hashtable and converts it to the
         /// required dictionary which makes the API easier to use from within a PowerShell script.
         /// </summary>
-        /// <param name="functionsToDefine">A dictionary of functions to define</param>
-        /// <param name="variablesToDefine">A list of variables to define</param>
-        /// <param name="args">The arguments to the actual scriptblock</param>
+        /// <param name="functionsToDefine">A dictionary of functions to define.</param>
+        /// <param name="variablesToDefine">A list of variables to define.</param>
+        /// <param name="args">The arguments to the actual scriptblock.</param>
         /// <returns></returns>
         public Collection<PSObject> InvokeWithContext(
             IDictionary functionsToDefine,
@@ -428,9 +447,9 @@ namespace System.Management.Automation
         /// set of local functions and variables to be defined in the scriptblock's scope. The list of
         /// variables may include the special variables $input, $_ and $this.
         /// </summary>
-        /// <param name="functionsToDefine">A dictionary of functions to define</param>
-        /// <param name="variablesToDefine">A list of variables to define</param>
-        /// <param name="args">The arguments to the actual scriptblock</param>
+        /// <param name="functionsToDefine">A dictionary of functions to define.</param>
+        /// <param name="variablesToDefine">A list of variables to define.</param>
+        /// <param name="args">The arguments to the actual scriptblock.</param>
         /// <returns></returns>
         public Collection<PSObject> InvokeWithContext(
             Dictionary<string, ScriptBlock> functionsToDefine,
@@ -443,24 +462,25 @@ namespace System.Management.Automation
 
             if (variablesToDefine != null)
             {
-                //
                 // Extract the special variables "this", "input" and "_"
-                //
-                PSVariable located = variablesToDefine.FirstOrDefault(v => string.Equals(v.Name, "this", StringComparison.OrdinalIgnoreCase));
+                PSVariable located = variablesToDefine.Find(
+                    v => string.Equals(v.Name, "this", StringComparison.OrdinalIgnoreCase));
                 if (located != null)
                 {
                     scriptThis = located.Value;
                     variablesToDefine.Remove(located);
                 }
 
-                located = variablesToDefine.FirstOrDefault(v => string.Equals(v.Name, "_", StringComparison.OrdinalIgnoreCase));
+                located = variablesToDefine.Find(
+                    v => string.Equals(v.Name, "_", StringComparison.Ordinal));
                 if (located != null)
                 {
                     dollarUnder = located.Value;
                     variablesToDefine.Remove(located);
                 }
 
-                located = variablesToDefine.FirstOrDefault(v => string.Equals(v.Name, "input", StringComparison.OrdinalIgnoreCase));
+                located = variablesToDefine.Find(
+                    v => string.Equals(v.Name, "input", StringComparison.OrdinalIgnoreCase));
                 if (located != null)
                 {
                     input = located.Value;
@@ -471,16 +491,17 @@ namespace System.Management.Automation
             List<object> result = new List<object>();
             Pipe outputPipe = new Pipe(result);
 
-            InvokeWithPipe(useLocalScope: true,
-                           functionsToDefine: functionsToDefine,
-                           variablesToDefine: variablesToDefine,
-                           errorHandlingBehavior: ErrorHandlingBehavior.WriteToCurrentErrorPipe,
-                           dollarUnder: dollarUnder,
-                           input: input,
-                           scriptThis: scriptThis,
-                           outputPipe: outputPipe,
-                           invocationInfo: null,
-                           args: args);
+            InvokeWithPipe(
+                useLocalScope: true,
+                functionsToDefine: functionsToDefine,
+                variablesToDefine: variablesToDefine,
+                errorHandlingBehavior: ErrorHandlingBehavior.WriteToCurrentErrorPipe,
+                dollarUnder: dollarUnder,
+                input: input,
+                scriptThis: scriptThis,
+                outputPipe: outputPipe,
+                invocationInfo: null,
+                args: args);
             return GetWrappedResult(result);
         }
 
@@ -492,40 +513,39 @@ namespace System.Management.Automation
         /// <param name="args">The arguments to pass to this scriptblock.</param>
         /// <returns>The object(s) generated during the execution of the
         /// script block. They may or may not be wrapped in PSObject. It's up to the caller to check.</returns>
-        /// <exception cref="RuntimeException">Thrown if a script runtime exceptionexception occurred</exception>
-        /// <exception cref="FlowControlException">An internal (non-public) exception from a flow control statement</exception>
+        /// <exception cref="RuntimeException">Thrown if a script runtime exceptionexception occurred.</exception>
+        /// <exception cref="FlowControlException">An internal (non-public) exception from a flow control statement.</exception>
         public object InvokeReturnAsIs(params object[] args)
-        {
-            return DoInvokeReturnAsIs(
-                    useLocalScope: true,
-                    errorHandlingBehavior: ErrorHandlingBehavior.WriteToExternalErrorPipe,
-                    dollarUnder: AutomationNull.Value,
-                    input: AutomationNull.Value,
-                    scriptThis: AutomationNull.Value,
-                    args: args);
-        }
+            => DoInvokeReturnAsIs(
+                useLocalScope: true,
+                errorHandlingBehavior: ErrorHandlingBehavior.WriteToExternalErrorPipe,
+                dollarUnder: AutomationNull.Value,
+                input: AutomationNull.Value,
+                scriptThis: AutomationNull.Value,
+                args: args);
 
         internal T InvokeAsMemberFunctionT<T>(object instance, object[] args)
         {
             List<object> result = new List<object>();
             Pipe pipe = new Pipe(result);
 
-            InvokeWithPipe(useLocalScope: true,
-                                       errorHandlingBehavior: ErrorHandlingBehavior.WriteToExternalErrorPipe,
-                                       dollarUnder: AutomationNull.Value,
-                                       input: AutomationNull.Value,
-                                       scriptThis: instance ?? AutomationNull.Value,
-                                       outputPipe: pipe,
-                                       invocationInfo: null,
-                                       propagateAllExceptionsToTop: true,
-                                       args: args);
+            InvokeWithPipe(
+                useLocalScope: true,
+                errorHandlingBehavior: ErrorHandlingBehavior.WriteToExternalErrorPipe,
+                dollarUnder: AutomationNull.Value,
+                input: AutomationNull.Value,
+                scriptThis: instance ?? AutomationNull.Value,
+                outputPipe: pipe,
+                invocationInfo: null,
+                propagateAllExceptionsToTop: true,
+                args: args);
 
             // This is needed only for the case where the
             // method returns [object]. If the argument to 'return'
             // is a pipeline that emits nothing then result.Count will
             // be zero so we catch that and "convert" it to null. Note that
-            // the return statement is still required in the method, it 
-            // just recieves nothing from it's argument.
+            // the return statement is still required in the method, it
+            // just receives nothing from it's argument.
             if (result.Count == 0)
             {
                 return default(T);
@@ -539,68 +559,49 @@ namespace System.Management.Automation
             List<object> result = new List<object>();
             Pipe pipe = new Pipe(result);
 
-            InvokeWithPipe(useLocalScope: true,
-                                       errorHandlingBehavior: ErrorHandlingBehavior.WriteToCurrentErrorPipe,
-                                       dollarUnder: AutomationNull.Value,
-                                       input: AutomationNull.Value,
-                                       scriptThis: instance ?? AutomationNull.Value,
-                                       outputPipe: pipe,
-                                       invocationInfo: null,
-                                       propagateAllExceptionsToTop: true,
-                                       args: args);
+            InvokeWithPipe(
+                useLocalScope: true,
+                errorHandlingBehavior: ErrorHandlingBehavior.WriteToCurrentErrorPipe,
+                dollarUnder: AutomationNull.Value,
+                input: AutomationNull.Value,
+                scriptThis: instance ?? AutomationNull.Value,
+                outputPipe: pipe,
+                invocationInfo: null,
+                propagateAllExceptionsToTop: true,
+                args: args);
             Diagnostics.Assert(result.Count == 0, "Code generation ensures we return the correct type");
         }
 
         /// <summary>
         /// Return all attributes on a script block.
         /// </summary>
-        public List<Attribute> Attributes
-        {
-            get { return GetAttributes(); }
-        }
+        public List<Attribute> Attributes { get => GetAttributes(); }
 
         /// <summary>
-        /// The script file that defined this script block...
+        /// The script file that defined this script block.
         /// </summary>
-        public string File
-        {
-            get { return GetFileName(); }
-        }
+        public string File { get => GetFileName(); }
 
         /// <summary>
         /// Get/set whether this scriptblock is a filter.
         /// </summary>
-        public bool IsFilter
-        {
-            get { return _scriptBlockData.IsFilter; }
-            set { throw new PSInvalidOperationException(); }
-        }
+        public bool IsFilter { get => _scriptBlockData.IsFilter; }
 
         /// <summary>
         /// Get/set whether this scriptblock is a Configuration.
         /// </summary>
-        public bool IsConfiguration
-        {
-            get { return _scriptBlockData.GetIsConfiguration(); }
-            set { throw new PSInvalidOperationException(); }
-        }
+        public bool IsConfiguration { get => _scriptBlockData.GetIsConfiguration(); }
 
         /// <summary>
         /// Get the PSModuleInfo object for the module that defined this
         /// scriptblock.
         /// </summary>
-        public PSModuleInfo Module
-        {
-            get { return SessionStateInternal != null ? SessionStateInternal.Module : null; }
-        }
+        public PSModuleInfo Module { get => SessionStateInternal?.Module; }
 
         /// <summary>
         /// Return the PSToken object for this function definition...
         /// </summary>
-        public PSToken StartPosition
-        {
-            get { return GetStartPosition(); }
-        }
+        public PSToken StartPosition { get => GetStartPosition(); }
 
         // LanguageMode is a nullable PSLanguageMode enumeration because script blocks
         // need to inherit the language mode from the context in which they are executing.
@@ -634,6 +635,7 @@ namespace System.Management.Automation
                         result.AddRange(outputType.Type);
                     }
                 }
+
                 return new ReadOnlyCollection<PSTypeName>(result);
             }
         }
@@ -644,24 +646,28 @@ namespace System.Management.Automation
         /// <remarks>
         /// This does normal array reduction in the case of a one-element array.
         /// </remarks>
-        internal static object GetRawResult(List<object> result)
+        internal static object GetRawResult(List<object> result, bool wrapToPSObject)
         {
-            if (result.Count == 0)
-                return AutomationNull.Value;
-
-            if (result.Count == 1)
-                return LanguagePrimitives.AsPSObjectOrNull(result[0]);
-
-            return LanguagePrimitives.AsPSObjectOrNull(result.ToArray());
+            switch (result.Count)
+            {
+                case 0:
+                    return AutomationNull.Value;
+                case 1:
+                    return wrapToPSObject ? LanguagePrimitives.AsPSObjectOrNull(result[0]) : result[0];
+                default:
+                    object resultArray = result.ToArray();
+                    return wrapToPSObject ? LanguagePrimitives.AsPSObjectOrNull(resultArray) : resultArray;
+            }
         }
 
-        internal void InvokeUsingCmdlet(Cmdlet contextCmdlet,
-                                        bool useLocalScope,
-                                        ErrorHandlingBehavior errorHandlingBehavior,
-                                        object dollarUnder,
-                                        object input,
-                                        object scriptThis,
-                                        object[] args)
+        internal void InvokeUsingCmdlet(
+            Cmdlet contextCmdlet,
+            bool useLocalScope,
+            ErrorHandlingBehavior errorHandlingBehavior,
+            object dollarUnder,
+            object input,
+            object scriptThis,
+            object[] args)
         {
             Diagnostics.Assert(contextCmdlet != null, "caller to verify contextCmdlet parameter");
 
@@ -669,11 +675,20 @@ namespace System.Management.Automation
             ExecutionContext context = GetContextFromTLS();
             var myInv = context.EngineSessionState.CurrentScope.GetAutomaticVariableValue(AutomaticVariable.MyInvocation);
             InvocationInfo inInfo = myInv == AutomationNull.Value ? null : (InvocationInfo)myInv;
-            InvokeWithPipe(useLocalScope, errorHandlingBehavior, dollarUnder, input, scriptThis, outputPipe, inInfo, propagateAllExceptionsToTop: false, args: args);
+            InvokeWithPipe(
+                useLocalScope,
+                errorHandlingBehavior,
+                dollarUnder,
+                input,
+                scriptThis,
+                outputPipe,
+                inInfo,
+                propagateAllExceptionsToTop: false,
+                args: args);
         }
 
         /// <summary>
-        /// The internal session state object associated with this scriptblock...
+        /// The internal session state object associated with this scriptblock.
         /// </summary>
         internal SessionStateInternal SessionStateInternal { get; set; }
 
@@ -694,12 +709,16 @@ namespace System.Management.Automation
                     }
                 }
 
-                return SessionStateInternal != null ? SessionStateInternal.PublicSessionState : null;
+                return SessionStateInternal?.PublicSessionState;
             }
+
             set
             {
                 if (value == null)
-                    throw PSTraceSource.NewArgumentNullException("value");
+                {
+                    throw PSTraceSource.NewArgumentNullException(nameof(value));
+                }
+
                 SessionStateInternal = value.Internal;
             }
         }
@@ -710,10 +729,7 @@ namespace System.Management.Automation
             new ConditionalWeakTable<ScriptBlock, ConcurrentDictionary<Type, Delegate>>();
 
         internal Delegate GetDelegate(Type delegateType)
-        {
-            var instanceDelegateTable = s_delegateTable.GetOrCreateValue(this);
-            return instanceDelegateTable.GetOrAdd(delegateType, CreateDelegate);
-        }
+            => s_delegateTable.GetOrCreateValue(this).GetOrAdd(delegateType, CreateDelegate);
 
         /// <summary>
         /// Get the delegate method as a call back.
@@ -762,11 +778,15 @@ namespace System.Management.Automation
                 CachedReflectionInfo.ScriptBlock_InvokeAsDelegateHelper,
                 dollarUnderExpr,
                 dollarThisExpr,
-                Expression.NewArrayInit(typeof(object), parameterExprs.Select(p => p.Cast(typeof(object)))));
+                Expression.NewArrayInit(typeof(object), parameterExprs.Select(static p => p.Cast(typeof(object)))));
             if (returnsSomething)
             {
-                call = DynamicExpression.Dynamic(PSConvertBinder.Get(invokeMethod.ReturnType), invokeMethod.ReturnType, call);
+                call = DynamicExpression.Dynamic(
+                    PSConvertBinder.Get(invokeMethod.ReturnType),
+                    invokeMethod.ReturnType,
+                    call);
             }
+
             return Expression.Lambda(delegateType, call, parameterExprs).Compile();
         }
 
@@ -787,7 +807,7 @@ namespace System.Management.Automation
                 outputPipe: outputPipe,
                 invocationInfo: null,
                 args: args);
-            return GetRawResult(rawResult);
+            return GetRawResult(rawResult, wrapToPSObject: false);
         }
 
         #endregion
@@ -795,7 +815,9 @@ namespace System.Management.Automation
         /// <summary>
         /// Returns the current execution context from TLS, or raises an exception if it is null.
         /// </summary>
-        /// <exception cref="InvalidOperationException">An attempt was made to use the scriptblock outside the engine</exception>
+        /// <exception cref="InvalidOperationException">
+        /// An attempt was made to use the scriptblock outside the engine.
+        /// </exception>
         internal ExecutionContext GetContextFromTLS()
         {
             ExecutionContext context = LocalPipeline.GetExecutionContextFromTLS();
@@ -822,34 +844,32 @@ namespace System.Management.Automation
         /// Execute this node with the specified arguments. The arguments show
         /// up in the script as $args with $_ being the first argument.
         /// </summary>
-        ///
         /// <param name="dollarUnder">
         /// The value of the $_ variable for the script block. If AutomationNull.Value,
         /// the $_ variable is not created.
         /// </param>
-        ///
         /// <param name="input">
         /// The value of the $input variable for the script block. If AutomationNull.Value,
         /// the $input variable is not created.
         /// </param>
-        ///
         /// <param name="args">The arguments to this script.</param>
         /// <returns>The object(s) generated during the execution of
-        /// the script block returned as a collection of PSObjects</returns>
-        /// <exception cref="RuntimeException">A script exception occurred</exception>
-        /// <exception cref="FlowControlException">Internal exception from a flow control statement</exception>
+        /// the script block returned as a collection of PSObjects.</returns>
+        /// <exception cref="RuntimeException">A script exception occurred.</exception>
+        /// <exception cref="FlowControlException">Internal exception from a flow control statement.</exception>
         internal Collection<PSObject> DoInvoke(object dollarUnder, object input, object[] args)
         {
             List<object> result = new List<object>();
             Pipe outputPipe = new Pipe(result);
-            InvokeWithPipe(useLocalScope: true,
-                           errorHandlingBehavior: ErrorHandlingBehavior.WriteToExternalErrorPipe,
-                           dollarUnder: dollarUnder,
-                           input: input,
-                           scriptThis: AutomationNull.Value,
-                           outputPipe: outputPipe,
-                           invocationInfo: null,
-                           args: args);
+            InvokeWithPipe(
+                useLocalScope: true,
+                errorHandlingBehavior: ErrorHandlingBehavior.WriteToExternalErrorPipe,
+                dollarUnder: dollarUnder,
+                input: input,
+                scriptThis: AutomationNull.Value,
+                outputPipe: outputPipe,
+                invocationInfo: null,
+                args: args);
             return GetWrappedResult(result);
         }
 
@@ -879,7 +899,6 @@ namespace System.Management.Automation
         /// Execute this node with the specified arguments. The arguments show
         /// up in the script as $args with $_ being the first argument.
         /// </summary>
-        ///
         /// <param name="useLocalScope"></param>
         /// <param name="errorHandlingBehavior"></param>
         /// <param name="dollarUnder">
@@ -892,43 +911,44 @@ namespace System.Management.Automation
         /// </param>
         /// <param name="scriptThis"></param>
         /// <param name="args">The arguments to this script.</param>
-        ///
         /// <returns>The object(s) generated during the execution of
-        /// the script block returned as a collection of PSObjects</returns>
-        /// <exception cref="RuntimeException">A script exception occurred</exception>
-        /// <exception cref="FlowControlException">Internal exception from a flow control statement</exception>
-        internal object DoInvokeReturnAsIs(bool useLocalScope,
-                                           ErrorHandlingBehavior errorHandlingBehavior,
-                                           object dollarUnder,
-                                           object input,
-                                           object scriptThis,
-                                           object[] args)
+        /// the script block returned as a collection of PSObjects.</returns>
+        /// <exception cref="RuntimeException">A script exception occurred.</exception>
+        /// <exception cref="FlowControlException">Internal exception from a flow control statement.</exception>
+        internal object DoInvokeReturnAsIs(
+            bool useLocalScope,
+            ErrorHandlingBehavior errorHandlingBehavior,
+            object dollarUnder,
+            object input,
+            object scriptThis,
+            object[] args)
         {
             List<object> result = new List<object>();
             Pipe outputPipe = new Pipe(result);
-            InvokeWithPipe(useLocalScope: useLocalScope,
-                           errorHandlingBehavior: errorHandlingBehavior,
-                           dollarUnder: dollarUnder,
-                           input: input,
-                           scriptThis: scriptThis,
-                           outputPipe: outputPipe,
-                           invocationInfo: null,
-                           args: args);
-            return GetRawResult(result);
+            InvokeWithPipe(
+                useLocalScope: useLocalScope,
+                errorHandlingBehavior: errorHandlingBehavior,
+                dollarUnder: dollarUnder,
+                input: input,
+                scriptThis: scriptThis,
+                outputPipe: outputPipe,
+                invocationInfo: null,
+                args: args);
+            return GetRawResult(result, wrapToPSObject: true);
         }
 
         internal void InvokeWithPipe(
-                                    bool useLocalScope,
-                                    ErrorHandlingBehavior errorHandlingBehavior,
-                                    object dollarUnder,
-                                    object input,
-                                    object scriptThis,
-                                    Pipe outputPipe,
-                                    InvocationInfo invocationInfo,
-                                    bool propagateAllExceptionsToTop = false,
-                                    List<PSVariable> variablesToDefine = null,
-                                    Dictionary<string, ScriptBlock> functionsToDefine = null,
-                                    object[] args = null)
+            bool useLocalScope,
+            ErrorHandlingBehavior errorHandlingBehavior,
+            object dollarUnder,
+            object input,
+            object scriptThis,
+            Pipe outputPipe,
+            InvocationInfo invocationInfo,
+            bool propagateAllExceptionsToTop = false,
+            List<PSVariable> variablesToDefine = null,
+            Dictionary<string, ScriptBlock> functionsToDefine = null,
+            object[] args = null)
         {
             bool shouldGenerateEvent = false;
             bool oldPropagateExceptions = false;
@@ -955,9 +975,24 @@ namespace System.Management.Automation
                 try
                 {
                     var runspace = (RunspaceBase)context.CurrentRunspace;
-                    shouldGenerateEvent = !runspace.RunActionIfNoRunningPipelinesWithThreadCheck(() =>
-                        InvokeWithPipeImpl(useLocalScope, functionsToDefine, variablesToDefine, errorHandlingBehavior,
-                            dollarUnder, input, scriptThis, outputPipe, invocationInfo, args));
+                    if (runspace.CanRunActionInCurrentPipeline())
+                    {
+                        InvokeWithPipeImpl(
+                            useLocalScope,
+                            functionsToDefine,
+                            variablesToDefine,
+                            errorHandlingBehavior,
+                            dollarUnder,
+                            input,
+                            scriptThis,
+                            outputPipe,
+                            invocationInfo,
+                            args);
+                    }
+                    else
+                    {
+                        shouldGenerateEvent = true;
+                    }
                 }
                 finally
                 {
@@ -971,19 +1006,26 @@ namespace System.Management.Automation
             if (shouldGenerateEvent)
             {
                 context.Events.SubscribeEvent(
-                        source: null,
-                        eventName: PSEngineEvent.OnScriptBlockInvoke,
-                        sourceIdentifier: PSEngineEvent.OnScriptBlockInvoke,
-                        data: null,
-                        handlerDelegate: new PSEventReceivedEventHandler(OnScriptBlockInvokeEventHandler),
-                        supportEvent: true,
-                        forwardEvent: false,
-                        shouldQueueAndProcessInExecutionThread: true,
-                        maxTriggerCount: 1);
+                    source: null,
+                    eventName: PSEngineEvent.OnScriptBlockInvoke,
+                    sourceIdentifier: PSEngineEvent.OnScriptBlockInvoke,
+                    data: null,
+                    handlerDelegate: new PSEventReceivedEventHandler(OnScriptBlockInvokeEventHandler),
+                    supportEvent: true,
+                    forwardEvent: false,
+                    shouldQueueAndProcessInExecutionThread: true,
+                    maxTriggerCount: 1);
 
                 var scriptBlockInvocationEventArgs = new ScriptBlockInvocationEventArgs(
-                    this, useLocalScope, errorHandlingBehavior, dollarUnder, input, scriptThis, outputPipe,
-                    invocationInfo, args);
+                    scriptBlock: this,
+                    useLocalScope,
+                    errorHandlingBehavior,
+                    dollarUnder,
+                    input,
+                    scriptThis,
+                    outputPipe,
+                    invocationInfo,
+                    args);
 
                 context.Events.GenerateEvent(
                     sourceIdentifier: PSEngineEvent.OnScriptBlockInvoke,
@@ -993,25 +1035,33 @@ namespace System.Management.Automation
                     processInCurrentThread: true,
                     waitForCompletionInCurrentThread: true);
 
-                if (scriptBlockInvocationEventArgs.Exception != null)
-                {
-                    scriptBlockInvocationEventArgs.Exception.Throw();
-                }
+                scriptBlockInvocationEventArgs.Exception?.Throw();
             }
         }
 
         /// <summary>
-        /// Handles OnScriptBlockInvoke event, this is called by the event manager
+        /// Handles OnScriptBlockInvoke event, this is called by the event manager.
         /// </summary>
         private static void OnScriptBlockInvokeEventHandler(object sender, PSEventArgs args)
         {
             var eventArgs = (object)args.SourceEventArgs as ScriptBlockInvocationEventArgs;
-            Diagnostics.Assert(eventArgs != null, "Event Arguments to OnScriptBlockInvokeEventHandler should not be null");
+            Diagnostics.Assert(eventArgs != null,
+                "Event Arguments to OnScriptBlockInvokeEventHandler should not be null");
 
             try
             {
                 ScriptBlock sb = eventArgs.ScriptBlock;
-                sb.InvokeWithPipeImpl(eventArgs.UseLocalScope, null, null, eventArgs.ErrorHandlingBehavior, eventArgs.DollarUnder, eventArgs.Input, eventArgs.ScriptThis, eventArgs.OutputPipe, eventArgs.InvocationInfo, eventArgs.Args);
+                sb.InvokeWithPipeImpl(
+                    eventArgs.UseLocalScope,
+                    functionsToDefine: null,
+                    variablesToDefine: null,
+                    eventArgs.ErrorHandlingBehavior,
+                    eventArgs.DollarUnder,
+                    eventArgs.Input,
+                    eventArgs.ScriptThis,
+                    eventArgs.OutputPipe,
+                    eventArgs.InvocationInfo,
+                    eventArgs.Args);
             }
             catch (Exception e)
             {
@@ -1028,6 +1078,7 @@ namespace System.Management.Automation
                 psScriptRoot = Path.GetDirectoryName(File);
                 psCommandPath = File;
             }
+
             locals.SetAutomaticVariable(AutomaticVariable.PSScriptRoot, psScriptRoot, context);
             locals.SetAutomaticVariable(AutomaticVariable.PSCommandPath, psCommandPath, context);
         }
@@ -1036,46 +1087,46 @@ namespace System.Management.Automation
     /// <summary>
     /// A steppable pipeline wrapper object...
     /// </summary>
-    [SuppressMessage("Microsoft.Naming", "CA1704:IdentifiersShouldBeSpelledCorrectly", MessageId = "Steppable", Justification = "Consider Name change during API review")]
+    [SuppressMessage(
+        "Microsoft.Naming",
+        "CA1704:IdentifiersShouldBeSpelledCorrectly",
+        MessageId = "Steppable",
+        Justification = "Consider Name change during API review")]
     public sealed class SteppablePipeline : IDisposable
     {
         internal SteppablePipeline(ExecutionContext context, PipelineProcessor pipeline)
         {
-            if (pipeline == null) throw new ArgumentNullException("pipeline");
-            if (context == null) throw new ArgumentNullException("context");
+            ArgumentNullException.ThrowIfNull(pipeline);
+
+            ArgumentNullException.ThrowIfNull(context);
+
             _pipeline = pipeline;
             _context = context;
         }
 
-        private PipelineProcessor _pipeline;
-        private ExecutionContext _context;
+        private readonly PipelineProcessor _pipeline;
+        private readonly ExecutionContext _context;
         private bool _expectInput;
 
         /// <summary>
         /// Begin execution of a steppable pipeline. This overload doesn't reroute output and error pipes.
         /// </summary>
-        /// <param name="expectInput"><c>true</c> if you plan to write input into this pipe; <c>false</c> otherwise</param>
-        public void Begin(bool expectInput)
-        {
-            Begin(expectInput, (ICommandRuntime)null);
-        }
+        /// <param name="expectInput"><see langword="true"/> if you plan to write input into this pipe; <see langword="false"/> otherwise.</param>
+        public void Begin(bool expectInput) => Begin(expectInput, commandRuntime: (ICommandRuntime)null);
 
         /// <summary>
         /// Begin execution of a steppable pipeline, using the command running currently in the specified context to figure
         /// out how to route the output and errors.
         /// </summary>
-        /// <param name="expectInput"><c>true</c> if you plan to write input into this pipe; <c>false</c> otherwise</param>
-        /// <param name="contextToRedirectTo">context used to figure out how to route the output and errors.</param>
+        /// <param name="expectInput"><see langword="true"/> if you plan to write input into this pipe; <see langword="false"/> otherwise.</param>
+        /// <param name="contextToRedirectTo">Context used to figure out how to route the output and errors.</param>
         public void Begin(bool expectInput, EngineIntrinsics contextToRedirectTo)
         {
-            if (contextToRedirectTo == null)
-            {
-                throw new ArgumentNullException("contextToRedirectTo");
-            }
+            ArgumentNullException.ThrowIfNull(contextToRedirectTo);
 
             ExecutionContext executionContext = contextToRedirectTo.SessionState.Internal.ExecutionContext;
             CommandProcessorBase commandProcessor = executionContext.CurrentCommandProcessor;
-            ICommandRuntime crt = commandProcessor == null ? null : commandProcessor.CommandRuntime;
+            ICommandRuntime crt = commandProcessor?.CommandRuntime;
             Begin(expectInput, crt);
         }
 
@@ -1084,11 +1135,13 @@ namespace System.Management.Automation
         /// out how to route the output and errors. This is the most effective
         /// way to start stepping.
         /// </summary>
-        /// <param name="command">The command you're calling this from (i.e. instance of PSCmdlet or value of $PSCmdlet variable)</param>
+        /// <param name="command">The command you're calling this from (i.e. instance of PSCmdlet or value of $PSCmdlet variable).</param>
         public void Begin(InternalCommand command)
         {
-            if (command == null || command.MyInvocation == null)
-                throw new ArgumentNullException("command");
+            if (command is null || command.MyInvocation is null)
+            {
+                throw new ArgumentNullException(nameof(command));
+            }
 
             Begin(command.MyInvocation.ExpectingInput, command.commandRuntime);
         }
@@ -1111,11 +1164,13 @@ namespace System.Management.Automation
                     {
                         _pipeline.LinkPipelineSuccessOutput(crt.OutputPipe);
                     }
+
                     if (crt.ErrorOutputPipe != null)
                     {
                         _pipeline.LinkPipelineErrorOutput(crt.ErrorOutputPipe);
                     }
                 }
+
                 _pipeline.StartStepping(_expectInput);
             }
             finally
@@ -1128,8 +1183,8 @@ namespace System.Management.Automation
         /// <summary>
         /// Process a single input object.
         /// </summary>
-        /// <param name="input">The object to process</param>
-        /// <returns>a collection of 0 or more result objects</returns>
+        /// <param name="input">The object to process.</param>
+        /// <returns>A collection of 0 or more result objects.</returns>
         public Array Process(object input)
         {
             try
@@ -1155,7 +1210,7 @@ namespace System.Management.Automation
         /// that the PowerShell runtime will PSBase an object before passing it to
         /// a .NET API call with argument type object.
         /// </summary>
-        /// <param name="input">The input object to process</param>
+        /// <param name="input">The input object to process.</param>
         /// <returns></returns>
         public Array Process(PSObject input)
         {
@@ -1183,7 +1238,7 @@ namespace System.Management.Automation
         /// Begin() was called with $false so we won't send any
         /// input to be processed.
         /// </summary>
-        /// <returns>The result of the execution</returns>
+        /// <returns>The result of the execution.</returns>
         public Array Process()
         {
             try
@@ -1213,7 +1268,44 @@ namespace System.Management.Automation
             {
                 // then pop this pipeline and dispose it...
                 _context.PopPipelineProcessor(true);
-                _pipeline.Dispose();
+                Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Clean resources for script commands of this steppable pipeline.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The way we handle 'Clean' blocks in a steppable pipeline makes sure that:</para>
+        /// <para>1. The 'Clean' blocks get to run if any exception is thrown from 'Begin/Process/End'.</para>
+        /// <para>2. The 'Clean' blocks get to run if 'End' finished successfully.</para>
+        /// <para>
+        /// However, this is not enough for a steppable pipeline, because the function, where the steppable
+        /// pipeline gets used, may fail (think about a proxy function). And that may lead to the situation
+        /// where "no exception was thrown from the steppable pipeline" but "the steppable pipeline didn't
+        /// run to the end". In that case, 'Clean' won't run unless it's triggered explicitly on the steppable
+        /// pipeline. This method allows a user to do that from the 'Clean' block of the proxy function.</para>
+        /// </remarks>
+        public void Clean()
+        {
+            if (_pipeline.Commands is null)
+            {
+                // The pipeline commands have been disposed. In this case, 'Clean'
+                // should have already been called on the pipeline processor.
+                return;
+            }
+
+            try
+            {
+                _context.PushPipelineProcessor(_pipeline);
+                _pipeline.DoCleanup();
+            }
+            finally
+            {
+                // then pop this pipeline and dispose it...
+                _context.PopPipelineProcessor(true);
+                Dispose();
             }
         }
 
@@ -1227,29 +1319,13 @@ namespace System.Management.Automation
         /// </summary>
         public void Dispose()
         {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
-        private void Dispose(bool disposing)
-        {
             if (_disposed)
-                return;
-
-            if (disposing)
             {
-                _pipeline.Dispose();
+                return;
             }
 
+            _pipeline.Dispose();
             _disposed = true;
-        }
-
-        /// <summary>
-        /// Finalizer for class SteppablePipeline
-        /// </summary>
-        ~SteppablePipeline()
-        {
-            Dispose(false);
         }
 
         #endregion IDispose
@@ -1259,14 +1335,13 @@ namespace System.Management.Automation
     /// Defines the exception thrown when conversion from ScriptBlock to PowerShell is forbidden
     /// (i.e. when the script block has undeclared variables or more than one statement)
     /// </summary>
-    [Serializable]
     public class ScriptBlockToPowerShellNotSupportedException : RuntimeException
     {
         #region ctor
 
         /// <summary>
         /// Initializes a new instance of ScriptBlockToPowerShellNotSupportedException
-        /// with the message set to typeof(ScriptBlockToPowerShellNotSupportedException).FullName
+        /// with the message set to typeof(ScriptBlockToPowerShellNotSupportedException).FullName.
         /// </summary>
         public ScriptBlockToPowerShellNotSupportedException()
             : base(typeof(ScriptBlockToPowerShellNotSupportedException).FullName)
@@ -1274,64 +1349,63 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Initializes a new instance of ScriptBlockToPowerShellNotSupportedException setting the message
+        /// Initializes a new instance of ScriptBlockToPowerShellNotSupportedException setting the message.
         /// </summary>
-        /// <param name="message">the exception's message</param>
+        /// <param name="message">The exception's message.</param>
         public ScriptBlockToPowerShellNotSupportedException(string message)
             : base(message)
         {
         }
 
         /// <summary>
-        /// Initializes a new instance of ScriptBlockToPowerShellNotSupportedException setting the message and innerException
+        /// Initializes a new instance of ScriptBlockToPowerShellNotSupportedException setting the message and innerException.
         /// </summary>
-        /// <param name="message">the exception's message</param>
-        /// <param name="innerException">the exceptions's inner exception</param>
+        /// <param name="message">The exception's message.</param>
+        /// <param name="innerException">The exception's inner exception.</param>
         public ScriptBlockToPowerShellNotSupportedException(string message, Exception innerException)
             : base(message, innerException)
         {
         }
 
         /// <summary>
-        /// Recommended constructor for the class
+        /// Recommended constructor for the class.
         /// </summary>
-        /// <param name="errorId">String that uniquely identifies each thrown Exception</param>
-        /// <param name="innerException">The inner exception</param>
-        /// <param name="message">The error message</param>
-        /// <param name="arguments">Arguments to the resource string</param>
+        /// <param name="errorId">String that uniquely identifies each thrown Exception.</param>
+        /// <param name="innerException">The inner exception.</param>
+        /// <param name="message">The error message.</param>
+        /// <param name="arguments">Arguments to the resource string.</param>
         internal ScriptBlockToPowerShellNotSupportedException(
             string errorId,
             Exception innerException,
             string message,
             params object[] arguments)
             : base(string.Format(CultureInfo.CurrentCulture, message, arguments), innerException)
-        {
-            this.SetErrorId(errorId);
-        }
+            => this.SetErrorId(errorId);
 
         #region Serialization
         /// <summary>
-        /// Initializes a new instance of ScriptBlockToPowerShellNotSupportedException with serialization parameters
+        /// Initializes a new instance of ScriptBlockToPowerShellNotSupportedException with serialization parameters.
         /// </summary>
-        /// <param name="info"> serialization information </param>
-        /// <param name="context"> streaming context </param>
+        /// <param name="info">Serialization information.</param>
+        /// <param name="context">Streaming context.</param>
+        [Obsolete("Legacy serialization support is deprecated since .NET 8", DiagnosticId = "SYSLIB0051")]
         protected ScriptBlockToPowerShellNotSupportedException(SerializationInfo info, StreamingContext context)
-            : base(info, context)
         {
+            throw new NotSupportedException();
         }
         #endregion Serialization
 
         #endregion ctor
 
-    } // ScriptBlockToPowerShellNotSupportedException
+    }
 
     /// <summary>
-    /// Defines Event arguments passed to OnScriptBlockInvocationEventHandler
+    /// Defines Event arguments passed to OnScriptBlockInvocationEventHandler.
     /// </summary>
     internal sealed class ScriptBlockInvocationEventArgs : EventArgs
     {
         /// <summary>
-        /// Constructs ScriptBlockInvocationEventArgs
+        /// Constructs ScriptBlockInvocationEventArgs.
         /// </summary>
         /// <param name="scriptBlock">The scriptblock to invoke
         /// </param>
@@ -1350,21 +1424,22 @@ namespace System.Management.Automation
         /// </param>
         /// <param name="invocationInfo">The information about current state of the runspace.</param>
         /// <param name="args">The arguments to this script.</param>
-        /// <exception cref="ArgumentNullException">scriptBlock is null
+        /// <exception cref="ArgumentNullException">ScriptBlock is null
         /// </exception>
-        internal ScriptBlockInvocationEventArgs(ScriptBlock scriptBlock,
-                                                bool useLocalScope,
-                                                ScriptBlock.ErrorHandlingBehavior errorHandlingBehavior,
-                                                object dollarUnder,
-                                                object input,
-                                                object scriptThis,
-                                                Pipe outputPipe,
-                                                InvocationInfo invocationInfo,
-                                                object[] args)
+        internal ScriptBlockInvocationEventArgs(
+            ScriptBlock scriptBlock,
+            bool useLocalScope,
+            ScriptBlock.ErrorHandlingBehavior errorHandlingBehavior,
+            object dollarUnder,
+            object input,
+            object scriptThis,
+            Pipe outputPipe,
+            InvocationInfo invocationInfo,
+            object[] args)
         {
             if (scriptBlock == null)
             {
-                throw PSTraceSource.NewArgumentNullException("scriptBlock");
+                throw PSTraceSource.NewArgumentNullException(nameof(scriptBlock));
             }
 
             ScriptBlock = scriptBlock;
@@ -1379,13 +1454,21 @@ namespace System.Management.Automation
         }
 
         internal ScriptBlock ScriptBlock { get; set; }
+
         internal bool UseLocalScope { get; set; }
+
         internal ScriptBlock.ErrorHandlingBehavior ErrorHandlingBehavior { get; set; }
+
         internal object DollarUnder { get; set; }
+
         internal object Input { get; set; }
+
         internal object ScriptThis { get; set; }
+
         internal Pipe OutputPipe { get; set; }
+
         internal InvocationInfo InvocationInfo { get; set; }
+
         internal object[] Args { get; set; }
 
         /// <summary>

@@ -1,26 +1,22 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-#if CORECLR
-
-using System.IO;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Reflection;
-using System.Reflection.Metadata;
-using System.Reflection.PortableExecutable;
 using System.Runtime.Loader;
-using System.Text;
-using System.Linq;
+using Microsoft.PowerShell.Telemetry;
 
 namespace System.Management.Automation
 {
     /// <summary>
-    /// The powershell custom AssemblyLoadContext implementation
+    /// The powershell custom AssemblyLoadContext implementation.
     /// </summary>
-    internal partial class PowerShellAssemblyLoadContext
+    internal sealed partial class PowerShellAssemblyLoadContext
     {
         #region Resource_Strings
 
@@ -39,22 +35,27 @@ namespace System.Management.Automation
         #region Constructor
 
         /// <summary>
-        /// Initialize a singleton of PowerShellAssemblyLoadContext
+        /// Initialize a singleton of PowerShellAssemblyLoadContext.
         /// </summary>
-        internal static PowerShellAssemblyLoadContext InitializeSingleton(string basePaths)
+        internal static PowerShellAssemblyLoadContext InitializeSingleton(string basePaths, bool throwOnReentry)
         {
             lock (s_syncObj)
             {
-                if (Instance != null)
+                if (Instance is null)
+                {
+                    Instance = new PowerShellAssemblyLoadContext(basePaths);
+                }
+                else if (throwOnReentry)
+                {
                     throw new InvalidOperationException(SingletonAlreadyInitialized);
+                }
 
-                Instance = new PowerShellAssemblyLoadContext(basePaths);
                 return Instance;
             }
         }
 
         /// <summary>
-        /// Constructor
+        /// Constructor.
         /// </summary>
         /// <param name="basePaths">
         /// Base directory paths that are separated by semicolon ';'. They will be the default paths to probe assemblies.
@@ -74,15 +75,16 @@ namespace System.Management.Automation
             }
             else
             {
-                _probingPaths = basePaths.Split(new char[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+                _probingPaths = basePaths.Split(';', StringSplitOptions.RemoveEmptyEntries);
                 for (int i = 0; i < _probingPaths.Length; i++)
                 {
                     string basePath = _probingPaths[i];
                     if (!Directory.Exists(basePath))
                     {
                         string message = string.Format(CultureInfo.CurrentCulture, BaseFolderDoesNotExist, basePath);
-                        throw new ArgumentException(message, "basePaths");
+                        throw new ArgumentException(message, nameof(basePaths));
                     }
+
                     _probingPaths[i] = basePath.Trim();
                 }
             }
@@ -92,15 +94,22 @@ namespace System.Management.Automation
             _availableDotNetAssemblyNames = new Lazy<HashSet<string>>(
                     () => new HashSet<string>(_coreClrTypeCatalog.Values, StringComparer.Ordinal));
 
-            // LAST: Register 'Resolving' handler on the default load context.
+            // LAST: Register the 'Resolving' handler and 'ResolvingUnmanagedDll' handler on the default load context.
             AssemblyLoadContext.Default.Resolving += Resolve;
+
+            // Add last resort native dll resolver.
+            // Default order:
+            //      1. System.Runtime.InteropServices.DllImportResolver callbacks
+            //      2. AssemblyLoadContext.LoadUnmanagedDll()
+            //      3. AssemblyLoadContext.Default.ResolvingUnmanagedDll handlers
+            AssemblyLoadContext.Default.ResolvingUnmanagedDll += NativeDllHandler;
         }
 
         #endregion Constructor
 
         #region Fields
 
-        private readonly static object s_syncObj = new object();
+        private static readonly object s_syncObj = new();
         private readonly string[] _probingPaths;
         private readonly string[] _extensions = new string[] { ".ni.dll", ".dll" };
         // CoreCLR type catalog dictionary
@@ -108,9 +117,9 @@ namespace System.Management.Automation
         //  - Value: strong name of the TPA that contains the type represented by Key.
         private readonly Dictionary<string, string> _coreClrTypeCatalog;
         private readonly Lazy<HashSet<string>> _availableDotNetAssemblyNames;
-        private readonly HashSet<string> _blackListedAssemblies = new HashSet<string>(StringComparer.OrdinalIgnoreCase){
-                "System.Windows.Forms"
-            };
+
+        private readonly HashSet<string> _denyListedAssemblies =
+            new(StringComparer.OrdinalIgnoreCase) { "System.Windows.Forms" };
 
 #if !UNIX
         private string _winDir;
@@ -120,7 +129,7 @@ namespace System.Management.Automation
 #endif
 
         /// <summary>
-        /// Assembly cache across the AppDomain
+        /// Assembly cache across the AppDomain.
         /// </summary>
         /// <remarks>
         /// We user the assembly short name (AssemblyName.Name) as the key.
@@ -134,14 +143,14 @@ namespace System.Management.Automation
         /// Therefore, there is no need to use the full assembly name as the key. Short assembly name is sufficient.
         /// </remarks>
         private static readonly ConcurrentDictionary<string, Assembly> s_assemblyCache =
-            new ConcurrentDictionary<string, Assembly>(StringComparer.OrdinalIgnoreCase);
+            new(StringComparer.OrdinalIgnoreCase);
 
         #endregion Fields
 
         #region Properties
 
         /// <summary>
-        /// Singleton instance of PowerShellAssemblyLoadContext
+        /// Singleton instance of PowerShellAssemblyLoadContext.
         /// </summary>
         internal static PowerShellAssemblyLoadContext Instance
         {
@@ -149,7 +158,7 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Get the namespace-qualified type names of all available .NET Core types shipped with PowerShell Core.
+        /// Get the namespace-qualified type names of all available .NET Core types shipped with PowerShell.
         /// This is used for type name auto-completion in PS engine.
         /// </summary>
         internal IEnumerable<string> AvailableDotNetTypeNames
@@ -158,7 +167,7 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Get the assembly names of all available .NET Core assemblies shipped with PowerShell Core.
+        /// Get the assembly names of all available .NET Core assemblies shipped with PowerShell.
         /// This is used for type name auto-completion in PS engine.
         /// </summary>
         internal HashSet<string> AvailableDotNetAssemblyNames
@@ -171,7 +180,7 @@ namespace System.Management.Automation
         #region Internal_Methods
 
         /// <summary>
-        /// Get the current loaded assemblies
+        /// Get the current loaded assemblies.
         /// </summary>
         internal IEnumerable<Assembly> GetAssembly(string namespaceQualifiedTypeName)
         {
@@ -194,19 +203,50 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Set the profile optimization root on the appropriate load context
+        /// If a managed dll has native dependencies the handler will try to find these native dlls.
+        ///     1. Gets the managed.dll location (folder)
+        ///     2. Based on OS name and architecture name builds subfolder name where it is expected the native dll resides:
+        ///     3. Loads the native dll
+        ///
+        ///     managed.dll folder
+        ///                     |
+        ///                     |--- 'win-x64' subfolder
+        ///                     |       |--- native.dll
+        ///                     |
+        ///                     |--- 'win-x86' subfolder
+        ///                     |       |--- native.dll
+        ///                     |
+        ///                     |--- 'win-arm' subfolder
+        ///                     |       |--- native.dll
+        ///                     |
+        ///                     |--- 'win-arm64' subfolder
+        ///                     |       |--- native.dll
+        ///                     |
+        ///                     |--- 'linux-x64' subfolder
+        ///                     |       |--- native.so
+        ///                     |
+        ///                     |--- 'linux-x86' subfolder
+        ///                     |       |--- native.so
+        ///                     |
+        ///                     |--- 'linux-arm' subfolder
+        ///                     |       |--- native.so
+        ///                     |
+        ///                     |--- 'linux-arm64' subfolder
+        ///                     |       |--- native.so
+        ///                     |
+        ///                     |--- 'osx-x64' subfolder
+        ///                     |       |--- native.dylib
+        ///                     |
+        ///                     |--- 'osx-arm64' subfolder
+        ///                     |       |--- native.dylib
         /// </summary>
-        internal void SetProfileOptimizationRootImpl(string directoryPath)
+        internal static IntPtr NativeDllHandler(Assembly assembly, string libraryName)
         {
-            AssemblyLoadContext.Default.SetProfileOptimizationRoot(directoryPath);
-        }
+            s_nativeDllSubFolder ??= GetNativeDllSubFolderName(out s_nativeDllExtension);
+            string folder = Path.GetDirectoryName(assembly.Location);
+            string fullName = Path.Combine(folder, s_nativeDllSubFolder, libraryName) + s_nativeDllExtension;
 
-        /// <summary>
-        /// Start the profile optimization on the appropriate load context
-        /// </summary>
-        internal void StartProfileOptimizationImpl(string profile)
-        {
-            AssemblyLoadContext.Default.StartProfileOptimization(profile);
+            return NativeLibrary.TryLoad(fullName, out IntPtr pointer) ? pointer : IntPtr.Zero;
         }
 
         #endregion Internal_Methods
@@ -214,7 +254,7 @@ namespace System.Management.Automation
         #region Private_Methods
 
         /// <summary>
-        /// The handler for the Resolving event
+        /// The handler for the Resolving event.
         /// </summary>
         private Assembly Resolve(AssemblyLoadContext loadContext, AssemblyName assemblyName)
         {
@@ -268,10 +308,10 @@ namespace System.Management.Automation
                 if (!isAssemblyFileFound || !isAssemblyFileMatching)
                 {
 #if !UNIX
-                    //Try loading from GAC
+                    // Try loading from GAC
                     if (!TryFindInGAC(assemblyName, out asmFilePath))
                     {
-                         return null;
+                        return null;
                     }
 #else
                     return null;
@@ -298,7 +338,7 @@ namespace System.Management.Automation
         private bool TryFindInGAC(AssemblyName assemblyName, out string assemblyFilePath)
         {
             assemblyFilePath = null;
-            if (_blackListedAssemblies.Contains(assemblyName.Name))
+            if (_denyListedAssemblies.Contains(assemblyName.Name))
             {
                 // DotNet catches and throws a new exception with no inner exception
                 // We cannot change the message DotNet returns.
@@ -310,43 +350,39 @@ namespace System.Management.Automation
                 return false;
             }
 
-            bool assemblyFound = false;
-            char dirSeparator = IO.Path.DirectorySeparatorChar;
-
-            if (String.IsNullOrEmpty(_winDir))
+            if (string.IsNullOrEmpty(_winDir))
             {
-                //cache value of '_winDir' folder in member variable.
+                // cache value of '_winDir' folder in member variable.
                 _winDir = Environment.GetEnvironmentVariable("winDir");
             }
 
-            if (String.IsNullOrEmpty(_gacPathMSIL))
+            if (string.IsNullOrEmpty(_gacPathMSIL))
             {
-                //cache value of '_gacPathMSIL' folder in member variable.
-                _gacPathMSIL = $"{_winDir}{dirSeparator}Microsoft.NET{dirSeparator}assembly{dirSeparator}GAC_MSIL";
+                // cache value of '_gacPathMSIL' folder in member variable.
+                _gacPathMSIL = Path.Join(_winDir, "Microsoft.NET", "assembly", "GAC_MSIL");
             }
 
-            assemblyFound = FindInGac(_gacPathMSIL, assemblyName, out assemblyFilePath);
+            bool assemblyFound = FindInGac(_gacPathMSIL, assemblyName, out assemblyFilePath);
 
             if (!assemblyFound)
             {
-                string gacBitnessAwarePath = null;
+                string gacBitnessAwarePath;
 
                 if (Environment.Is64BitProcess)
                 {
-                    if (String.IsNullOrEmpty(_gacPath64))
+                    if (string.IsNullOrEmpty(_gacPath64))
                     {
-                        //cache value of '_gacPath64' folder in member variable.
-                        _gacPath64 = $"{_winDir}{dirSeparator}Microsoft.NET{dirSeparator}assembly{dirSeparator}GAC_64";
+                       var gacName = RuntimeInformation.ProcessArchitecture == Architecture.Arm64 ? "GAC_Arm64" : "GAC_64";
+                        _gacPath64 = Path.Join(_winDir, "Microsoft.NET", "assembly", gacName);
                     }
 
                     gacBitnessAwarePath = _gacPath64;
                 }
                 else
                 {
-                    if (String.IsNullOrEmpty(_gacPath32))
+                    if (string.IsNullOrEmpty(_gacPath32))
                     {
-                        //cache value of '_gacPath32' folder in member variable.
-                        _gacPath32 = $"{_winDir}{dirSeparator}Microsoft.NET{dirSeparator}assembly{dirSeparator}GAC_32";
+                        _gacPath32 = Path.Join(_winDir, "Microsoft.NET", "assembly", "GAC_32");
                     }
 
                     gacBitnessAwarePath = _gacPath32;
@@ -359,25 +395,24 @@ namespace System.Management.Automation
         }
 
         // Find the assembly under 'gacRoot' and select the latest version.
-        private bool FindInGac(string gacRoot, AssemblyName assemblyName, out string assemblyPath)
+        private static bool FindInGac(string gacRoot, AssemblyName assemblyName, out string assemblyPath)
         {
             bool assemblyFound = false;
             assemblyPath = null;
 
-            char dirSeparator = IO.Path.DirectorySeparatorChar;
-            string tempAssemblyDirPath = $"{gacRoot}{dirSeparator}{assemblyName.Name}";
+            string tempAssemblyDirPath = Path.Join(gacRoot, assemblyName.Name);
 
             if (Directory.Exists(tempAssemblyDirPath))
             {
-                //Enumerate all directories, sort by name and select the last. This selects the latest version.
-                var chosenVersionDirectory = Directory.GetDirectories(tempAssemblyDirPath).OrderBy(d => d).LastOrDefault();
+                // Enumerate all directories, sort by name and select the last. This selects the latest version.
+                var chosenVersionDirectory = Directory.EnumerateDirectories(tempAssemblyDirPath).Order().LastOrDefault();
 
-                if (!String.IsNullOrEmpty(chosenVersionDirectory))
+                if (!string.IsNullOrEmpty(chosenVersionDirectory))
                 {
-                    //Select first or default as the directory will contain only one assembly. If nothing then default is null;
-                    var foundAssemblyPath = Directory.GetFiles(chosenVersionDirectory, $"{assemblyName.Name}*").FirstOrDefault();
+                    // Select first or default as the directory will contain only one assembly. If nothing then default is null;
+                    var foundAssemblyPath = Directory.EnumerateFiles(chosenVersionDirectory, $"{assemblyName.Name}*").FirstOrDefault();
 
-                    if (!String.IsNullOrEmpty(foundAssemblyPath))
+                    if (!string.IsNullOrEmpty(foundAssemblyPath))
                     {
                         AssemblyName asmNameFound = AssemblyLoadContext.GetAssemblyName(foundAssemblyPath);
                         if (IsAssemblyMatching(assemblyName, asmNameFound))
@@ -394,9 +429,9 @@ namespace System.Management.Automation
 #endif
 
         /// <summary>
-        /// Try to get the specified assembly from cache
+        /// Try to get the specified assembly from cache.
         /// </summary>
-        private bool TryGetAssemblyFromCache(AssemblyName assemblyName, out Assembly asmLoaded)
+        private static bool TryGetAssemblyFromCache(AssemblyName assemblyName, out Assembly asmLoaded)
         {
             if (s_assemblyCache.TryGetValue(assemblyName.Name, out asmLoaded))
             {
@@ -415,12 +450,12 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Check if the loaded assembly matches the request
+        /// Check if the loaded assembly matches the request.
         /// </summary>
-        /// <param name="requestedAssembly">AssemblyName of the requested assembly</param>
-        /// <param name="loadedAssembly">AssemblyName of the loaded assembly</param>
+        /// <param name="requestedAssembly">AssemblyName of the requested assembly.</param>
+        /// <param name="loadedAssembly">AssemblyName of the loaded assembly.</param>
         /// <returns></returns>
-        private bool IsAssemblyMatching(AssemblyName requestedAssembly, AssemblyName loadedAssembly)
+        private static bool IsAssemblyMatching(AssemblyName requestedAssembly, AssemblyName loadedAssembly)
         {
             //
             // We use the same rules as CoreCLR loader to compare the requested assembly and loaded assembly:
@@ -467,7 +502,7 @@ namespace System.Management.Automation
         /// <param name="tpaStrongName">
         /// The assembly strong name of a CoreCLR Trusted_Platform_Assembly
         /// </param>
-        private Assembly GetTrustedPlatformAssembly(string tpaStrongName)
+        private static Assembly GetTrustedPlatformAssembly(string tpaStrongName)
         {
             // We always depend on the default context to load the TPAs that are recorded in
             // the type catalog.
@@ -475,27 +510,55 @@ namespace System.Management.Automation
             //     it back from the cache of default context.
             //   - If the requested TPA is not loaded yet, then 'Assembly.Load' will make the
             //     default context to load it
-            AssemblyName assemblyName = new AssemblyName(tpaStrongName);
+            AssemblyName assemblyName = new(tpaStrongName);
             Assembly asmLoaded = Assembly.Load(assemblyName);
             return asmLoaded;
         }
 
         /// <summary>
-        /// Throw FileLoadException
+        /// Throw FileLoadException.
         /// </summary>
-        private void ThrowFileLoadException(string errorTemplate, params object[] args)
+        private static void ThrowFileLoadException(string errorTemplate, params object[] args)
         {
             string message = string.Format(CultureInfo.CurrentCulture, errorTemplate, args);
             throw new FileLoadException(message);
         }
 
         /// <summary>
-        /// Throw FileNotFoundException
+        /// Throw FileNotFoundException.
         /// </summary>
-        private void ThrowFileNotFoundException(string errorTemplate, params object[] args)
+        private static void ThrowFileNotFoundException(string errorTemplate, params object[] args)
         {
             string message = string.Format(CultureInfo.CurrentCulture, errorTemplate, args);
             throw new FileNotFoundException(message);
+        }
+
+        private static string s_nativeDllSubFolder;
+        private static string s_nativeDllExtension;
+
+        private static string GetNativeDllSubFolderName(out string ext)
+        {
+            string folderName = string.Empty;
+            ext = string.Empty;
+            var processArch = RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant();
+
+            if (Platform.IsWindows)
+            {
+                folderName = "win-" + processArch;
+                ext = ".dll";
+            }
+            else if (Platform.IsLinux)
+            {
+                folderName = "linux-" + processArch;
+                ext = ".so";
+            }
+            else if (Platform.IsMacOS)
+            {
+                folderName = "osx-" + processArch;
+                ext = ".dylib";
+            }
+
+            return folderName;
         }
 
         #endregion Private_Methods
@@ -504,7 +567,7 @@ namespace System.Management.Automation
     /// <summary>
     /// This is the managed entry point for Microsoft.PowerShell.CoreCLR.AssemblyLoadContext.dll.
     /// </summary>
-    public class PowerShellAssemblyLoadContextInitializer
+    public static class PowerShellAssemblyLoadContextInitializer
     {
         /// <summary>
         /// Create a singleton of PowerShellAssemblyLoadContext.
@@ -518,15 +581,46 @@ namespace System.Management.Automation
         /// Base directory paths that are separated by semicolon ';'.
         /// They will be the default paths to probe assemblies.
         /// </param>
-        public static void SetPowerShellAssemblyLoadContext([MarshalAs(UnmanagedType.LPWStr)]string basePaths)
+        public static void SetPowerShellAssemblyLoadContext([MarshalAs(UnmanagedType.LPWStr)] string basePaths)
         {
-            if (string.IsNullOrEmpty(basePaths))
-                throw new ArgumentNullException("basePaths");
+            ArgumentException.ThrowIfNullOrEmpty(basePaths);
 
-            PowerShellAssemblyLoadContext.InitializeSingleton(basePaths);
+            // Disallow calling this method from native code for more than once.
+            PowerShellAssemblyLoadContext.InitializeSingleton(basePaths, throwOnReentry: true);
+        }
+    }
+
+    /// <summary>
+    /// Provides helper functions to facilitate calling managed code from a native PowerShell host.
+    /// </summary>
+    public static unsafe class PowerShellUnsafeAssemblyLoad
+    {
+        /// <summary>
+        /// Load an assembly in memory from unmanaged code.
+        /// </summary>
+        /// <remarks>
+        /// This API is covered by the experimental feature 'PSLoadAssemblyFromNativeCode',
+        /// and it may be deprecated and removed in future.
+        /// </remarks>
+        /// <param name="data">Unmanaged pointer to assembly data buffer.</param>
+        /// <param name="size">Size in bytes of the assembly data buffer.</param>
+        /// <returns>Returns zero on success and non-zero on failure.</returns>
+        [UnmanagedCallersOnly]
+        public static int LoadAssemblyFromNativeMemory(IntPtr data, int size)
+        {
+            int result = 0;
+            try
+            {
+                using var stream = new UnmanagedMemoryStream((byte*)data, size);
+                AssemblyLoadContext.Default.LoadFromStream(stream);
+            }
+            catch
+            {
+                result = -1;
+            }
+
+            ApplicationInsightsTelemetry.SendUseTelemetry("PowerShellUnsafeAssemblyLoad", result == 0 ? "1" : "0");
+            return result;
         }
     }
 }
-
-#endif
-

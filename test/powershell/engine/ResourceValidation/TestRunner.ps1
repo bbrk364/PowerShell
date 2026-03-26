@@ -1,4 +1,4 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 function Test-ResourceStrings
 {
@@ -6,7 +6,7 @@ function Test-ResourceStrings
 
     # determine the needed resource directory. If these tests are moved
     # this logic will need to change
-    $repoBase = (Resolve-Path (Join-Path $psScriptRoot ../../../..)).Path
+    $repoBase = (Resolve-Path (Join-Path $PSScriptRoot ../../../..)).Path
     $asmBase = Join-Path $repoBase "src/$AssemblyName"
     $resourceDir = Join-Path $asmBase resources
     $resourceFiles = Get-ChildItem $resourceDir -Filter *.resx -ErrorAction stop |
@@ -35,7 +35,17 @@ function Test-ResourceStrings
     #
     # This is the reason why this is not a general module for use. There is
     # no other way to run these tests
-    Describe "Resources strings in $AssemblyName (was -ResGen used with Start-PSBuild)" -tag Feature {
+    Describe "Resources strings in $AssemblyName (was -ResGen used with Start-PSBuild)" -Tag Feature {
+
+        function NormalizeLineEnd
+        {
+            param (
+                [string] $string
+            )
+
+            $string -replace "`r`n", "`n"
+        }
+
         foreach ( $resourceFile in $resourceFiles )
         {
             # in the event that the id has a space in it, it is replaced with a '_'
@@ -50,7 +60,8 @@ function Test-ResourceStrings
                 # check all the resource strings
                 $xmlData = [xml](Get-Content $resourceFile.Fullname)
                 foreach ( $inResource in $xmlData.root.data ) {
-                    $resourceType.GetProperty($inResource.name,$bindingFlags).GetValue(0) | Should -Be $inresource.value
+                    $resourceStringToCheck = $resourceType.GetProperty($inResource.name,$bindingFlags).GetValue(0)
+                    NormalizeLineEnd($resourceStringToCheck) | Should -Be (NormalizeLineEnd($inresource.value))
                 }
             }
         }

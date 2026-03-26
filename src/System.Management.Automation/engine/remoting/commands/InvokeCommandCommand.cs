@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
@@ -13,6 +13,7 @@ using System.Management.Automation.Remoting.Internal;
 using System.Management.Automation.Runspaces;
 using System.Management.Automation.Runspaces.Internal;
 using System.Threading;
+
 using Dbg = System.Management.Automation.Diagnostics;
 
 namespace Microsoft.PowerShell.Commands
@@ -123,14 +124,14 @@ namespace Microsoft.PowerShell.Commands
     /// "Microsoft.PowerShell" is used.
     /// </summary>
     [Cmdlet(VerbsLifecycle.Invoke, "Command", DefaultParameterSetName = InvokeCommandCommand.InProcParameterSet,
-        HelpUri = "https://go.microsoft.com/fwlink/?LinkID=135225", RemotingCapability = RemotingCapability.OwnedByCommand)]
+        HelpUri = "https://go.microsoft.com/fwlink/?LinkID=2096789", RemotingCapability = RemotingCapability.OwnedByCommand)]
     public class InvokeCommandCommand : PSExecutionCmdlet, IDisposable
     {
         #region Parameters
 
         /// <summary>
         /// The PSSession object describing the remote runspace
-        /// using which the specified cmdlet operation will be performed
+        /// using which the specified cmdlet operation will be performed.
         /// </summary>
         [Parameter(Position = 0,
                    ParameterSetName = InvokeCommandCommand.SessionParameterSet)]
@@ -143,6 +144,7 @@ namespace Microsoft.PowerShell.Commands
             {
                 return base.Session;
             }
+
             set
             {
                 base.Session = value;
@@ -154,8 +156,7 @@ namespace Microsoft.PowerShell.Commands
         /// computer(s). The following formats are supported:
         ///      (a) Computer name
         ///      (b) IPv4 address : 132.3.4.5
-        ///      (c) IPv6 address: 3ffe:8311:ffff:f70f:0:5efe:172.30.162.18
-        ///
+        ///      (c) IPv6 address: 3ffe:8311:ffff:f70f:0:5efe:172.30.162.18.
         /// </summary>
         [Parameter(Position = 0,
                    ParameterSetName = InvokeCommandCommand.ComputerNameParameterSet)]
@@ -163,12 +164,13 @@ namespace Microsoft.PowerShell.Commands
                    ParameterSetName = InvokeCommandCommand.FilePathComputerNameParameterSet)]
         [Alias("Cn")]
         [ValidateNotNullOrEmpty]
-        public override String[] ComputerName
+        public override string[] ComputerName
         {
             get
             {
                 return base.ComputerName;
             }
+
             set
             {
                 base.ComputerName = value;
@@ -196,13 +198,14 @@ namespace Microsoft.PowerShell.Commands
                    ParameterSetName = InvokeCommandCommand.FilePathVMIdParameterSet)]
         [Parameter(ValueFromPipelineByPropertyName = true, Mandatory = true,
                    ParameterSetName = InvokeCommandCommand.FilePathVMNameParameterSet)]
-        [Credential()]
+        [Credential]
         public override PSCredential Credential
         {
             get
             {
                 return base.Credential;
             }
+
             set
             {
                 base.Credential = value;
@@ -223,13 +226,14 @@ namespace Microsoft.PowerShell.Commands
         [Parameter(ParameterSetName = InvokeCommandCommand.ComputerNameParameterSet)]
         [Parameter(ParameterSetName = InvokeCommandCommand.FilePathComputerNameParameterSet)]
         [Parameter(ParameterSetName = InvokeCommandCommand.SSHHostParameterSet)]
-        [ValidateRange((Int32)1, (Int32)UInt16.MaxValue)]
-        public override Int32 Port
+        [ValidateRange((int)1, (int)UInt16.MaxValue)]
+        public override int Port
         {
             get
             {
                 return base.Port;
             }
+
             set
             {
                 base.Port = value;
@@ -252,6 +256,7 @@ namespace Microsoft.PowerShell.Commands
             {
                 return base.UseSSL;
             }
+
             set
             {
                 base.UseSSL = value;
@@ -287,12 +292,13 @@ namespace Microsoft.PowerShell.Commands
                    ParameterSetName = InvokeCommandCommand.FilePathVMIdParameterSet)]
         [Parameter(ValueFromPipelineByPropertyName = true,
                    ParameterSetName = InvokeCommandCommand.FilePathVMNameParameterSet)]
-        public override String ConfigurationName
+        public override string ConfigurationName
         {
             get
             {
                 return base.ConfigurationName;
             }
+
             set
             {
                 base.ConfigurationName = value;
@@ -302,19 +308,20 @@ namespace Microsoft.PowerShell.Commands
         /// <summary>
         /// This parameters specifies the appname which identifies the connection
         /// end point on the remote machine. If this parameter is not specified
-        /// then the value specified in DEFAULTREMOTEAPPNAME will be used. If thats
-        /// not specified as well, then "WSMAN" will be used
+        /// then the value specified in DEFAULTREMOTEAPPNAME will be used. If that's
+        /// not specified as well, then "WSMAN" will be used.
         /// </summary>
         [Parameter(ValueFromPipelineByPropertyName = true,
                    ParameterSetName = InvokeCommandCommand.ComputerNameParameterSet)]
         [Parameter(ValueFromPipelineByPropertyName = true,
                    ParameterSetName = InvokeCommandCommand.FilePathComputerNameParameterSet)]
-        public override String ApplicationName
+        public override string ApplicationName
         {
             get
             {
                 return base.ApplicationName;
             }
+
             set
             {
                 base.ApplicationName = value;
@@ -324,7 +331,7 @@ namespace Microsoft.PowerShell.Commands
         /// <summary>
         /// Allows the user of the cmdlet to specify a throttling value
         /// for throttling the number of remote operations that can
-        /// be executed simultaneously
+        /// be executed simultaneously.
         /// </summary>
         [Parameter(ParameterSetName = InvokeCommandCommand.ComputerNameParameterSet)]
         [Parameter(ParameterSetName = InvokeCommandCommand.SessionParameterSet)]
@@ -338,21 +345,22 @@ namespace Microsoft.PowerShell.Commands
         [Parameter(ParameterSetName = InvokeCommandCommand.FilePathVMIdParameterSet)]
         [Parameter(ParameterSetName = InvokeCommandCommand.FilePathVMNameParameterSet)]
         [Parameter(ParameterSetName = InvokeCommandCommand.FilePathContainerIdParameterSet)]
-        public override Int32 ThrottleLimit
+        public override int ThrottleLimit
         {
-            set
-            {
-                base.ThrottleLimit = value;
-            }
             get
             {
                 return base.ThrottleLimit;
+            }
+
+            set
+            {
+                base.ThrottleLimit = value;
             }
         }
 
         /// <summary>
         /// A complete URI(s) specified for the remote computer and shell to
-        /// connect to and create runspace for
+        /// connect to and create runspace for.
         /// </summary>
         [Parameter(Position = 0,
                    ParameterSetName = InvokeCommandCommand.UriParameterSet)]
@@ -366,6 +374,7 @@ namespace Microsoft.PowerShell.Commands
             {
                 return base.ConnectionUri;
             }
+
             set
             {
                 base.ConnectionUri = value;
@@ -373,7 +382,7 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        /// Specifies if the cmdlet needs to be run asynchronously
+        /// Specifies if the cmdlet needs to be run asynchronously.
         /// </summary>
         [Parameter(ParameterSetName = InvokeCommandCommand.ComputerNameParameterSet)]
         [Parameter(ParameterSetName = InvokeCommandCommand.SessionParameterSet)]
@@ -397,11 +406,13 @@ namespace Microsoft.PowerShell.Commands
             {
                 return _asjob;
             }
+
             set
             {
                 _asjob = value;
             }
         }
+
         private bool _asjob = false;
 
         /// <summary>
@@ -416,6 +427,7 @@ namespace Microsoft.PowerShell.Commands
         public SwitchParameter InDisconnectedSession
         {
             get { return InvokeAndDisconnect; }
+
             set { InvokeAndDisconnect = value; }
         }
 
@@ -430,6 +442,7 @@ namespace Microsoft.PowerShell.Commands
         public string[] SessionName
         {
             get { return DisconnectedSessionName; }
+
             set { DisconnectedSessionName = value; }
         }
 
@@ -456,12 +469,14 @@ namespace Microsoft.PowerShell.Commands
         public SwitchParameter HideComputerName
         {
             get { return _hideComputerName; }
+
             set { _hideComputerName = value; }
         }
+
         private bool _hideComputerName;
 
         /// <summary>
-        /// Friendly name for the job object if AsJob is used
+        /// Friendly name for the job object if AsJob is used.
         /// </summary>
         [Parameter(ParameterSetName = InvokeCommandCommand.ComputerNameParameterSet)]
         [Parameter(ParameterSetName = InvokeCommandCommand.SessionParameterSet)]
@@ -471,27 +486,31 @@ namespace Microsoft.PowerShell.Commands
         [Parameter(ParameterSetName = InvokeCommandCommand.FilePathUriParameterSet)]
         [Parameter(ParameterSetName = InvokeCommandCommand.ContainerIdParameterSet)]
         [Parameter(ParameterSetName = InvokeCommandCommand.FilePathContainerIdParameterSet)]
-        public String JobName
+        [Parameter(ParameterSetName = InvokeCommandCommand.SSHHostHashParameterSet)]
+        [Parameter(ParameterSetName = InvokeCommandCommand.SSHHostParameterSet)]
+        public string JobName
         {
             get
             {
                 return _name;
             }
+
             set
             {
-                if (!String.IsNullOrEmpty(value))
+                if (!string.IsNullOrEmpty(value))
                 {
                     _name = value;
                     _asjob = true;
                 }
             }
         }
-        private String _name = String.Empty;
+
+        private string _name = string.Empty;
 
         /// <summary>
         /// The script block that the user has specified in the
         /// cmdlet. This will be converted to a powershell before
-        /// its actually sent to the remote end
+        /// its actually sent to the remote end.
         /// </summary>
         [Parameter(Position = 1,
                    Mandatory = true,
@@ -514,9 +533,11 @@ namespace Microsoft.PowerShell.Commands
         [Parameter(Position = 1,
                    Mandatory = true,
                    ParameterSetName = InvokeCommandCommand.ContainerIdParameterSet)]
-        [Parameter(Mandatory = true,
+        [Parameter(Position = 1,
+                   Mandatory = true,
                    ParameterSetName = InvokeCommandCommand.SSHHostParameterSet)]
-        [Parameter(Mandatory = true,
+        [Parameter(Position = 1,
+                   Mandatory = true,
                    ParameterSetName = InvokeCommandCommand.SSHHostHashParameterSet)]
         [ValidateNotNull]
         [Alias("Command")]
@@ -526,6 +547,7 @@ namespace Microsoft.PowerShell.Commands
             {
                 return base.ScriptBlock;
             }
+
             set
             {
                 base.ScriptBlock = value;
@@ -541,7 +563,7 @@ namespace Microsoft.PowerShell.Commands
         /// <summary>
         /// The script block that the user has specified in the
         /// cmdlet. This will be converted to a powershell before
-        /// its actually sent to the remote end
+        /// its actually sent to the remote end.
         /// </summary>
         [Parameter(Position = 1,
                    Mandatory = true,
@@ -573,6 +595,7 @@ namespace Microsoft.PowerShell.Commands
             {
                 return base.FilePath;
             }
+
             set
             {
                 base.FilePath = value;
@@ -580,7 +603,7 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        /// The AllowRedirection parameter enables the implicit redirection functionality
+        /// The AllowRedirection parameter enables the implicit redirection functionality.
         /// </summary>
         [Parameter(ParameterSetName = InvokeCommandCommand.UriParameterSet)]
         [Parameter(ParameterSetName = InvokeCommandCommand.FilePathUriParameterSet)]
@@ -590,6 +613,7 @@ namespace Microsoft.PowerShell.Commands
             {
                 return base.AllowRedirection;
             }
+
             set
             {
                 base.AllowRedirection = value;
@@ -610,6 +634,7 @@ namespace Microsoft.PowerShell.Commands
             {
                 return base.SessionOption;
             }
+
             set
             {
                 base.SessionOption = value;
@@ -617,7 +642,7 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        /// Authentication mechanism to authenticate the user
+        /// Authentication mechanism to authenticate the user.
         /// </summary>
         [Parameter(ParameterSetName = InvokeCommandCommand.ComputerNameParameterSet)]
         [Parameter(ParameterSetName = InvokeCommandCommand.FilePathComputerNameParameterSet)]
@@ -629,6 +654,7 @@ namespace Microsoft.PowerShell.Commands
             {
                 return base.Authentication;
             }
+
             set
             {
                 base.Authentication = value;
@@ -648,6 +674,7 @@ namespace Microsoft.PowerShell.Commands
         public override SwitchParameter EnableNetworkAccess
         {
             get { return base.EnableNetworkAccess; }
+
             set { base.EnableNetworkAccess = value; }
         }
 
@@ -662,48 +689,76 @@ namespace Microsoft.PowerShell.Commands
         public override SwitchParameter RunAsAdministrator
         {
             get { return base.RunAsAdministrator; }
+
             set { base.RunAsAdministrator = value; }
         }
 
         #region SSH Parameters
 
         /// <summary>
-        /// Host name for an SSH remote connection
+        /// Host name for an SSH remote connection.
         /// </summary>
         [Parameter(Mandatory = true,
             ParameterSetName = InvokeCommandCommand.SSHHostParameterSet)]
         [Parameter(Mandatory = true,
             ParameterSetName = InvokeCommandCommand.FilePathSSHHostParameterSet)]
-        [ValidateNotNullOrEmpty()]
+        [ValidateNotNullOrEmpty]
         public override string[] HostName
         {
             get { return base.HostName; }
+
             set { base.HostName = value; }
         }
 
         /// <summary>
-        /// User Name
+        /// User Name.
         /// </summary>
         [Parameter(ParameterSetName = InvokeCommandCommand.SSHHostParameterSet)]
         [Parameter(ParameterSetName = InvokeCommandCommand.FilePathSSHHostParameterSet)]
-        [ValidateNotNullOrEmpty()]
+        [ValidateNotNullOrEmpty]
         public override string UserName
         {
             get { return base.UserName; }
+
             set { base.UserName = value; }
         }
 
         /// <summary>
-        /// Key Path
+        /// Key Path.
         /// </summary>
         [Parameter(ParameterSetName = InvokeCommandCommand.SSHHostParameterSet)]
         [Parameter(ParameterSetName = InvokeCommandCommand.FilePathSSHHostParameterSet)]
-        [ValidateNotNullOrEmpty()]
+        [ValidateNotNullOrEmpty]
         [Alias("IdentityFilePath")]
         public override string KeyFilePath
         {
             get { return base.KeyFilePath; }
+
             set { base.KeyFilePath = value; }
+        }
+
+        /// <summary>
+        /// Gets and sets a value for the SSH subsystem to use for the remote connection.
+        /// </summary>
+        [Parameter(ParameterSetName = InvokeCommandCommand.SSHHostParameterSet)]
+        [Parameter(ParameterSetName = InvokeCommandCommand.FilePathSSHHostParameterSet)]
+        public override string Subsystem
+        {
+            get { return base.Subsystem; }
+
+            set { base.Subsystem = value; }
+        }
+
+        /// <summary>
+        /// Gets and sets a value in milliseconds that limits the time allowed for an SSH connection to be established.
+        /// </summary>
+        [Parameter(ParameterSetName = InvokeCommandCommand.SSHHostParameterSet)]
+        [Parameter(ParameterSetName = InvokeCommandCommand.FilePathSSHHostParameterSet)]
+        public override int ConnectingTimeout
+        {
+            get { return base.ConnectingTimeout; }
+            
+            set { base.ConnectingTimeout = value; }
         }
 
         /// <summary>
@@ -718,6 +773,7 @@ namespace Microsoft.PowerShell.Commands
         public override SwitchParameter SSHTransport
         {
             get { return base.SSHTransport; }
+
             set { base.SSHTransport = value; }
         }
 
@@ -729,11 +785,30 @@ namespace Microsoft.PowerShell.Commands
         /// </summary>
         [Parameter(ParameterSetName = PSRemotingBaseCmdlet.SSHHostHashParameterSet, Mandatory = true)]
         [Parameter(ParameterSetName = InvokeCommandCommand.FilePathSSHHostHashParameterSet, Mandatory = true)]
-        [ValidateNotNullOrEmpty()]
+        [ValidateNotNullOrEmpty]
         public override Hashtable[] SSHConnection
         {
             get;
             set;
+        }
+
+        /// <summary>
+        /// Hashtable containing options to be passed to OpenSSH.
+        /// </summary>
+        [Parameter(ParameterSetName = InvokeCommandCommand.SSHHostParameterSet)]
+        [Parameter(ParameterSetName = InvokeCommandCommand.FilePathSSHHostParameterSet)]
+        [ValidateNotNullOrEmpty]
+        public override Hashtable Options
+        {
+            get 
+            {
+                return base.Options;
+            }
+
+            set 
+            {
+                base.Options = value;
+            }
         }
 
         #endregion
@@ -773,7 +848,7 @@ namespace Microsoft.PowerShell.Commands
 
         /// <summary>
         /// Creates the helper classes for the specified
-        /// parameter set
+        /// parameter set.
         /// </summary>
         protected override void BeginProcessing()
         {
@@ -783,7 +858,7 @@ namespace Microsoft.PowerShell.Commands
                 throw new InvalidOperationException(RemotingErrorIdStrings.AsJobAndDisconnectedError);
             }
 
-            if (MyInvocation.BoundParameters.ContainsKey("SessionName") && !this.InvokeAndDisconnect)
+            if (MyInvocation.BoundParameters.ContainsKey(nameof(SessionName)) && !this.InvokeAndDisconnect)
             {
                 throw new InvalidOperationException(RemotingErrorIdStrings.SessionNameWithoutInvokeDisconnected);
             }
@@ -893,7 +968,7 @@ namespace Microsoft.PowerShell.Commands
                 return;
             }
 
-            if (String.IsNullOrEmpty(ConfigurationName))
+            if (string.IsNullOrEmpty(ConfigurationName))
             {
                 if ((ParameterSetName == InvokeCommandCommand.ComputerNameParameterSet) ||
                     (ParameterSetName == InvokeCommandCommand.UriParameterSet) ||
@@ -905,8 +980,8 @@ namespace Microsoft.PowerShell.Commands
                 }
                 else
                 {
-                    // convert null to String.Empty for VM/Container session
-                    ConfigurationName = String.Empty;
+                    // convert null to string.Empty for VM/Container session
+                    ConfigurationName = string.Empty;
                 }
             }
 
@@ -940,7 +1015,7 @@ namespace Microsoft.PowerShell.Commands
                         // of this bug in Win8 where not responding can occur during data piping.
                         // We are reverting to Win7 behavior for {icm | icm} and {proxycommand | proxycommand}
                         // cases. For ICM | % ICM case, we are using remote steppable pipeline.
-                        if ((MyInvocation != null) && (MyInvocation.PipelinePosition == 1) && (MyInvocation.ExpectingInput == false))
+                        if ((MyInvocation != null) && (MyInvocation.PipelinePosition == 1) && !MyInvocation.ExpectingInput)
                         {
                             PSPrimitiveDictionary table = (object)runspaceInfo.ApplicationPrivateData[PSVersionInfo.PSVersionTableName] as PSPrimitiveDictionary;
                             if (table != null)
@@ -951,7 +1026,7 @@ namespace Microsoft.PowerShell.Commands
                                 {
                                     // In order to support foreach remoting properly ( icm | % { icm } ), the server must
                                     // be using protocol version 2.2. Otherwise, we skip this and assume the old behavior.
-                                    if (version >= RemotingConstants.ProtocolVersionWin8RTM)
+                                    if (version >= RemotingConstants.ProtocolVersion_2_2)
                                     {
                                         // Suppress collection behavior
                                         _needToCollect = false;
@@ -975,13 +1050,13 @@ namespace Microsoft.PowerShell.Commands
                 // create collection of input writers here
                 foreach (IThrottleOperation operation in Operations)
                 {
-                    ExecutionCmdletHelperRunspace ecHelper = operation as ExecutionCmdletHelperRunspace;
-                    if (ecHelper == null)
+                    if (operation is not ExecutionCmdletHelperRunspace ecHelper)
                     {
                         // either all the operations will be of type ExecutionCmdletHelperRunspace
                         // or not...there is no mix.
                         break;
                     }
+
                     ecHelper.ShouldUseSteppablePipelineOnServer = true;
                 }
             }
@@ -1055,6 +1130,7 @@ namespace Microsoft.PowerShell.Commands
                                         WriteObject(job);
                                     }
                                 }
+
                                 break;
 
                             case InvokeCommandCommand.SessionParameterSet:
@@ -1067,6 +1143,7 @@ namespace Microsoft.PowerShell.Commands
                                     this.JobRepository.Add(job);
                                     WriteObject(job);
                                 }
+
                                 break;
 
                             case InvokeCommandCommand.UriParameterSet:
@@ -1074,7 +1151,7 @@ namespace Microsoft.PowerShell.Commands
                                 {
                                     if (Operations.Count > 0)
                                     {
-                                        String[] locations = new String[ConnectionUri.Length];
+                                        string[] locations = new string[ConnectionUri.Length];
                                         for (int i = 0; i < locations.Length; i++)
                                         {
                                             locations[i] = ConnectionUri[i].ToString();
@@ -1088,11 +1165,12 @@ namespace Microsoft.PowerShell.Commands
                                         WriteObject(job);
                                     }
                                 }
+
                                 break;
-                        } // switch ...
-                    } // else ...
+                        }
+                    }
                 }
-            } // if (!pipelineinvoked...
+            }
 
             if (InputObject != AutomationNull.Value && !_inputStreamClosed)
             {
@@ -1116,7 +1194,7 @@ namespace Microsoft.PowerShell.Commands
                     }
                 }
             }
-        } // ProcessRecord
+        }
 
         /// <summary>
         /// InvokeAsync would have been called in ProcessRecord. Wait here
@@ -1170,8 +1248,15 @@ namespace Microsoft.PowerShell.Commands
                         // be connected to later.
                         WriteJobResults(false);
 
-                        // finally dispose the job.
-                        _job.Dispose();
+                        // Dispose job object if it is not returned to the user.
+                        // The _asjob field can change dynamically and needs to be checked before the job 
+                        // object is disposed. For example, if remote sessions are disconnected abruptly
+                        // via WinRM, a disconnected job object is created to facilitate a reconnect.
+                        // If the job object is disposed here, then a session reconnect cannot happen.
+                        if (!_asjob)
+                        {
+                            _job.Dispose();
+                        }
 
                         // We no longer need to call ClearInvokeCommandOnRunspaces() here because
                         // this command might finish before the foreach block finishes. previously,
@@ -1217,21 +1302,27 @@ namespace Microsoft.PowerShell.Commands
                             // be connected to later.
                             WriteJobResults(false);
 
-                            // finally dispose the job.
-                            _job.Dispose();
-
-                        } // if (needToCollect...
-                    }// else - job == null
+                            // Dispose job object if it is not returned to the user.
+                            // The _asjob field can change dynamically and needs to be checked before the job 
+                            // object is disposed. For example, if remote sessions are disconnected abruptly
+                            // via WinRM, a disconnected job object is created to facilitate a reconnect.
+                            // If the job object is disposed here, then a session reconnect cannot happen.
+                            if (!_asjob)
+                            {
+                                _job.Dispose();
+                            }
+                        }
+                    }
                 }
-            }// if (!async ...
-        } // EndProcessing
+            }
+        }
 
         /// <summary>
         /// This method is called when the user sends a stop signal to the
         /// cmdlet. The cmdlet will not exit until it has completed
         /// executing the command on all the runspaces. However, when a stop
         /// signal is sent, execution needs to be stopped on the pipelines
-        /// corresponding to these runspaces
+        /// corresponding to these runspaces.
         /// </summary>
         /// <remarks>This is called from a separate thread so need to worry
         /// about concurrency issues
@@ -1281,7 +1372,7 @@ namespace Microsoft.PowerShell.Commands
                     _needToCollect = false;
                 }
             }
-        }// StopProcessing()
+        }
 
         #endregion Overrides
 
@@ -1303,19 +1394,19 @@ namespace Microsoft.PowerShell.Commands
 
         /// <summary>
         /// Handle event from the throttle manager indicating that all
-        /// operations are complete
+        /// operations are complete.
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="eventArgs"></param>
         private void HandleThrottleComplete(object sender, EventArgs eventArgs)
         {
             _operationsComplete.Set();
-            _throttleManager.ThrottleComplete -= new EventHandler<EventArgs>(HandleThrottleComplete);
-        } // HandleThrottleComplete
+            _throttleManager.ThrottleComplete -= HandleThrottleComplete;
+        }
 
         /// <summary>
         /// Clears the internal invoke command instance on all
-        /// remote runspaces
+        /// remote runspaces.
         /// </summary>
         private void ClearInvokeCommandOnRunspaces()
         {
@@ -1331,7 +1422,7 @@ namespace Microsoft.PowerShell.Commands
 
         /// <summary>
         /// Sets the throttle limit, creates the invoke expression
-        /// sync job and executes the same
+        /// sync job and executes the same.
         /// </summary>
         private void CreateAndRunSyncJob()
         {
@@ -1340,14 +1431,14 @@ namespace Microsoft.PowerShell.Commands
                 if (!_nojob)
                 {
                     _throttleManager.ThrottleLimit = ThrottleLimit;
-                    _throttleManager.ThrottleComplete += new EventHandler<EventArgs>(HandleThrottleComplete);
+                    _throttleManager.ThrottleComplete += HandleThrottleComplete;
 
                     _operationsComplete.Reset();
                     Dbg.Assert(_disconnectComplete == null, "disconnectComplete event should only be used once.");
                     _disconnectComplete = new ManualResetEvent(false);
                     _job = new PSInvokeExpressionSyncJob(Operations, _throttleManager);
                     _job.HideComputerName = _hideComputerName;
-                    _job.StateChanged += new EventHandler<JobStateEventArgs>(HandleJobStateChanged);
+                    _job.StateChanged += HandleJobStateChanged;
 
                     // Add robust connection retry notification handler.
                     AddConnectionRetryHandler(_job);
@@ -1372,10 +1463,7 @@ namespace Microsoft.PowerShell.Commands
             operation.RunspaceDebugStop -= HandleRunspaceDebugStop;
 
             var hostDebugger = GetHostDebugger();
-            if (hostDebugger != null)
-            {
-                hostDebugger.QueueRunspaceForDebug(args.Runspace);
-            }
+            hostDebugger?.QueueRunspaceForDebug(args.Runspace);
         }
 
         private void HandleJobStateChanged(object sender, JobStateEventArgs e)
@@ -1386,16 +1474,13 @@ namespace Microsoft.PowerShell.Commands
                 state == JobState.Stopped ||
                 state == JobState.Failed)
             {
-                _job.StateChanged -= new EventHandler<JobStateEventArgs>(HandleJobStateChanged);
+                _job.StateChanged -= HandleJobStateChanged;
                 RemoveConnectionRetryHandler(sender as PSInvokeExpressionSyncJob);
 
                 // Signal that this job has been disconnected, or has ended.
                 lock (_jobSyncObject)
                 {
-                    if (_disconnectComplete != null)
-                    {
-                        _disconnectComplete.Set();
-                    }
+                    _disconnectComplete?.Set();
                 }
             }
         }
@@ -1406,13 +1491,13 @@ namespace Microsoft.PowerShell.Commands
             {
                 return;
             }
+
             Collection<System.Management.Automation.PowerShell> powershells = job.GetPowerShells();
             foreach (var ps in powershells)
             {
                 if (ps.RemotePowerShell != null)
                 {
-                    ps.RemotePowerShell.RCConnectionNotification +=
-                        new EventHandler<PSConnectionRetryStatusEventArgs>(RCConnectionNotificationHandler);
+                    ps.RemotePowerShell.RCConnectionNotification += RCConnectionNotificationHandler;
                 }
             }
         }
@@ -1426,13 +1511,13 @@ namespace Microsoft.PowerShell.Commands
             {
                 return;
             }
+
             Collection<System.Management.Automation.PowerShell> powershells = job.GetPowerShells();
             foreach (var ps in powershells)
             {
                 if (ps.RemotePowerShell != null)
                 {
-                    ps.RemotePowerShell.RCConnectionNotification -=
-                        new EventHandler<PSConnectionRetryStatusEventArgs>(RCConnectionNotificationHandler);
+                    ps.RemotePowerShell.RCConnectionNotification -= RCConnectionNotificationHandler;
                 }
             }
         }
@@ -1571,9 +1656,9 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        /// Writes an input value to the pipeline
+        /// Writes an input value to the pipeline.
         /// </summary>
-        /// <param name="inputValue">input value to write</param>
+        /// <param name="inputValue">Input value to write.</param>
         private void WriteInput(object inputValue)
         {
             // when there are no input writers, there is no
@@ -1612,9 +1697,9 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        /// Writes the results in the job object
+        /// Writes the results in the job object.
         /// </summary>
-        /// <param name="nonblocking">Write in a non-blocking manner</param>
+        /// <param name="nonblocking">Write in a non-blocking manner.</param>
         private void WriteJobResults(bool nonblocking)
         {
             if (_job == null)
@@ -1806,6 +1891,7 @@ namespace Microsoft.PowerShell.Commands
                     break;
                 }
             }
+
             if (retryCanceled &&
                 this.Host != null)
             {
@@ -1826,16 +1912,16 @@ namespace Microsoft.PowerShell.Commands
                 this.Host);
         }
 
-        private void StopProgressBar(
+        private static void StopProgressBar(
             long sourceId)
         {
             s_RCProgress.StopProgress(sourceId);
         }
 
         /// <summary>
-        /// Writes the stream objects in the specified collection
+        /// Writes the stream objects in the specified collection.
         /// </summary>
-        /// <param name="results">collection to read from</param>
+        /// <param name="results">Collection to read from.</param>
         private void WriteStreamObjectsFromCollection(IEnumerable<PSStreamObject> results)
         {
             foreach (var result in results)
@@ -1851,7 +1937,7 @@ namespace Microsoft.PowerShell.Commands
         /// <summary>
         /// Determine if we have to throw for a
         /// "throw" statement from scripts
-        ///  This means that the local pipeline will be terminated as well
+        ///  This means that the local pipeline will be terminated as well.
         /// </summary>
         /// <remarks>
         /// This is valid when only one pipeline is
@@ -1871,6 +1957,7 @@ namespace Microsoft.PowerShell.Commands
                 // in proc parameter set - just return
                 return;
             }
+
             if (!_asjob)
             {
                 if (ParameterSetName.Equals(InvokeCommandCommand.ComputerNameParameterSet) ||
@@ -1903,8 +1990,8 @@ namespace Microsoft.PowerShell.Commands
         /// <summary>
         /// Process the stream object before writing it in the specified collection.
         /// </summary>
-        /// <param name="streamObject">stream object to process</param>
-        private void PreProcessStreamObject(PSStreamObject streamObject)
+        /// <param name="streamObject">Stream object to process.</param>
+        private static void PreProcessStreamObject(PSStreamObject streamObject)
         {
             ErrorRecord errorRecord = streamObject.Value as ErrorRecord;
 
@@ -1933,7 +2020,7 @@ namespace Microsoft.PowerShell.Commands
 
         private ThrottleManager _throttleManager = new ThrottleManager();
         // throttle manager for handling all throttling operations
-        private ManualResetEvent _operationsComplete = new ManualResetEvent(true);
+        private readonly ManualResetEvent _operationsComplete = new ManualResetEvent(true);
         private ManualResetEvent _disconnectComplete;
         // the initial state is true because when no
         // operations actually take place as in case of a
@@ -1950,17 +2037,18 @@ namespace Microsoft.PowerShell.Commands
         private bool _inputStreamClosed = false;
 
         private const string InProcParameterSet = "InProcess";
-        private PSDataCollection<object> _input = new PSDataCollection<object>();
+
+        private readonly PSDataCollection<object> _input = new PSDataCollection<object>();
         private bool _needToCollect = false;
         private bool _needToStartSteppablePipelineOnServer = false;
         private bool _clearInvokeCommandOnRunspace = false;
-        private List<PipelineWriter> _inputWriters = new List<PipelineWriter>();
-        private object _jobSyncObject = new object();
+        private readonly List<PipelineWriter> _inputWriters = new List<PipelineWriter>();
+        private readonly object _jobSyncObject = new object();
         private bool _nojob = false;
-        private Guid _instanceId = Guid.NewGuid();
+        private readonly Guid _instanceId = Guid.NewGuid();
         private bool _propagateErrors = false;
 
-        private static RobustConnectionProgress s_RCProgress = new RobustConnectionProgress();
+        private static readonly RobustConnectionProgress s_RCProgress = new RobustConnectionProgress();
 
         internal static readonly string RemoteJobType = "RemoteJob";
 
@@ -1969,7 +2057,7 @@ namespace Microsoft.PowerShell.Commands
         #region IDisposable Overrides
 
         /// <summary>
-        /// Dispose the cmdlet
+        /// Dispose the cmdlet.
         /// </summary>
         public void Dispose()
         {
@@ -1978,9 +2066,9 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        /// internal dispose method which does the actual disposing
+        /// Internal dispose method which does the actual disposing.
         /// </summary>
-        /// <param name="disposing">whether called from dispose or finalize</param>
+        /// <param name="disposing">Whether called from dispose or finalize.</param>
         private void Dispose(bool disposing)
         {
             if (disposing)
@@ -1996,13 +2084,10 @@ namespace Microsoft.PowerShell.Commands
 
                 if (!_asjob)
                 {
-                    if (_job != null)
-                    {
-                        // job will be null in the "InProcess" case
-                        _job.Dispose();
-                    }
+                    // job will be null in the "InProcess" case
+                    _job?.Dispose();
 
-                    _throttleManager.ThrottleComplete -= new EventHandler<EventArgs>(HandleThrottleComplete);
+                    _throttleManager.ThrottleComplete -= HandleThrottleComplete;
                     _throttleManager.Dispose();
                     _throttleManager = null;
                 }
@@ -2024,7 +2109,7 @@ namespace Microsoft.PowerShell.Commands
                     }
                 }
             }
-        } // Dispose
+        }
 
         #endregion IDisposable Overrides
     }
@@ -2040,18 +2125,18 @@ namespace System.Management.Automation.Internal
     internal class RobustConnectionProgress
     {
         private System.Management.Automation.Host.PSHost _psHost;
-        private string _activity;
+        private readonly string _activity;
         private string _status;
         private int _secondsTotal;
         private int _secondsRemaining;
         private ProgressRecord _progressRecord;
         private long _sourceId;
         private bool _progressIsRunning;
-        private object _syncObject;
+        private readonly object _syncObject;
         private Timer _updateTimer;
 
         /// <summary>
-        ///  Constructor.
+        /// Constructor.
         /// </summary>
         public RobustConnectionProgress()
         {
@@ -2076,14 +2161,13 @@ namespace System.Management.Automation.Internal
             {
                 return;
             }
+
             if (secondsTotal < 1)
             {
                 return;
             }
-            if (string.IsNullOrEmpty(computerName))
-            {
-                throw new ArgumentNullException("computerName");
-            }
+
+            ArgumentException.ThrowIfNullOrEmpty(computerName);
 
             lock (_syncObject)
             {

@@ -1,20 +1,20 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
-using System.Linq;
-using System.Management.Automation;
-using System.Management.Automation.Internal;
-using System.Management.Automation.Runspaces;
-using System.Management.Automation.Help;
-using System.Net;
-using System.IO;
-using System.Globalization;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Management.Automation;
+using System.Management.Automation.Help;
+using System.Management.Automation.Internal;
+using System.Management.Automation.Runspaces;
 using System.Management.Automation.Tracing;
+using System.Net;
 
 namespace Microsoft.PowerShell.Commands
 {
@@ -31,12 +31,12 @@ namespace Microsoft.PowerShell.Commands
         internal bool _stopping;
 
         internal int activityId;
-        private Dictionary<string, UpdatableHelpExceptionContext> _exceptions;
+        private readonly Dictionary<string, UpdatableHelpExceptionContext> _exceptions;
 
         #region Parameters
 
         /// <summary>
-        /// Specifies the languages to update
+        /// Specifies the languages to update.
         /// </summary>
         [Parameter(Position = 2)]
         [ValidateNotNull]
@@ -54,11 +54,17 @@ namespace Microsoft.PowerShell.Commands
                         result[index] = new CultureInfo(_language[index]);
                     }
                 }
+
                 return result;
             }
+
             set
             {
-                if (value == null) return;
+                if (value == null)
+                {
+                    return;
+                }
+
                 _language = new string[value.Length];
                 for (int index = 0; index < value.Length; index++)
                 {
@@ -66,23 +72,25 @@ namespace Microsoft.PowerShell.Commands
                 }
             }
         }
+
         internal string[] _language;
 
         /// <summary>
-        /// Gets or sets the credential parameter
+        /// Gets or sets the credential parameter.
         /// </summary>
-        ///
-        [Parameter()]
-        [Credential()]
+        [Parameter]
+        [Credential]
         public PSCredential Credential
         {
             get { return _credential; }
+
             set { _credential = value; }
         }
+
         internal PSCredential _credential;
 
         /// <summary>
-        /// Directs System.Net.WebClient whether or not to use default credentials
+        /// Directs System.Net.WebClient whether or not to use default credentials.
         /// </summary>
         [Parameter]
         public SwitchParameter UseDefaultCredentials
@@ -91,15 +99,17 @@ namespace Microsoft.PowerShell.Commands
             {
                 return _useDefaultCredentials;
             }
+
             set
             {
                 _useDefaultCredentials = value;
             }
         }
-        internal bool _useDefaultCredentials = false;
+
+        private bool _useDefaultCredentials = false;
 
         /// <summary>
-        /// Forces the operation to complete
+        /// Forces the operation to complete.
         /// </summary>
         [Parameter]
         public SwitchParameter Force
@@ -108,11 +118,13 @@ namespace Microsoft.PowerShell.Commands
             {
                 return _force;
             }
+
             set
             {
                 _force = value;
             }
         }
+
         internal bool _force;
 
         /// <summary>
@@ -130,10 +142,10 @@ namespace Microsoft.PowerShell.Commands
         #region Events
 
         /// <summary>
-        /// Handles help system progress events
+        /// Handles help system progress events.
         /// </summary>
-        /// <param name="sender">event sender</param>
-        /// <param name="e">event arguments</param>
+        /// <param name="sender">Event sender.</param>
+        /// <param name="e">Event arguments.</param>
         private void HandleProgressChanged(object sender, UpdatableHelpProgressEventArgs e)
         {
             Debug.Assert(e.CommandType == UpdatableHelpCommandType.UpdateHelpCommand
@@ -153,55 +165,52 @@ namespace Microsoft.PowerShell.Commands
 
         #region Constructor
 
-        private static Dictionary<string, string> s_metadataCache;
+        private static readonly Dictionary<string, string> s_metadataCache;
 
         /// <summary>
         /// Static constructor
         ///
-        /// NOTE: FWLinks for core PowerShell modules are needed since they get loaded as snapins in a Remoting Endpoint.
+        /// NOTE: HelpInfoUri for core PowerShell modules are needed since they get loaded as snapins in a Remoting Endpoint.
         /// When we moved to modules in V3, we were not able to make this change as it was a risky change to make at that time.
-        ///
         /// </summary>
         static UpdatableHelpCommandBase()
         {
             s_metadataCache = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-            // TODO: assign real TechNet addresses
+            // NOTE: The HelpInfoUri must be updated with each release.
 
-            s_metadataCache.Add("Microsoft.PowerShell.Diagnostics", "https://go.microsoft.com/fwlink/?linkid=855954");
-            s_metadataCache.Add("Microsoft.PowerShell.Core", "https://go.microsoft.com/fwlink/?linkid=855953");
-            s_metadataCache.Add("Microsoft.PowerShell.Utility", "https://go.microsoft.com/fwlink/?linkid=855960");
-            s_metadataCache.Add("Microsoft.PowerShell.Host", "https://go.microsoft.com/fwlink/?linkid=855956");
-            s_metadataCache.Add("Microsoft.PowerShell.Management", "https://go.microsoft.com/fwlink/?linkid=855958");
-            s_metadataCache.Add("Microsoft.PowerShell.Security", "https://go.microsoft.com/fwlink/?linkid=855959");
-            s_metadataCache.Add("Microsoft.WSMan.Management", "https://go.microsoft.com/fwlink/?linkid=855961");
+            s_metadataCache.Add("Microsoft.PowerShell.Diagnostics", "https://aka.ms/powershell75-help");
+            s_metadataCache.Add("Microsoft.PowerShell.Core", "https://aka.ms/powershell75-help");
+            s_metadataCache.Add("Microsoft.PowerShell.Utility", "https://aka.ms/powershell75-help");
+            s_metadataCache.Add("Microsoft.PowerShell.Host", "https://aka.ms/powershell75-help");
+            s_metadataCache.Add("Microsoft.PowerShell.Management", "https://aka.ms/powershell75-help");
+            s_metadataCache.Add("Microsoft.PowerShell.Security", "https://aka.ms/powershell75-help");
+            s_metadataCache.Add("Microsoft.WSMan.Management", "https://aka.ms/powershell75-help");
         }
 
         /// <summary>
         /// Checks if a module is a system module, a module is a system module
         /// if it exists in the metadata cache.
         /// </summary>
-        /// <param name="module">module name</param>
-        /// <returns>true if system module, false if not</returns>
+        /// <param name="module">Module name.</param>
+        /// <returns>True if system module, false if not.</returns>
         internal static bool IsSystemModule(string module)
         {
             return s_metadataCache.ContainsKey(module);
         }
 
         /// <summary>
-        /// Class constructor
+        /// Class constructor.
         /// </summary>
-        /// <param name="commandType">command type</param>
+        /// <param name="commandType">Command type.</param>
         internal UpdatableHelpCommandBase(UpdatableHelpCommandType commandType)
         {
             _commandType = commandType;
             _helpSystem = new UpdatableHelpSystem(this, _useDefaultCredentials);
             _exceptions = new Dictionary<string, UpdatableHelpExceptionContext>();
-            _helpSystem.OnProgressChanged += new EventHandler<UpdatableHelpProgressEventArgs>(HandleProgressChanged);
+            _helpSystem.OnProgressChanged += HandleProgressChanged;
 
-            Random rand = new Random();
-
-            activityId = rand.Next();
+            activityId = Random.Shared.Next();
         }
 
         #endregion
@@ -228,7 +237,7 @@ namespace Microsoft.PowerShell.Commands
                 return;
             }
 
-            if (String.IsNullOrEmpty(module.HelpInfoUri))
+            if (string.IsNullOrEmpty(module.HelpInfoUri))
             {
                 if (!noErrors)
                 {
@@ -236,8 +245,10 @@ namespace Microsoft.PowerShell.Commands
                         "HelpInfoUriNotFound", StringUtil.Format(HelpDisplayStrings.HelpInfoUriNotFound),
                         ErrorCategory.NotSpecified, new Uri("HelpInfoUri", UriKind.Relative), null));
                 }
+
                 return;
             }
+
             if (!(module.HelpInfoUri.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || module.HelpInfoUri.StartsWith("https://", StringComparison.OrdinalIgnoreCase)))
             {
                 if (!noErrors)
@@ -246,6 +257,7 @@ namespace Microsoft.PowerShell.Commands
                         "InvalidHelpInfoUriFormat", StringUtil.Format(HelpDisplayStrings.InvalidHelpInfoUriFormat, module.HelpInfoUri),
                         ErrorCategory.NotSpecified, new Uri("HelpInfoUri", UriKind.Relative), null));
                 }
+
                 return;
             }
 
@@ -257,13 +269,13 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        /// Gets a list of modules from the given pattern
+        /// Gets a list of modules from the given pattern.
         /// </summary>
-        /// <param name="context">execution context</param>
-        /// <param name="pattern">pattern to search</param>
-        /// <param name="fullyQualifiedName">Module Specification</param>
-        /// <param name="noErrors">do not generate errors for modules without HelpInfoUri</param>
-        /// <returns>a list of modules</returns>
+        /// <param name="context">Execution context.</param>
+        /// <param name="pattern">Pattern to search.</param>
+        /// <param name="fullyQualifiedName">Module Specification.</param>
+        /// <param name="noErrors">Do not generate errors for modules without HelpInfoUri.</param>
+        /// <returns>A list of modules.</returns>
         private Dictionary<Tuple<string, Version>, UpdatableHelpModuleInfo> GetModuleInfo(ExecutionContext context, string pattern, ModuleSpecification fullyQualifiedName, bool noErrors)
         {
             List<PSModuleInfo> modules = null;
@@ -289,9 +301,9 @@ namespace Microsoft.PowerShell.Commands
                 }
             }
 
-            // Match wildcards
-            WildcardOptions wildcardOptions = WildcardOptions.IgnoreCase | WildcardOptions.CultureInvariant;
-            IEnumerable<WildcardPattern> patternList = SessionStateUtilities.CreateWildcardsFromStrings(new string[1] { moduleNamePattern }, wildcardOptions);
+            IEnumerable<WildcardPattern> patternList = SessionStateUtilities.CreateWildcardsFromStrings(
+                globPatterns: new[] { moduleNamePattern },
+                options: WildcardOptions.IgnoreCase | WildcardOptions.CultureInvariant);
 
             foreach (KeyValuePair<string, string> name in s_metadataCache)
             {
@@ -338,7 +350,7 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        /// Handles Ctrl+C
+        /// Handles Ctrl+C.
         /// </summary>
         protected override void StopProcessing()
         {
@@ -347,7 +359,7 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        /// End processing
+        /// End processing.
         /// </summary>
         protected override void EndProcessing()
         {
@@ -363,7 +375,7 @@ namespace Microsoft.PowerShell.Commands
                     // multiple cultures or multiple modules are involved.
                     e = new UpdatableHelpExceptionContext(new UpdatableHelpSystemException(
                         "HelpCultureNotSupported", StringUtil.Format(HelpDisplayStrings.CannotMatchUICulturePattern,
-                        String.Join(", ", exception.Cultures)),
+                        string.Join(", ", exception.Cultures)),
                         ErrorCategory.InvalidArgument, exception.Cultures, null));
                     e.Modules = exception.Modules;
                     e.Cultures = exception.Cultures;
@@ -381,13 +393,13 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        /// Main cmdlet logic for processing module names or fully qualified module names
+        /// Main cmdlet logic for processing module names or fully qualified module names.
         /// </summary>
-        /// <param name="moduleNames">module names given by the user</param>
-        /// <param name="fullyQualifiedNames">fullyQualifiedNames</param>
+        /// <param name="moduleNames">Module names given by the user.</param>
+        /// <param name="fullyQualifiedNames">FullyQualifiedNames.</param>
         internal void Process(IEnumerable<string> moduleNames, IEnumerable<ModuleSpecification> fullyQualifiedNames)
         {
-            _helpSystem.WebClient.UseDefaultCredentials = _useDefaultCredentials;
+            _helpSystem.UseDefaultCredentials = _useDefaultCredentials;
 
             if (moduleNames != null)
             {
@@ -428,12 +440,15 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        /// Processing module objects for Save-Help
+        /// Processing module objects for Save-Help.
         /// </summary>
-        /// <param name="modules">module objects given by the user</param>
+        /// <param name="modules">Module objects given by the user.</param>
         internal void Process(IEnumerable<PSModuleInfo> modules)
         {
-            if (modules == null || !modules.Any()) { return; }
+            if (modules == null || !modules.Any())
+            {
+                return;
+            }
 
             var helpModules = new Dictionary<Tuple<string, Version>, UpdatableHelpModuleInfo>();
 
@@ -449,12 +464,12 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        /// Processes a module with potential globbing
+        /// Processes a module with potential globbing.
         /// </summary>
-        /// <param name="name">module name with globbing</param>
+        /// <param name="name">Module name with globbing.</param>
         private void ProcessModuleWithGlobbing(string name)
         {
-            if (String.IsNullOrEmpty(name))
+            if (string.IsNullOrEmpty(name))
             {
                 PSArgumentException e = new PSArgumentException(StringUtil.Format(HelpDisplayStrings.ModuleNameNullOrEmpty));
                 WriteError(e.ErrorRecord);
@@ -468,9 +483,9 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        /// Processes a ModuleSpecification with potential globbing
+        /// Processes a ModuleSpecification with potential globbing.
         /// </summary>
-        /// <param name="fullyQualifiedName">ModuleSpecification</param>
+        /// <param name="fullyQualifiedName">ModuleSpecification.</param>
         private void ProcessModuleWithGlobbing(ModuleSpecification fullyQualifiedName)
         {
             foreach (KeyValuePair<Tuple<string, Version>, UpdatableHelpModuleInfo> module in GetModuleInfo(null, fullyQualifiedName, false))
@@ -480,9 +495,9 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        /// Processes a single module with multiple cultures
+        /// Processes a single module with multiple cultures.
         /// </summary>
-        /// <param name="module">module to process</param>
+        /// <param name="module">Module to process.</param>
         private void ProcessModule(UpdatableHelpModuleInfo module)
         {
             _helpSystem.CurrentModule = module.ModuleName;
@@ -499,6 +514,7 @@ namespace Microsoft.PowerShell.Commands
             // Win8: 572882 When the system locale is English and the UI is JPN,
             // running "update-help" still downs English help content.
             var cultures = _language ?? _helpSystem.GetCurrentUICulture();
+            UpdatableHelpSystemException implicitCultureNotSupported = null;
 
             foreach (string culture in cultures)
             {
@@ -539,7 +555,8 @@ namespace Microsoft.PowerShell.Commands
 #endif
                 catch (UpdatableHelpSystemException e)
                 {
-                    if (e.FullyQualifiedErrorId == "HelpCultureNotSupported")
+                    if (e.FullyQualifiedErrorId == "HelpCultureNotSupported"
+                            || e.FullyQualifiedErrorId == "UnableToRetrieveHelpInfoXml")
                     {
                         installed = false;
 
@@ -547,6 +564,12 @@ namespace Microsoft.PowerShell.Commands
                         {
                             // Display the error message only if we are not using the fallback chain
                             ProcessException(module.ModuleName, culture, e);
+                        }
+                        else
+                        {
+                            // Hold first exception, it will be displayed if fallback chain fails
+                            WriteVerbose(StringUtil.Format(HelpDisplayStrings.HelpCultureNotSupportedFallback, e.Message));
+                            implicitCultureNotSupported ??= e;
                         }
                     }
                     else
@@ -571,21 +594,27 @@ namespace Microsoft.PowerShell.Commands
                     }
                 }
 
-                // If -Language is not specified, we only install
+                // If -UICulture is not specified, we only install
                 // one culture from the fallback chain
                 if (_language == null && installed)
                 {
-                    break;
+                    return;
                 }
+            }
+
+            // If the exception is not null and did not return early, then all of the fallback chain failed
+            if (implicitCultureNotSupported != null)
+            {
+                ProcessException(module.ModuleName, cultures.First(), implicitCultureNotSupported);
             }
         }
 
         /// <summary>
-        /// Process a single module with a given culture
+        /// Process a single module with a given culture.
         /// </summary>
-        /// <param name="module">module to process</param>
-        /// <param name="culture">culture to use</param>
-        /// <returns>true if the module has been processed, false if not</returns>
+        /// <param name="module">Module to process.</param>
+        /// <param name="culture">Culture to use.</param>
+        /// <returns>True if the module has been processed, false if not.</returns>
         internal virtual bool ProcessModuleWithCulture(UpdatableHelpModuleInfo module, string culture)
         {
             return false;
@@ -596,12 +625,12 @@ namespace Microsoft.PowerShell.Commands
         #region Common methods
 
         /// <summary>
-        /// Gets a list of modules from the given pattern or ModuleSpecification
+        /// Gets a list of modules from the given pattern or ModuleSpecification.
         /// </summary>
-        /// <param name="pattern">pattern to match</param>
-        /// <param name="fullyQualifiedName">ModuleSpecification</param>
-        /// <param name="noErrors">skip errors</param>
-        /// <returns>a list of modules</returns>
+        /// <param name="pattern">Pattern to match.</param>
+        /// <param name="fullyQualifiedName">ModuleSpecification.</param>
+        /// <param name="noErrors">Skip errors.</param>
+        /// <returns>A list of modules.</returns>
         internal Dictionary<Tuple<string, Version>, UpdatableHelpModuleInfo> GetModuleInfo(string pattern, ModuleSpecification fullyQualifiedName, bool noErrors)
         {
             Dictionary<Tuple<string, Version>, UpdatableHelpModuleInfo> modules = GetModuleInfo(Context, pattern, fullyQualifiedName, noErrors);
@@ -621,14 +650,14 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        /// Checks if it is necessary to update help
+        /// Checks if it is necessary to update help.
         /// </summary>
-        /// <param name="module">ModuleInfo</param>
-        /// <param name="currentHelpInfo">current HelpInfo.xml</param>
-        /// <param name="newHelpInfo">new HelpInfo.xml</param>
-        /// <param name="culture">current culture</param>
-        /// <param name="force">force update</param>
-        /// <returns>true if it is necessary to update help, false if not</returns>
+        /// <param name="module">ModuleInfo.</param>
+        /// <param name="currentHelpInfo">Current HelpInfo.xml.</param>
+        /// <param name="newHelpInfo">New HelpInfo.xml.</param>
+        /// <param name="culture">Current culture.</param>
+        /// <param name="force">Force update.</param>
+        /// <returns>True if it is necessary to update help, false if not.</returns>
         internal bool IsUpdateNecessary(UpdatableHelpModuleInfo module, UpdatableHelpInfo currentHelpInfo,
             UpdatableHelpInfo newHelpInfo, CultureInfo culture, bool force)
         {
@@ -642,7 +671,7 @@ namespace Microsoft.PowerShell.Commands
             }
 
             // Culture check
-            if (!newHelpInfo.IsCultureSupported(culture))
+            if (!newHelpInfo.IsCultureSupported(culture.Name))
             {
                 throw new UpdatableHelpSystemException("HelpCultureNotSupported",
                     StringUtil.Format(HelpDisplayStrings.HelpCultureNotSupported,
@@ -659,14 +688,14 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        /// Checks if the user has attempted to update more than once per day per module
+        /// Checks if the user has attempted to update more than once per day per module.
         /// </summary>
-        /// <param name="moduleName">module name</param>
-        /// <param name="path">path to help info</param>
-        /// <param name="filename">help info file name</param>
-        /// <param name="time">current time (UTC)</param>
-        /// <param name="force">if -Force is specified</param>
-        /// <returns>true if we are okay to update, false if not</returns>
+        /// <param name="moduleName">Module name.</param>
+        /// <param name="path">Path to help info.</param>
+        /// <param name="filename">Help info file name.</param>
+        /// <param name="time">Current time (UTC).</param>
+        /// <param name="force">If -Force is specified.</param>
+        /// <returns>True if we are okay to update, false if not.</returns>
         internal bool CheckOncePerDayPerModule(string moduleName, string path, string filename, DateTime time, bool force)
         {
             // Update if -Force is specified
@@ -704,12 +733,12 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        /// Resolves a given path to a list of directories
+        /// Resolves a given path to a list of directories.
         /// </summary>
-        /// <param name="path">path to resolve</param>
-        /// <param name="recurse">resolve recursively?</param>
+        /// <param name="path">Path to resolve.</param>
+        /// <param name="recurse">Resolve recursively?</param>
         /// <param name="isLiteralPath">Treat the path / start path as a literal path?</param>///
-        /// <returns>a list of directories</returns>
+        /// <returns>A list of directories.</returns>
         internal IEnumerable<string> ResolvePath(string path, bool recurse, bool isLiteralPath)
         {
             List<string> resolvedPaths = new List<string>();
@@ -764,17 +793,17 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        /// Resolves a given path to a list of directories recursively
+        /// Resolves a given path to a list of directories recursively.
         /// </summary>
-        /// <param name="path">path to resolve</param>
-        /// <returns>a list of directories</returns>
-        private IEnumerable<string> RecursiveResolvePathHelper(string path)
+        /// <param name="path">Path to resolve.</param>
+        /// <returns>A list of directories.</returns>
+        private static IEnumerable<string> RecursiveResolvePathHelper(string path)
         {
             if (System.IO.Directory.Exists(path))
             {
                 yield return path;
 
-                foreach (string subDirectory in Directory.GetDirectories(path))
+                foreach (string subDirectory in Directory.EnumerateDirectories(path))
                 {
                     foreach (string subDirectory2 in RecursiveResolvePathHelper(subDirectory))
                     {
@@ -793,7 +822,7 @@ namespace Microsoft.PowerShell.Commands
         /// <summary>
         /// Validates the provider of the path, only FileSystem provider is accepted.
         /// </summary>
-        /// <param name="path">path to validate</param>
+        /// <param name="path">Path to validate.</param>
         internal void ValidatePathProvider(PathInfo path)
         {
             if (path.Provider == null || path.Provider.Name != FileSystemProvider.ProviderName)
@@ -808,17 +837,13 @@ namespace Microsoft.PowerShell.Commands
         #region Logging
 
         /// <summary>
-        /// Logs a command message
+        /// Logs a command message.
         /// </summary>
-        /// <param name="message">message to log</param>
+        /// <param name="message">Message to log.</param>
         internal void LogMessage(string message)
         {
-            List<string> details = new List<string>();
-
-            details.Add(message);
-#if !CORECLR // TODO:CORECLR Uncomment when we add PSEtwLog support
+            List<string> details = new List<string>() { message };
             PSEtwLog.LogPipelineExecutionDetailEvent(MshLog.GetLogContext(Context, Context.CurrentCommandProcessor.Command.MyInvocation), details);
-#endif
         }
 
         #endregion
@@ -826,11 +851,11 @@ namespace Microsoft.PowerShell.Commands
         #region Exception processing
 
         /// <summary>
-        /// Processes an exception for help cmdlets
+        /// Processes an exception for help cmdlets.
         /// </summary>
-        /// <param name="moduleName">module name</param>
-        /// <param name="culture">culture info</param>
-        /// <param name="e">exception to check</param>
+        /// <param name="moduleName">Module name.</param>
+        /// <param name="culture">Culture info.</param>
+        /// <param name="e">Exception to check.</param>
         internal void ProcessException(string moduleName, string culture, Exception e)
         {
             UpdatableHelpSystemException except = null;
@@ -873,13 +898,14 @@ namespace Microsoft.PowerShell.Commands
         #endregion
     }
 
-     /// <summary>
+    /// <summary>
     /// Scope to which the help should be saved.
     /// </summary>
     public enum UpdateHelpScope
     {
         /// <summary>
         /// Save the help content to the user directory.
+        /// </summary>
         CurrentUser,
 
         /// <summary>

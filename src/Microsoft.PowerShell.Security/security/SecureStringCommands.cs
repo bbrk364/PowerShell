@@ -1,13 +1,12 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
-using System.IO;
 using System.Management.Automation;
+using System.Runtime.InteropServices;
 using System.Security;
 using System.Security.Cryptography;
-using System.Runtime.InteropServices;
-using System.Globalization;
+
 using Dbg = System.Management.Automation;
 
 namespace Microsoft.PowerShell.Commands
@@ -27,19 +26,19 @@ namespace Microsoft.PowerShell.Commands
         protected SecureString SecureStringData
         {
             get { return _ss; }
+
             set { _ss = value; }
         }
 
         //
         // name of this command
         //
-        private string _commandName;
+        private readonly string _commandName;
 
         /// <summary>
         /// Initializes a new instance of the SecureStringCommandBase
         /// class.
         /// </summary>
-        ///
         /// <param name="name">
         /// The command name deriving from this class
         /// </param>
@@ -112,12 +111,12 @@ namespace Microsoft.PowerShell.Commands
     /// uses the DPAPI to encrypt the string. When a key is specified, the
     /// command uses the AES algorithm to encrypt the string.
     /// </summary>
-    [Cmdlet(VerbsData.ConvertFrom, "SecureString", DefaultParameterSetName = "Secure", HelpUri = "https://go.microsoft.com/fwlink/?LinkID=113287")]
+    [Cmdlet(VerbsData.ConvertFrom, "SecureString", DefaultParameterSetName = "Secure", HelpUri = "https://go.microsoft.com/fwlink/?LinkID=2096497")]
     [OutputType(typeof(string))]
     public sealed class ConvertFromSecureStringCommand : ConvertFromToSecureStringCommandBase
     {
         /// <summary>
-        /// Initializes a new instance of the ExportSecureStringCommand class
+        /// Initializes a new instance of the ExportSecureStringCommand class.
         /// </summary>
         public ConvertFromSecureStringCommand() : base("ConvertFrom-SecureString") { }
 
@@ -137,6 +136,12 @@ namespace Microsoft.PowerShell.Commands
                 SecureStringData = value;
             }
         }
+
+        /// <summary>
+        /// Gets or sets a switch to get the secure string as plain text.
+        /// </summary>
+        [Parameter(ParameterSetName = "AsPlainText")]
+        public SwitchParameter AsPlainText { get; set; }
 
         /// <summary>
         /// Processes records from the input pipeline.
@@ -164,6 +169,19 @@ namespace Microsoft.PowerShell.Commands
             {
                 encryptionResult = SecureStringHelper.Encrypt(SecureString, Key);
             }
+            else if (AsPlainText)
+            {
+                IntPtr valuePtr = IntPtr.Zero;
+                try
+                {
+                    valuePtr = Marshal.SecureStringToGlobalAllocUnicode(SecureString);
+                    exportedString = Marshal.PtrToStringUni(valuePtr);
+                }
+                finally
+                {
+                    Marshal.ZeroFreeGlobalAllocUnicode(valuePtr);
+                }
+            }
             else
             {
                 exportedString = SecureStringHelper.Protect(SecureString);
@@ -173,7 +191,7 @@ namespace Microsoft.PowerShell.Commands
             {
                 // The formatted string is Algorithm Version,
                 // Initialization Vector, Encrypted Data
-                string dataPackage = String.Format(
+                string dataPackage = string.Format(
                     System.Globalization.CultureInfo.InvariantCulture,
                     "{0}|{1}|{2}",
                     2,
@@ -208,7 +226,7 @@ namespace Microsoft.PowerShell.Commands
     /// When a key is specified, the command uses the AES algorithm
     /// to decrypt the data.
     /// </summary>
-    [Cmdlet(VerbsData.ConvertTo, "SecureString", DefaultParameterSetName = "Secure", HelpUri = "https://go.microsoft.com/fwlink/?LinkID=113291")]
+    [Cmdlet(VerbsData.ConvertTo, "SecureString", DefaultParameterSetName = "Secure", HelpUri = "https://go.microsoft.com/fwlink/?LinkID=2096916")]
     [OutputType(typeof(SecureString))]
     public sealed class ConvertToSecureStringCommand : ConvertFromToSecureStringCommandBase
     {
@@ -220,9 +238,8 @@ namespace Microsoft.PowerShell.Commands
         /// <summary>
         /// Gets or sets the unsecured string to be imported.
         /// </summary>
-        ///
         [Parameter(Position = 0, ValueFromPipeline = true, Mandatory = true)]
-        public String String
+        public string String
         {
             get
             {
@@ -234,13 +251,13 @@ namespace Microsoft.PowerShell.Commands
                 _s = value;
             }
         }
+
         private string _s;
 
         /// <summary>
         /// Gets or sets the flag that marks the unsecured string as a plain
         /// text string.
         /// </summary>
-        ///
         [Parameter(Position = 1, ParameterSetName = "PlainText")]
         public SwitchParameter AsPlainText
         {
@@ -254,13 +271,13 @@ namespace Microsoft.PowerShell.Commands
                 _asPlainText = value;
             }
         }
+
         private bool _asPlainText;
 
         /// <summary>
         /// Gets or sets the flag that will force the import of a plaintext
         /// unsecured string.
         /// </summary>
-        ///
         [Parameter(Position = 2, ParameterSetName = "PlainText")]
         public SwitchParameter Force
         {
@@ -274,6 +291,7 @@ namespace Microsoft.PowerShell.Commands
                 _force = value;
             }
         }
+
         private bool _force;
 
         /// <summary>
@@ -293,8 +311,7 @@ namespace Microsoft.PowerShell.Commands
                 byte[] iv = null;
 
                 // If this is a V2 package
-                if (String.IndexOf(SecureStringHelper.SecureStringExportHeader,
-                        StringComparison.OrdinalIgnoreCase) == 0)
+                if (String.StartsWith(SecureStringHelper.SecureStringExportHeader, StringComparison.OrdinalIgnoreCase))
                 {
                     try
                     {
@@ -308,7 +325,7 @@ namespace Microsoft.PowerShell.Commands
                         // representation, then parse it into its components.
                         byte[] inputBytes = Convert.FromBase64String(remainingData);
                         string dataPackage = System.Text.Encoding.Unicode.GetString(inputBytes);
-                        string[] dataElements = dataPackage.Split(Utils.Separators.Pipe);
+                        string[] dataElements = dataPackage.Split('|');
 
                         if (dataElements.Length == 3)
                         {
@@ -341,22 +358,7 @@ namespace Microsoft.PowerShell.Commands
                 }
                 else
                 {
-                    if (!Force)
-                    {
-                        String error =
-                            SecureStringCommands.ForceRequired;
-                        Exception e = new ArgumentException(error);
-                        WriteError(new ErrorRecord(e, "ImportSecureString_ForceRequired", ErrorCategory.InvalidArgument, null));
-                    }
-                    else
-                    {
-                        // The entire purpose of the SecureString is to prevent a secret from being
-                        // permanently stored in memory as a .Net string.  If they use the
-                        // -AsPlainText and -Force flags, they consciously have made the decision to be OK
-                        // with that.
-                        importedString = new SecureString();
-                        foreach (char currentChar in String) { importedString.AppendChar(currentChar); }
-                    }
+                    importedString = SecureStringHelper.FromPlainTextString(String);
                 }
             }
             catch (ArgumentException e)
@@ -385,4 +387,3 @@ namespace Microsoft.PowerShell.Commands
         }
     }
 }
-

@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
@@ -8,16 +8,13 @@ using System.Management.Automation.Internal;
 namespace Microsoft.PowerShell.Commands
 {
     /// <summary>
-    ///
-    /// Base class for a variety of commandlets that take color parameters
-    ///
+    /// Base class for a variety of commandlets that take color parameters.
     /// </summary>
-
     public
     class ConsoleColorCmdlet : PSCmdlet
     {
         /// <summary>
-        /// Default ctor
+        /// Initializes a new instance of the <see cref="ConsoleColorCmdlet"/> class.
         /// </summary>
         public ConsoleColorCmdlet()
         {
@@ -25,12 +22,9 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        ///
-        /// The -ForegroundColor parameter
-        ///
+        /// The -ForegroundColor parameter.
         /// </summary>
         /// <value></value>
-
         [Parameter]
         public
         ConsoleColor
@@ -46,6 +40,7 @@ namespace Microsoft.PowerShell.Commands
 
                 return _fgColor;
             }
+
             set
             {
                 if (value >= (ConsoleColor)0 && value <= (ConsoleColor)15)
@@ -61,10 +56,8 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <value></value>
-
         [Parameter]
         public
         ConsoleColor
@@ -80,6 +73,7 @@ namespace Microsoft.PowerShell.Commands
 
                 return _bgColor;
             }
+
             set
             {
                 if (value >= (ConsoleColor)0 && value <= (ConsoleColor)15)
@@ -98,7 +92,7 @@ namespace Microsoft.PowerShell.Commands
         private static ErrorRecord BuildOutOfRangeErrorRecord(object val, string errorId)
         {
             string msg = StringUtil.Format(HostStrings.InvalidColorErrorTemplate, val.ToString());
-            ArgumentOutOfRangeException e = new ArgumentOutOfRangeException("value", val, msg);
+            ArgumentOutOfRangeException e = new("value", val, msg);
             return new ErrorRecord(e, errorId, ErrorCategory.InvalidArgument, null);
         }
         #endregion helper
@@ -112,4 +106,3 @@ namespace Microsoft.PowerShell.Commands
         private readonly Type _consoleColorEnumType;
     }
 }
-

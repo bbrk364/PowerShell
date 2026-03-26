@@ -1,11 +1,10 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 ##
 ## PowerShell Invoke-Command -RemoteDebug Tests
 ##
 
-if ($IsWindows)
-{
+if ($IsWindows) {
     $typeDef = @'
     using System;
     using System.Globalization;
@@ -116,69 +115,71 @@ if ($IsWindows)
 '@
 }
 
-Describe "Invoke-Command remote debugging tests" -Tags 'Feature' {
+Describe "Invoke-Command remote debugging tests" -Tags 'Feature','RequireAdminOnWindows' {
 
     BeforeAll {
 
-        if (!$IsWindows)
-        {
-            $originalDefaultParameterValues = $PSDefaultParameterValues.Clone()
-            $PSDefaultParameterValues["it:Pending"] = $true
+        $isArm64orWow64 = (Test-IsWindowsArm64) -or (Test-IsWinWow64)
+        $skipTest = ! $IsWindows -or $isArm64orWow64
+        if ($skipTest) {
+            if ($isArm64orWow64) {
+                Write-Verbose "remoting is not setup on ARM64 or x86, skipping tests" -Verbose
+            }
+            Push-DefaultParameterValueStack @{ "it:skip" = $true }
+            return
         }
-        else
-        {
-            $sb = [scriptblock]::Create(@'
-            "Hello!"
-'@)
 
-            Add-Type -TypeDefinition $typeDef
+        $sb = [scriptblock]::Create('"Hello!"')
 
-            $dummyHost = [TestRunner.DummyHost]::new()
-            [runspace] $rs = [runspacefactory]::CreateRunspace($dummyHost)
-            $rs.Open()
-            $dummyHost._runspace = $rs
+        Add-Type -TypeDefinition $typeDef
 
-            $testDebugger = [TestRunner.TestDebugger]::new($rs)
+        $dummyHost = [TestRunner.DummyHost]::new()
+        [runspace] $rs = [runspacefactory]::CreateRunspace($dummyHost)
+        $rs.Open()
+        $dummyHost._runspace = $rs
 
-            [runspace] $rs2 = [runspacefactory]::CreateRunspace()
-            $rs2.Open()
+        $testDebugger = [TestRunner.TestDebugger]::new($rs)
 
-            [powershell] $ps = [powershell]::Create()
-            $ps.Runspace = $rs
+        [runspace] $rs2 = [runspacefactory]::CreateRunspace()
+        $rs2.Open()
 
-            [powershell] $ps2 = [powershell]::Create()
-            $ps2.Runspace = $rs2
-        }
+        [powershell] $ps = [powershell]::Create()
+        $ps.Runspace = $rs
+
+        [powershell] $ps2 = [powershell]::Create()
+        $ps2.Runspace = $rs2
     }
 
     AfterAll {
 
-        if (!$IsWindows)
-        {
-            $global:PSDefaultParameterValues = $originalDefaultParameterValues
+        if ($skipTest) {
+            Pop-DefaultParameterValueStack
+            return
         }
-        else
-        {
-            if ($null -ne $testDebugger) { $testDebugger.Release() }
-            if ($null -ne $ps) { $ps.Dispose() }
-            if ($null -ne $ps2) { $ps2.Dispose() }
-            if ($null -ne $rs) { $rs.Dispose() }
-            if ($null -ne $rs2) { $rs2.Dispose() }
-            if ($null -ne $remoteSession) { Remove-PSSession $remoteSession -ErrorAction SilentlyContinue }
-        }
+
+        if ($null -ne $testDebugger) { $testDebugger.Release() }
+        if ($null -ne $ps) { $ps.Dispose() }
+        if ($null -ne $ps2) { $ps2.Dispose() }
+        if ($null -ne $rs) { $rs.Dispose() }
+        if ($null -ne $rs2) { $rs2.Dispose() }
+        if ($null -ne $remoteSession) { Remove-PSSession $remoteSession -ErrorAction SilentlyContinue }
     }
 
     BeforeEach {
-
-        $remoteSession = New-RemoteSession
+        if (!$skipTest) {
+            $remoteSession = New-RemoteSession
+        }
     }
 
     AfterEach {
+        if ($skipTest) {
+            return
+        }
 
         $ps.Commands.Clear()
         $ps2.Commands.Clear()
 
-        Remove-PSSession $remoteSession -ErrorAction SilentlyContinue
+        if ($null -ne $remoteSession) { Remove-PSSession $remoteSession -ErrorAction SilentlyContinue }
         $remoteSession = $null
     }
 

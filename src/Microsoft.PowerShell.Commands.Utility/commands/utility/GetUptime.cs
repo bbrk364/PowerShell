@@ -1,15 +1,15 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
-using System.Management.Automation;
 using System.Diagnostics;
+using System.Management.Automation;
 using System.Management.Automation.Internal;
 
 namespace Microsoft.PowerShell.Commands
 {
     /// <summary>
-    /// This class implements Get-Uptime
+    /// This class implements Get-Uptime.
     /// </summary>
     [Cmdlet(VerbsCommon.Get, "Uptime", DefaultParameterSetName = TimespanParameterSet, HelpUri = "https://go.microsoft.com/fwlink/?linkid=834862")]
     [OutputType(typeof(TimeSpan), ParameterSetName = new string[] { TimespanParameterSet })]
@@ -17,16 +17,14 @@ namespace Microsoft.PowerShell.Commands
     public class GetUptimeCommand : PSCmdlet
     {
         /// <summary>
-        /// Since parameter
-        /// The system startup time
+        /// The system startup time.
         /// </summary>
         /// <value></value>
         [Parameter(ParameterSetName = SinceParameterSet)]
         public SwitchParameter Since { get; set; } = new SwitchParameter();
 
         /// <summary>
-        /// ProcessRecord() override
-        /// This is the main entry point for the cmdlet
+        /// This is the main entry point for the cmdlet.
         /// </summary>
         protected override void ProcessRecord()
         {
@@ -36,18 +34,17 @@ namespace Microsoft.PowerShell.Commands
             // InternalTestHooks.StopwatchIsNotHighResolution is used as test hook.
             if (Stopwatch.IsHighResolution && !InternalTestHooks.StopwatchIsNotHighResolution)
             {
-                TimeSpan uptime = TimeSpan.FromSeconds(Stopwatch.GetTimestamp()/Stopwatch.Frequency);
+                TimeSpan uptime = TimeSpan.FromSeconds(Stopwatch.GetTimestamp() / Stopwatch.Frequency);
 
-                switch (ParameterSetName)
+                if (Since)
                 {
-                    case TimespanParameterSet:
-                        // return TimeSpan of time since the system started up
-                        WriteObject(uptime);
-                        break;
-                    case SinceParameterSet:
-                        // return Datetime when the system started up
-                        WriteObject(DateTime.Now.Subtract(uptime));
-                        break;
+                    // Output the time of the last system boot.
+                    WriteObject(DateTime.Now.Subtract(uptime));
+                }
+                else
+                {
+                    // Output the time elapsed since the last system boot.
+                    WriteObject(uptime);
                 }
             }
             else
@@ -67,5 +64,5 @@ namespace Microsoft.PowerShell.Commands
         /// Parameter set name for DateTime OutputType.
         /// </summary>
         private const string SinceParameterSet = "Since";
-   }
+    }
 }

@@ -1,15 +1,16 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Management.Automation.Remoting;
-using System.Management.Automation.Tracing;
 using System.Management.Automation.Runspaces;
+using System.Management.Automation.Tracing;
 using System.Reflection;
 using System.Security;
 using System.Threading;
+
 using Dbg = System.Management.Automation.Diagnostics;
 
 // Stops compiler from warning about unknown warnings
@@ -53,7 +54,7 @@ namespace System.Management.Automation
         /// <returns>Whether the type is registered already.</returns>
         public bool IsRegistered(string typeName)
         {
-            if (String.IsNullOrEmpty(typeName))
+            if (string.IsNullOrEmpty(typeName))
             {
                 return false;
             }
@@ -80,51 +81,43 @@ namespace System.Management.Automation
             Dbg.Assert(jobSourceAdapterType != null, "JobSourceAdapterType should never be called with null value.");
             object instance = null;
 
-            if (jobSourceAdapterType.FullName != null && jobSourceAdapterType.FullName.EndsWith("WorkflowJobSourceAdapter", StringComparison.OrdinalIgnoreCase))
+            ConstructorInfo constructor = jobSourceAdapterType.GetConstructor(Type.EmptyTypes);
+            if (!constructor.IsPublic)
             {
-                MethodInfo method = jobSourceAdapterType.GetMethod("GetInstance");
-                instance = method.Invoke(null, null);
+                string message = string.Format(CultureInfo.CurrentCulture,
+                                                RemotingErrorIdStrings.JobManagerRegistrationConstructorError,
+                                                jobSourceAdapterType.FullName);
+                throw new InvalidOperationException(message);
             }
-            else
-            {
-                ConstructorInfo constructor = jobSourceAdapterType.GetConstructor(PSTypeExtensions.EmptyTypes);
-                if (!constructor.IsPublic)
-                {
-                    string message = String.Format(CultureInfo.CurrentCulture,
-                                                   RemotingErrorIdStrings.JobManagerRegistrationConstructorError,
-                                                   jobSourceAdapterType.FullName);
-                    throw new InvalidOperationException(message);
-                }
 
-                try
-                {
-                    instance = constructor.Invoke(null);
-                }
-                catch (MemberAccessException exception)
-                {
-                    _tracer.TraceException(exception);
-                    throw;
-                }
-                catch (TargetInvocationException exception)
-                {
-                    _tracer.TraceException(exception);
-                    throw;
-                }
-                catch (TargetParameterCountException exception)
-                {
-                    _tracer.TraceException(exception);
-                    throw;
-                }
-                catch (NotSupportedException exception)
-                {
-                    _tracer.TraceException(exception);
-                    throw;
-                }
-                catch (SecurityException exception)
-                {
-                    _tracer.TraceException(exception);
-                    throw;
-                }
+            try
+            {
+                instance = constructor.Invoke(null);
+            }
+            catch (MemberAccessException exception)
+            {
+                _tracer.TraceException(exception);
+                throw;
+            }
+            catch (TargetInvocationException exception)
+            {
+                _tracer.TraceException(exception);
+                throw;
+            }
+            catch (TargetParameterCountException exception)
+            {
+                _tracer.TraceException(exception);
+                throw;
+            }
+            catch (NotSupportedException exception)
+            {
+                _tracer.TraceException(exception);
+                throw;
+            }
+            catch (SecurityException exception)
+            {
+                _tracer.TraceException(exception);
+                throw;
             }
 
             if (instance != null)
@@ -138,7 +131,7 @@ namespace System.Management.Automation
 
         /// <summary>
         /// Returns a token that allows a job to be constructed with a specific id and instanceId.
-        /// The original job must have been saved using "SaveJobIdForReconstruction" in the JobSourceAdapter
+        /// The original job must have been saved using "SaveJobIdForReconstruction" in the JobSourceAdapter.
         /// </summary>
         /// <param name="instanceId">The instance id desired.</param>
         /// <param name="typeName">The requesting type name for JobSourceAdapter implementation.</param>
@@ -165,7 +158,11 @@ namespace System.Management.Automation
         {
             lock (s_syncObject)
             {
-                if (s_jobIdsForReuse.ContainsKey(instanceId)) return;
+                if (s_jobIdsForReuse.ContainsKey(instanceId))
+                {
+                    return;
+                }
+
                 s_jobIdsForReuse.Add(instanceId, new KeyValuePair<int, string>(id, typeName));
             }
         }
@@ -183,10 +180,7 @@ namespace System.Management.Automation
         /// </exception>
         public Job2 NewJob(JobDefinition definition)
         {
-            if (definition == null)
-            {
-                throw new ArgumentNullException("definition");
-            }
+            ArgumentNullException.ThrowIfNull(definition);
 
             JobSourceAdapter sourceAdapter = GetJobSourceAdapter(definition);
             Job2 newJob;
@@ -223,14 +217,11 @@ namespace System.Management.Automation
         /// </exception>
         public Job2 NewJob(JobInvocationInfo specification)
         {
-            if (specification == null)
-            {
-                throw new ArgumentNullException("specification");
-            }
+            ArgumentNullException.ThrowIfNull(specification);
 
             if (specification.Definition == null)
             {
-                throw new ArgumentException(RemotingErrorIdStrings.NewJobSpecificationError, "specification");
+                throw new ArgumentException(RemotingErrorIdStrings.NewJobSpecificationError, nameof(specification));
             }
 
             JobSourceAdapter sourceAdapter = GetJobSourceAdapter(specification.Definition);
@@ -264,17 +255,18 @@ namespace System.Management.Automation
         /// <summary>
         /// Saves the job to a persisted store.
         /// </summary>
-        /// <param name="job">Job2 type job to persist</param>
-        /// <param name="definition">Job definition containing source adapter information</param>
+        /// <param name="job">Job2 type job to persist.</param>
+        /// <param name="definition">Job definition containing source adapter information.</param>
         public void PersistJob(Job2 job, JobDefinition definition)
         {
             if (job == null)
             {
-                throw new PSArgumentNullException("job");
+                throw new PSArgumentNullException(nameof(job));
             }
+
             if (definition == null)
             {
-                throw new PSArgumentNullException("definition");
+                throw new PSArgumentNullException(nameof(definition));
             }
 
             JobSourceAdapter sourceAdapter = GetJobSourceAdapter(definition);
@@ -325,7 +317,7 @@ namespace System.Management.Automation
         /// otherwise load the associated module and the requested source adapter.
         /// </summary>
         /// <param name="definition">JobDefinition supplies the JobSourceAdapter information.</param>
-        /// <returns>JobSourceAdapter</returns>
+        /// <returns>JobSourceAdapter.</returns>
         private JobSourceAdapter GetJobSourceAdapter(JobDefinition definition)
         {
             string adapterTypeName;
@@ -348,6 +340,7 @@ namespace System.Management.Automation
             {
                 adapterFound = _sourceAdapters.TryGetValue(adapterTypeName, out adapter);
             }
+
             if (!adapterFound)
             {
                 if (!string.IsNullOrEmpty(definition.ModuleName))
@@ -388,10 +381,6 @@ namespace System.Management.Automation
                     {
                         ex = e;
                     }
-                    catch (ThreadAbortException e)
-                    {
-                        ex = e;
-                    }
 
                     if (ex != null)
                     {
@@ -418,7 +407,7 @@ namespace System.Management.Automation
         /// <param name="cmdlet">Cmdlet requesting this, for error processing.</param>
         /// <param name="writeErrorOnException"></param>
         /// <param name="writeObject"></param>
-        /// <param name="jobSourceAdapterTypes">job source adapter type names</param>
+        /// <param name="jobSourceAdapterTypes">Job source adapter type names.</param>
         /// <returns>Collection of jobs.</returns>
         /// <exception cref="Exception">If cmdlet parameter is null, throws exception on error from
         /// JobSourceAdapter implementation.</exception>
@@ -440,7 +429,7 @@ namespace System.Management.Automation
         /// <param name="writeErrorOnException"></param>
         /// <param name="writeObject"></param>
         /// <param name="recurse"></param>
-        /// <param name="jobSourceAdapterTypes">job source adapter type names</param>
+        /// <param name="jobSourceAdapterTypes">Job source adapter type names.</param>
         /// <returns>Collection of jobs that match the specified
         /// criteria.</returns>
         /// <exception cref="Exception">If cmdlet parameter is null, throws exception on error from
@@ -464,7 +453,7 @@ namespace System.Management.Automation
         /// <param name="writeErrorOnException"></param>
         /// <param name="writeObject"></param>
         /// <param name="recurse"></param>
-        /// <param name="jobSourceAdapterTypes">job source adapter type names</param>
+        /// <param name="jobSourceAdapterTypes">Job source adapter type names.</param>
         /// <returns>Collection of jobs that match the specified
         /// criteria.</returns>
         /// <exception cref="Exception">If cmdlet parameter is null, throws exception on error from
@@ -488,7 +477,7 @@ namespace System.Management.Automation
         /// <param name="writeErrorOnException"></param>
         /// <param name="writeObject"></param>
         /// <param name="recurse"></param>
-        /// <param name="jobSourceAdapterTypes">job source adapter type names</param>
+        /// <param name="jobSourceAdapterTypes">Job source adapter type names.</param>
         /// <returns>Collection of jobs with the specified
         /// state.</returns>
         /// <exception cref="Exception">If cmdlet parameter is null, throws exception on error from
@@ -526,8 +515,8 @@ namespace System.Management.Automation
         /// <summary>
         /// Get a filtered list of jobs based on adapter name.
         /// </summary>
-        /// <param name="id">job id</param>
-        /// <param name="name">adapter name</param>
+        /// <param name="id">Job id.</param>
+        /// <param name="name">Adapter name.</param>
         /// <returns></returns>
         internal bool IsJobFromAdapter(Guid id, string name)
         {
@@ -555,7 +544,7 @@ namespace System.Management.Automation
         /// <param name="writeErrorOnException"></param>
         /// <param name="writeObject"></param>
         /// <param name="recurse"></param>
-        /// <param name="jobSourceAdapterTypes">job source adapter type names</param>
+        /// <param name="jobSourceAdapterTypes">Job source adapter type names.</param>
         /// <returns>Filtered list of jobs.</returns>
         /// <exception cref="Exception">If cmdlet parameter is null, throws exception on error from
         /// JobSourceAdapter implementation.</exception>
@@ -602,7 +591,11 @@ namespace System.Management.Automation
                     }
 #pragma warning restore 56500
 
-                    if (jobs == null) continue;
+                    if (jobs == null)
+                    {
+                        continue;
+                    }
+
                     allJobs.AddRange(jobs);
                 }
             }
@@ -625,7 +618,7 @@ namespace System.Management.Automation
         /// <param name="sourceAdapter"></param>
         /// <param name="jobSourceAdapterTypes"></param>
         /// <returns></returns>
-        private bool CheckTypeNames(JobSourceAdapter sourceAdapter, string[] jobSourceAdapterTypes)
+        private static bool CheckTypeNames(JobSourceAdapter sourceAdapter, string[] jobSourceAdapterTypes)
         {
             // If no type names were specified then allow all adapter types.
             if (jobSourceAdapterTypes == null ||
@@ -650,9 +643,9 @@ namespace System.Management.Automation
             return false;
         }
 
-        private string GetAdapterName(JobSourceAdapter sourceAdapter)
+        private static string GetAdapterName(JobSourceAdapter sourceAdapter)
         {
-            return (string.IsNullOrEmpty(sourceAdapter.Name) == false ?
+            return (!string.IsNullOrEmpty(sourceAdapter.Name) ?
                 sourceAdapter.Name :
                 sourceAdapter.GetType().ToString());
         }
@@ -767,12 +760,16 @@ namespace System.Management.Automation
                         WriteErrorOrWarning(writeErrorOnException, cmdlet, exception, "JobSourceAdapterGetJobByInstanceIdError", sourceAdapter);
                     }
 
-                    if (job == null) continue;
+                    if (job == null)
+                    {
+                        continue;
+                    }
 
                     if (writeObject)
                     {
                         cmdlet.WriteObject(job);
                     }
+
                     return job;
                 }
             }
@@ -790,7 +787,7 @@ namespace System.Management.Automation
         /// <param name="definitionType">JobSourceAdapter type that contains the job definition.</param>
         /// <param name="cmdlet">Cmdlet making call.</param>
         /// <param name="writeErrorOnException">Whether to write jobsourceadapter errors.</param>
-        /// <returns>List of matching Job2 objects</returns>
+        /// <returns>List of matching Job2 objects.</returns>
         internal List<Job2> GetJobToStart(
             string definitionName,
             string definitionPath,
@@ -857,7 +854,7 @@ namespace System.Management.Automation
                 else
                 {
                     // Write a warning
-                    string message = String.Format(CultureInfo.CurrentCulture,
+                    string message = string.Format(CultureInfo.CurrentCulture,
                                                    RemotingErrorIdStrings.JobSourceAdapterError,
                                                    exception.Message,
                                                    sourceAdapter.Name);
@@ -875,8 +872,8 @@ namespace System.Management.Automation
         /// <summary>
         /// Returns a List of adapter names currently loaded.
         /// </summary>
-        /// <param name="adapterTypeNames">Adapter names to filter on</param>
-        /// <returns>List of names</returns>
+        /// <param name="adapterTypeNames">Adapter names to filter on.</param>
+        /// <returns>List of names.</returns>
         internal List<string> GetLoadedAdapterNames(string[] adapterTypeNames)
         {
             List<string> adapterNames = new List<string>();
@@ -942,12 +939,20 @@ namespace System.Management.Automation
 
                         // sourceAdapter.GetJobByInstanceId() threw unknown exception.
                         _tracer.TraceException(exception);
-                        if (throwExceptions) throw;
+                        if (throwExceptions)
+                        {
+                            throw;
+                        }
+
                         WriteErrorOrWarning(writeErrorOnException, cmdlet, exception, "JobSourceAdapterGetJobError", sourceAdapter);
                     }
 #pragma warning restore 56500
 
-                    if (foundJob == null) continue;
+                    if (foundJob == null)
+                    {
+                        continue;
+                    }
+
                     jobFound = true;
                     RemoveJobIdForReuse(foundJob);
 
@@ -965,7 +970,11 @@ namespace System.Management.Automation
                         // sourceAdapter.RemoveJob() threw unknown exception.
 
                         _tracer.TraceException(exception);
-                        if (throwExceptions) throw;
+                        if (throwExceptions)
+                        {
+                            throw;
+                        }
+
                         WriteErrorOrWarning(writeErrorOnException, cmdlet, exception, "JobSourceAdapterRemoveJobError", sourceAdapter);
                     }
 #pragma warning restore 56500

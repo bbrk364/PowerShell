@@ -1,10 +1,11 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Globalization;
 using System.Management.Automation.Host;
 using System.Management.Automation.Remoting.Server;
 using System.Management.Automation.Runspaces;
-using System.Globalization;
+
 using Dbg = System.Management.Automation.Diagnostics;
 
 namespace System.Management.Automation.Remoting
@@ -19,22 +20,22 @@ namespace System.Management.Automation.Remoting
         /// <summary>
         /// Remote host user interface.
         /// </summary>
-        private ServerRemoteHostUserInterface _remoteHostUserInterface;
+        private readonly ServerRemoteHostUserInterface _remoteHostUserInterface;
 
         /// <summary>
         /// Server method executor.
         /// </summary>
-        private ServerMethodExecutor _serverMethodExecutor;
+        private readonly ServerMethodExecutor _serverMethodExecutor;
 
         /// <summary>
         /// Client runspace pool id.
         /// </summary>
-        private Guid _clientRunspacePoolId;
+        private readonly Guid _clientRunspacePoolId;
 
         /// <summary>
         /// Client power shell id.
         /// </summary>
-        private Guid _clientPowerShellId;
+        private readonly Guid _clientPowerShellId;
 
         /// <summary>
         /// Transport manager.
@@ -42,9 +43,9 @@ namespace System.Management.Automation.Remoting
         protected AbstractServerTransportManager _transportManager;
 
         /// <summary>
-        /// ServerDriverRemoteHost
+        /// ServerDriverRemoteHost.
         /// </summary>
-        private ServerDriverRemoteHost _serverDriverRemoteHost;
+        private readonly ServerDriverRemoteHost _serverDriverRemoteHost;
 
         #endregion
 
@@ -149,16 +150,6 @@ namespace System.Management.Automation.Remoting
         /// Host info.
         /// </summary>
         internal HostInfo HostInfo { get; }
-
-        /// <summary>
-        /// Allows a push runspace on this remote server host instance, regardless of
-        /// transport being used.
-        /// </summary>
-        internal virtual bool AllowPushRunspace
-        {
-            get { return (_serverDriverRemoteHost != null) ? _serverDriverRemoteHost.AllowPushRunspace : false; }
-            set { if (_serverDriverRemoteHost != null) { _serverDriverRemoteHost.AllowPushRunspace = value; } }
-        }
 
         #endregion
 
@@ -310,7 +301,7 @@ namespace System.Management.Automation.Remoting
         #region Overrides
 
         /// <summary>
-        /// True if runspace is pushed
+        /// True if runspace is pushed.
         /// </summary>
         public override bool IsRunspacePushed
         {
@@ -321,23 +312,11 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        /// Push runspace to use for remote command execution
+        /// Push runspace to use for remote command execution.
         /// </summary>
-        /// <param name="runspace">RemoteRunspace</param>
+        /// <param name="runspace">RemoteRunspace.</param>
         public override void PushRunspace(Runspace runspace)
         {
-            // Double session hop is currently allowed only for WSMan (non-OutOfProc) sessions, where
-            // the second session is either through a named pipe or hyperV socket connection.
-            if (!AllowPushRunspace &&
-                ((_transportManager is OutOfProcessServerSessionTransportManager) ||
-                 !(runspace.ConnectionInfo is NamedPipeConnectionInfo ||
-                   runspace.ConnectionInfo is VMConnectionInfo ||
-                   runspace.ConnectionInfo is ContainerConnectionInfo))
-               )
-            {
-                throw new PSNotSupportedException();
-            }
-
             if (_debugger == null)
             {
                 throw new PSInvalidOperationException(RemotingErrorIdStrings.ServerDriverRemoteHostNoDebuggerToPush);
@@ -348,16 +327,15 @@ namespace System.Management.Automation.Remoting
                 throw new PSInvalidOperationException(RemotingErrorIdStrings.ServerDriverRemoteHostAlreadyPushed);
             }
 
-            RemoteRunspace remoteRunspace = runspace as RemoteRunspace;
-            if (remoteRunspace == null)
+            if (runspace is not RemoteRunspace remoteRunspace)
             {
                 throw new PSInvalidOperationException(RemotingErrorIdStrings.ServerDriverRemoteHostNotRemoteRunspace);
             }
 
             // PSEdit support.  Existence of RemoteSessionOpenFileEvent event indicates host supports PSEdit
             _hostSupportsPSEdit = false;
-            PSEventManager localEventManager = (Runspace != null) ? Runspace.Events : null;
-            _hostSupportsPSEdit = (localEventManager != null) ? localEventManager.GetEventSubscribers(HostUtilities.RemoteSessionOpenFileEvent).GetEnumerator().MoveNext() : false;
+            PSEventManager localEventManager = Runspace?.Events;
+            _hostSupportsPSEdit = localEventManager != null && localEventManager.GetEventSubscribers(HostUtilities.RemoteSessionOpenFileEvent).GetEnumerator().MoveNext();
             if (_hostSupportsPSEdit)
             {
                 AddPSEditForRunspace(remoteRunspace);
@@ -368,16 +346,13 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        /// Pop runspace
+        /// Pop runspace.
         /// </summary>
         public override void PopRunspace()
         {
             if (_pushedRunspace != null)
             {
-                if (_debugger != null)
-                {
-                    _debugger.PopDebugger();
-                }
+                _debugger?.PopDebugger();
 
                 if (_hostSupportsPSEdit)
                 {
@@ -388,6 +363,7 @@ namespace System.Management.Automation.Remoting
                 {
                     _pushedRunspace.Close();
                 }
+
                 _pushedRunspace = null;
             }
         }
@@ -397,30 +373,21 @@ namespace System.Management.Automation.Remoting
         #region Properties
 
         /// <summary>
-        /// Server Debugger
+        /// Server Debugger.
         /// </summary>
         internal Debugger ServerDebugger
         {
             get { return _debugger; }
+
             set { _debugger = value as ServerRemoteDebugger; }
         }
 
         /// <summary>
-        /// Pushed runspace or null
+        /// Pushed runspace or null.
         /// </summary>
         internal Runspace PushedRunspace
         {
             get { return _pushedRunspace; }
-        }
-
-        /// <summary>
-        /// Allows a push runspace on this remote server host instance, regardless of
-        /// transport being used.
-        /// </summary>
-        internal override bool AllowPushRunspace
-        {
-            get;
-            set;
         }
 
         /// <summary>
@@ -440,7 +407,10 @@ namespace System.Management.Automation.Remoting
 
         private void AddPSEditForRunspace(RemoteRunspace remoteRunspace)
         {
-            if (remoteRunspace.Events == null) { return; }
+            if (remoteRunspace.Events == null)
+            {
+                return;
+            }
 
             // Add event handler.
             remoteRunspace.Events.ReceivedEvents.PSEventReceived += HandleRemoteSessionForwardedEvent;
@@ -460,7 +430,10 @@ namespace System.Management.Automation.Remoting
 
         private void RemovePSEditFromRunspace(RemoteRunspace remoteRunspace)
         {
-            if (remoteRunspace.Events == null) { return; }
+            if (remoteRunspace.Events == null)
+            {
+                return;
+            }
 
             // It is possible for the popped runspace to be in a bad state after an error.
             if ((remoteRunspace.RunspaceStateInfo.State != RunspaceState.Opened) || (remoteRunspace.RunspaceAvailability != RunspaceAvailability.Available))
@@ -486,7 +459,10 @@ namespace System.Management.Automation.Remoting
 
         private void HandleRemoteSessionForwardedEvent(object sender, PSEventArgs args)
         {
-            if ((Runspace == null) || (Runspace.Events == null)) { return; }
+            if ((Runspace == null) || (Runspace.Events == null))
+            {
+                return;
+            }
 
             // Forward events from nested pushed session to parent session.
             try

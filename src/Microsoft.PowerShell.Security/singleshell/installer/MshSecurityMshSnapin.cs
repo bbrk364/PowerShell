@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
@@ -7,22 +7,18 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Configuration.Install;
-using System.Reflection;
-using Microsoft.Win32;
 using System.IO;
 using System.Management.Automation;
+using System.Reflection;
+
+using Microsoft.Win32;
 
 namespace Microsoft.PowerShell
 {
     /// <summary>
-    ///
-    /// MshSecurityMshSnapin (or MshSecurityMshSnapinInstaller) is a class for facilitating registry
-    /// of necessary information for monad security mshsnapin.
-    ///
-    /// This class will be built with monad security dll
-    ///
+    /// PSSecurityPSSnapIn is a class for facilitating registry
+    /// of necessary information for PowerShell security PSSnapin.
     /// </summary>
-    ///
     [RunInstaller(true)]
     public sealed class PSSecurityPSSnapIn : PSSnapIn
     {
@@ -35,7 +31,7 @@ namespace Microsoft.PowerShell
         }
 
         /// <summary>
-        /// Get name of this mshsnapin.
+        /// Get name of this PSSnapin.
         /// </summary>
         public override string Name
         {
@@ -46,7 +42,7 @@ namespace Microsoft.PowerShell
         }
 
         /// <summary>
-        /// Get the default vendor string for this mshsnapin.
+        /// Get the default vendor string for this PSSnapin.
         /// </summary>
         public override string Vendor
         {
@@ -68,7 +64,7 @@ namespace Microsoft.PowerShell
         }
 
         /// <summary>
-        /// Get the default description string for this mshsnapin.
+        /// Get the default description string for this PSSnapin.
         /// </summary>
         public override string Description
         {

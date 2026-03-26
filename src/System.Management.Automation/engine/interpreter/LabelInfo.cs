@@ -80,7 +80,7 @@ namespace System.Management.Automation.Interpreter
             {
                 if (j.ContainsTarget(_node))
                 {
-                    throw new InvalidOperationException(String.Format(CultureInfo.InvariantCulture, "Label target already defined: {0}", _node.Name));
+                    throw new InvalidOperationException(string.Create(CultureInfo.InvariantCulture, $"Label target already defined: {_node.Name}"));
                 }
             }
 
@@ -121,6 +121,7 @@ namespace System.Management.Automation.Interpreter
                     // found it, jump is valid!
                     return;
                 }
+
                 if (j.Kind == LabelScopeKind.Filter)
                 {
                     break;
@@ -131,12 +132,12 @@ namespace System.Management.Automation.Interpreter
 
             if (HasMultipleDefinitions)
             {
-                throw new InvalidOperationException(String.Format(CultureInfo.InvariantCulture, "Ambiguous jump {0}", _node.Name));
+                throw new InvalidOperationException(string.Create(CultureInfo.InvariantCulture, $"Ambiguous jump {_node.Name}"));
             }
 
             // We didn't find an outward jump. Look for a jump across blocks
             LabelScopeInfo def = FirstDefinition();
-            LabelScopeInfo common = CommonNode(def, reference, b => b.Parent);
+            LabelScopeInfo common = CommonNode(def, reference, static b => b.Parent);
 
             // Validate that we aren't jumping across a finally
             for (LabelScopeInfo j = reference; j != common; j = j.Parent)
@@ -175,10 +176,7 @@ namespace System.Management.Automation.Interpreter
 
         private void EnsureLabel(LightCompiler compiler)
         {
-            if (_label == null)
-            {
-                _label = compiler.Instructions.MakeLabel();
-            }
+            _label ??= compiler.Instructions.MakeLabel();
         }
 
         private bool DefinedIn(LabelScopeInfo scope)
@@ -193,6 +191,7 @@ namespace System.Management.Automation.Interpreter
             {
                 return definitions.Contains(scope);
             }
+
             return false;
         }
 
@@ -211,6 +210,7 @@ namespace System.Management.Automation.Interpreter
             {
                 return scope;
             }
+
             return ((HashSet<LabelScopeInfo>)_definitions).First();
         }
 
@@ -227,6 +227,7 @@ namespace System.Management.Automation.Interpreter
                 {
                     _definitions = set = new HashSet<LabelScopeInfo>() { (LabelScopeInfo)_definitions };
                 }
+
                 set.Add(scope);
             }
         }
@@ -246,11 +247,13 @@ namespace System.Management.Automation.Interpreter
             {
                 return first;
             }
+
             var set = new HashSet<T>(cmp);
             for (T t = first; t != null; t = parent(t))
             {
                 set.Add(t);
             }
+
             for (T t = second; t != null; t = parent(t))
             {
                 if (set.Contains(t))
@@ -258,6 +261,7 @@ namespace System.Management.Automation.Interpreter
                     return t;
                 }
             }
+
             return null;
         }
     }
@@ -308,7 +312,7 @@ namespace System.Management.Automation.Interpreter
         }
 
         /// <summary>
-        /// Returns true if we can jump into this node
+        /// Returns true if we can jump into this node.
         /// </summary>
         internal bool CanJumpInto
         {
@@ -322,6 +326,7 @@ namespace System.Management.Automation.Interpreter
                     case LabelScopeKind.Lambda:
                         return true;
                 }
+
                 return false;
             }
         }
@@ -351,10 +356,7 @@ namespace System.Management.Automation.Interpreter
         {
             Debug.Assert(CanJumpInto);
 
-            if (_labels == null)
-            {
-                _labels = new HybridReferenceDictionary<LabelTarget, LabelInfo>();
-            }
+            _labels ??= new HybridReferenceDictionary<LabelTarget, LabelInfo>();
 
             _labels[target] = info;
         }

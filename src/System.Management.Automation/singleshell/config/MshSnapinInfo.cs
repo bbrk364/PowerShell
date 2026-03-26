@@ -1,35 +1,36 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using Microsoft.Win32;
-using System.Security;
+using System.Globalization;
 using System.IO;
 using System.Reflection;
+using System.Security;
 using System.Text;
-using System.Globalization;
-using Regex = System.Text.RegularExpressions.Regex;
+
+using Microsoft.PowerShell.Commands;
+using Microsoft.Win32;
 
 using Dbg = System.Management.Automation.Diagnostics;
-using Microsoft.PowerShell.Commands;
+using Regex = System.Text.RegularExpressions.Regex;
 
 namespace System.Management.Automation
 {
     internal static class RegistryStrings
     {
         /// <summary>
-        /// Root key path under HKLM
+        /// Root key path under HKLM.
         /// </summary>
         internal const string MonadRootKeyPath = "Software\\Microsoft\\PowerShell";
 
         /// <summary>
-        /// Root key name
+        /// Root key name.
         /// </summary>
         internal const string MonadRootKeyName = "PowerShell";
 
         /// <summary>
-        /// Key for monad engine
+        /// Key for monad engine.
         /// </summary>
         internal const string MonadEngineKey = "PowerShellEngine";
 
@@ -41,16 +42,15 @@ namespace System.Management.Automation
         internal const string MonadEngine_MonadVersion = "PowerShellVersion";
 
         /// <summary>
-        /// Key under which all the mshsnapin live
+        /// Key under which all the mshsnapin live.
         /// </summary>
         internal const string MshSnapinKey = "PowerShellSnapIns";
 
-        //Name of various values for each mshsnapin
+        // Name of various values for each mshsnapin
         internal const string MshSnapin_ApplicationBase = "ApplicationBase";
         internal const string MshSnapin_AssemblyName = "AssemblyName";
         internal const string MshSnapin_ModuleName = "ModuleName";
         internal const string MshSnapin_MonadVersion = "PowerShellVersion";
-        internal const string MshSnapin_CustomPSSnapInType = "CustomPSSnapInType";
         internal const string MshSnapin_BuiltInTypes = "Types";
         internal const string MshSnapin_BuiltInFormats = "Formats";
         internal const string MshSnapin_Description = "Description";
@@ -60,7 +60,7 @@ namespace System.Management.Automation
         internal const string MshSnapin_VendorResource = "VendorIndirect";
         internal const string MshSnapin_LogPipelineExecutionDetails = "LogPipelineExecutionDetails";
 
-        //Name of default mshsnapins
+        // Name of default mshsnapins
         internal const string CoreMshSnapinName = "Microsoft.PowerShell.Core";
         internal const string HostMshSnapinName = "Microsoft.PowerShell.Host";
         internal const string ManagementMshSnapinName = "Microsoft.PowerShell.Management";
@@ -69,7 +69,7 @@ namespace System.Management.Automation
     }
 
     /// <summary>
-    /// Contains information about a mshsnapin
+    /// Contains information about a PSSnapin.
     /// </summary>
     public class PSSnapInInfo
     {
@@ -85,69 +85,46 @@ namespace System.Management.Automation
             Collection<string> types,
             Collection<string> formats,
             string descriptionFallback,
-            string vendorFallback,
-            string customPSSnapInType
+            string vendorFallback
         )
         {
             if (string.IsNullOrEmpty(name))
             {
-                throw PSTraceSource.NewArgumentNullException("name");
+                throw PSTraceSource.NewArgumentNullException(nameof(name));
             }
 
             if (string.IsNullOrEmpty(applicationBase))
             {
-                throw PSTraceSource.NewArgumentNullException("applicationBase");
+                throw PSTraceSource.NewArgumentNullException(nameof(applicationBase));
             }
 
             if (string.IsNullOrEmpty(assemblyName))
             {
-                throw PSTraceSource.NewArgumentNullException("assemblyName");
+                throw PSTraceSource.NewArgumentNullException(nameof(assemblyName));
             }
 
             if (string.IsNullOrEmpty(moduleName))
             {
-                throw PSTraceSource.NewArgumentNullException("moduleName");
+                throw PSTraceSource.NewArgumentNullException(nameof(moduleName));
             }
 
             if (psVersion == null)
             {
-                throw PSTraceSource.NewArgumentNullException("psVersion");
+                throw PSTraceSource.NewArgumentNullException(nameof(psVersion));
             }
-
-#if CORECLR // CustomPSSnapIn Not Supported On CSS.
-            // CustomPSSnapIn derives from System.Configuration.Install, which is not in CoreCLR.
-            if (customPSSnapInType != null)
-            {
-                throw PSTraceSource.NewArgumentException(
-                          "customPSSnapInType",
-                          MshSnapInCmdletResources.CustomPSSnapInNotSupportedInPowerShellCore);
-            }
-#endif
 
             if (version == null)
             {
                 version = new Version("0.0");
             }
 
-            if (types == null)
-            {
-                types = new Collection<string>();
-            }
+            types ??= new Collection<string>();
 
-            if (formats == null)
-            {
-                formats = new Collection<string>();
-            }
+            formats ??= new Collection<string>();
 
-            if (descriptionFallback == null)
-            {
-                descriptionFallback = String.Empty;
-            }
+            descriptionFallback ??= string.Empty;
 
-            if (vendorFallback == null)
-            {
-                vendorFallback = String.Empty;
-            }
+            vendorFallback ??= string.Empty;
 
             Name = name;
             IsDefault = isDefault;
@@ -158,7 +135,6 @@ namespace System.Management.Automation
             Version = version;
             Types = types;
             Formats = formats;
-            CustomPSSnapInType = customPSSnapInType;
             _descriptionFallback = descriptionFallback;
             _vendorFallback = vendorFallback;
         }
@@ -177,10 +153,9 @@ namespace System.Management.Automation
             string description,
             string descriptionFallback,
             string vendor,
-            string vendorFallback,
-            string customPSSnapInType
+            string vendorFallback
         )
-        : this(name, isDefault, applicationBase, assemblyName, moduleName, psVersion, version, types, formats, descriptionFallback, vendorFallback, customPSSnapInType)
+        : this(name, isDefault, applicationBase, assemblyName, moduleName, psVersion, version, types, formats, descriptionFallback, vendorFallback)
         {
             _description = description;
             _vendor = vendor;
@@ -202,9 +177,8 @@ namespace System.Management.Automation
             string descriptionIndirect,
             string vendor,
             string vendorFallback,
-            string vendorIndirect,
-            string customPSSnapInType
-        ) : this(name, isDefault, applicationBase, assemblyName, moduleName, psVersion, version, types, formats, description, descriptionFallback, vendor, vendorFallback, customPSSnapInType)
+            string vendorIndirect
+        ) : this(name, isDefault, applicationBase, assemblyName, moduleName, psVersion, version, types, formats, description, descriptionFallback, vendor, vendorFallback)
         {
             // add descriptionIndirect and vendorIndirect only if the mshsnapin is a default mshsnapin
             if (isDefault)
@@ -215,27 +189,27 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Unique Name of the mshsnapin
+        /// Unique Name of the PSSnapin.
         /// </summary>
         public string Name { get; }
 
         /// <summary>
-        /// Is this mshsnapin default mshsnapin
+        /// Is this PSSnapin default PSSnapin.
         /// </summary>
         public bool IsDefault { get; }
 
         /// <summary>
-        /// Returns applicationbase for mshsnapin
+        /// Returns applicationbase for PSSnapin.
         /// </summary>
         public string ApplicationBase { get; }
 
         /// <summary>
-        /// Strong name of mshSnapIn assembly
+        /// Strong name of PSSnapin assembly.
         /// </summary>
         public string AssemblyName { get; }
 
         /// <summary>
-        /// Name of PSSnapIn module
+        /// Name of PSSnapIn module.
         /// </summary>
         public string ModuleName { get; }
 
@@ -243,7 +217,7 @@ namespace System.Management.Automation
         {
             get
             {
-                if (String.IsNullOrEmpty(ModuleName) || Path.IsPathRooted(ModuleName))
+                if (string.IsNullOrEmpty(ModuleName) || Path.IsPathRooted(ModuleName))
                 {
                     return ModuleName;
                 }
@@ -257,17 +231,12 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Type of custom mshsnapin.
-        /// </summary>
-        internal string CustomPSSnapInType { get; }
-
-        /// <summary>
-        /// Monad version used by mshsnapin
+        /// PowerShell version used by PSSnapin.
         /// </summary>
         public Version PSVersion { get; }
 
         /// <summary>
-        /// Version of mshsnapin
+        /// Version of PSSnapin.
         /// </summary>
         public Version Version { get; }
 
@@ -277,15 +246,15 @@ namespace System.Management.Automation
         public Collection<string> Types { get; }
 
         /// <summary>
-        /// Collection of file names containing format information for PSSnapIn
+        /// Collection of file names containing format information for PSSnapIn.
         /// </summary>
         public Collection<string> Formats { get; }
 
-        private string _descriptionIndirect;
-        private string _descriptionFallback = String.Empty;
+        private readonly string _descriptionIndirect;
+        private readonly string _descriptionFallback = string.Empty;
         private string _description;
         /// <summary>
-        /// Description of mshsnapin
+        /// Description of PSSnapin.
         /// </summary>
         public string Description
         {
@@ -295,15 +264,16 @@ namespace System.Management.Automation
                 {
                     LoadIndirectResources();
                 }
+
                 return _description;
             }
         }
 
-        private string _vendorIndirect;
-        private string _vendorFallback = String.Empty;
+        private readonly string _vendorIndirect;
+        private readonly string _vendorFallback = string.Empty;
         private string _vendor;
         /// <summary>
-        /// Vendor of mshsnapin
+        /// Vendor of PSSnapin.
         /// </summary>
         public string Vendor
         {
@@ -313,6 +283,7 @@ namespace System.Management.Automation
                 {
                     LoadIndirectResources();
                 }
+
                 return _vendor;
             }
         }
@@ -323,7 +294,7 @@ namespace System.Management.Automation
         public bool LogPipelineExecutionDetails { get; set; } = false;
 
         /// <summary>
-        /// Overrides ToString
+        /// Overrides ToString.
         /// </summary>
         /// <returns>
         /// Name of the PSSnapIn
@@ -352,6 +323,7 @@ namespace System.Management.Automation
                 catch (System.IO.IOException)
                 {
                 }
+
                 return mshsnapinKey;
             }
         }
@@ -401,12 +373,12 @@ namespace System.Management.Automation
                 }
             }
 
-            if (String.IsNullOrEmpty(_description))
+            if (string.IsNullOrEmpty(_description))
             {
                 _description = _descriptionFallback;
             }
 
-            if (String.IsNullOrEmpty(_vendor))
+            if (string.IsNullOrEmpty(_vendor))
             {
                 _vendor = _vendorFallback;
             }
@@ -414,36 +386,47 @@ namespace System.Management.Automation
 
         internal PSSnapInInfo Clone()
         {
-            PSSnapInInfo cloned = new PSSnapInInfo(Name,
-                IsDefault, ApplicationBase, AssemblyName,
-                ModuleName, PSVersion, Version, new Collection<string>(Types),
-                new Collection<string>(Formats), _description,
-                _descriptionFallback, _descriptionIndirect, _vendor, _vendorFallback, _vendorIndirect,
-                CustomPSSnapInType
-                );
+            PSSnapInInfo cloned = new PSSnapInInfo(
+                Name,
+                IsDefault,
+                ApplicationBase,
+                AssemblyName,
+                ModuleName,
+                PSVersion,
+                Version,
+                new Collection<string>(Types),
+                new Collection<string>(Formats),
+                _description,
+                _descriptionFallback,
+                _descriptionIndirect,
+                 _vendor,
+                 _vendorFallback,
+                 _vendorIndirect);
 
             return cloned;
         }
 
         /// <summary>
-        /// Returns true if the PSSnapIn Id is valid. A PSSnapIn is valid iff it contains only
-        /// "Alpha Numeric","-","_","." characters.
+        /// Returns true if the PSSnapIn Id is valid. A PSSnapIn is valid
+        /// if-and-only-if it contains only "Alpha Numeric","-","_","."
+        /// characters.
         /// </summary>
-        /// <param name="psSnapinId">PSSnapIn Id to validate</param>
+        /// <param name="psSnapinId">PSSnapIn Id to validate.</param>
         internal static bool IsPSSnapinIdValid(string psSnapinId)
         {
-            if (String.IsNullOrEmpty(psSnapinId))
+            if (string.IsNullOrEmpty(psSnapinId))
             {
                 return false;
             }
+
             return Regex.IsMatch(psSnapinId, "^[A-Za-z0-9-_\x2E]*$");
         }
 
         /// <summary>
-        /// Validates the PSSnapIn Id. A PSSnapIn is valid iff it contains only
-        /// "Alpha Numeric","-","_","." characters.
+        /// Validates the PSSnapIn Id. A PSSnapIn is valid if-and-only-if it
+        /// contains only "Alpha Numeric","-","_","." characters.
         /// </summary>
-        /// <param name="psSnapinId">PSSnapIn Id to validate</param>
+        /// <param name="psSnapinId">PSSnapIn Id to validate.</param>
         /// <exception cref="PSArgumentException">
         /// 1. Specified PSSnapIn is not valid
         /// </exception>
@@ -464,7 +447,7 @@ namespace System.Management.Automation
     }
 
     /// <summary>
-    /// Internal class to read information about a mshsnapin
+    /// Internal class to read information about a mshsnapin.
     /// </summary>
     internal static class PSSnapInReader
     {
@@ -514,24 +497,26 @@ namespace System.Management.Automation
                 {
                     continue;
                 }
-                //found a key which is not version
+                // found a key which is not version
                 if (!MeetsVersionFormat(version))
                 {
                     continue;
                 }
+
                 Collection<PSSnapInInfo> oneVersionMshSnapins = null;
                 try
                 {
                     oneVersionMshSnapins = ReadAll(monadRootKey, version);
                 }
-                //If we cannot get information for one version, continue with other
-                //versions
+                // If we cannot get information for one version, continue with other
+                // versions
                 catch (SecurityException)
                 {
                 }
                 catch (ArgumentException)
                 {
                 }
+
                 if (oneVersionMshSnapins != null)
                 {
                     foreach (PSSnapInInfo info in oneVersionMshSnapins)
@@ -562,11 +547,12 @@ namespace System.Management.Automation
             {
                 r = false;
             }
+
             return r;
         }
 
         /// <summary>
-        /// Reads all registered mshsnapin for specified psVersion
+        /// Reads all registered mshsnapin for specified psVersion.
         /// </summary>
         /// <returns>
         /// A collection of PSSnapInInfo objects
@@ -581,14 +567,15 @@ namespace System.Management.Automation
         {
             if (string.IsNullOrEmpty(psVersion))
             {
-                throw PSTraceSource.NewArgumentNullException("psVersion");
+                throw PSTraceSource.NewArgumentNullException(nameof(psVersion));
             }
+
             RegistryKey monadRootKey = GetMonadRootKey();
             return ReadAll(monadRootKey, psVersion);
         }
 
         /// <summary>
-        /// Reads all the mshsnapins for a given psVersion
+        /// Reads all the mshsnapins for a given psVersion.
         /// </summary>
         /// <exception cref="SecurityException">
         /// The User doesn't have required permission to read the registry key for this version.
@@ -608,7 +595,7 @@ namespace System.Management.Automation
             RegistryKey versionRoot = GetVersionRootKey(monadRootKey, psVersion);
             RegistryKey mshsnapinRoot = GetMshSnapinRootKey(versionRoot, psVersion);
 
-            //get name of all mshsnapin for this version
+            // get name of all mshsnapin for this version
             string[] mshsnapinIds = mshsnapinRoot.GetSubKeyNames();
 
             foreach (string id in mshsnapinIds)
@@ -617,11 +604,12 @@ namespace System.Management.Automation
                 {
                     continue;
                 }
+
                 try
                 {
                     mshsnapins.Add(ReadOne(mshsnapinRoot, id));
                 }
-                //If we cannot read some mshsnapins, we should continue
+                // If we cannot read some mshsnapins, we should continue
                 catch (SecurityException)
                 {
                 }
@@ -634,7 +622,7 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Read mshsnapin for specified mshsnapinId and psVersion
+        /// Read mshsnapin for specified mshsnapinId and psVersion.
         /// </summary>
         /// <returns>
         /// MshSnapin info object
@@ -656,11 +644,12 @@ namespace System.Management.Automation
         {
             if (string.IsNullOrEmpty(psVersion))
             {
-                throw PSTraceSource.NewArgumentNullException("psVersion");
+                throw PSTraceSource.NewArgumentNullException(nameof(psVersion));
             }
+
             if (string.IsNullOrEmpty(mshsnapinId))
             {
-                throw PSTraceSource.NewArgumentNullException("mshsnapinId");
+                throw PSTraceSource.NewArgumentNullException(nameof(mshsnapinId));
             }
             // PSSnapIn Reader wont service invalid mshsnapins
             // Monad has specific restrictions on the mshsnapinid like
@@ -675,7 +664,7 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Reads the mshsnapin info for a specific key under specific monad version
+        /// Reads the mshsnapin info for a specific key under specific monad version.
         /// </summary>
         /// <remarks>
         /// ReadOne will never create a default PSSnapInInfo object.
@@ -698,7 +687,7 @@ namespace System.Management.Automation
             if (mshsnapinKey == null)
             {
                 s_mshsnapinTracer.TraceError("Error opening registry key {0}\\{1}.", mshSnapInRoot.Name, mshsnapinId);
-                throw PSTraceSource.NewArgumentException("mshsnapinId", MshSnapinInfo.MshSnapinDoesNotExist, mshsnapinId);
+                throw PSTraceSource.NewArgumentException(nameof(mshsnapinId), MshSnapinInfo.MshSnapinDoesNotExist, mshsnapinId);
             }
 
             string applicationBase = ReadStringValue(mshsnapinKey, RegistryStrings.MshSnapin_ApplicationBase, true);
@@ -713,6 +702,7 @@ namespace System.Management.Automation
                 s_mshsnapinTracer.WriteLine("No description is specified for mshsnapin {0}. Using empty string for description.", mshsnapinId);
                 description = string.Empty;
             }
+
             string vendor = ReadStringValue(mshsnapinKey, RegistryStrings.MshSnapin_Vendor, false);
             if (vendor == null)
             {
@@ -722,30 +712,24 @@ namespace System.Management.Automation
 
             bool logPipelineExecutionDetails = false;
             string logPipelineExecutionDetailsStr = ReadStringValue(mshsnapinKey, RegistryStrings.MshSnapin_LogPipelineExecutionDetails, false);
-            if (!String.IsNullOrEmpty(logPipelineExecutionDetailsStr))
+            if (!string.IsNullOrEmpty(logPipelineExecutionDetailsStr))
             {
-                if (String.Compare("1", logPipelineExecutionDetailsStr, StringComparison.OrdinalIgnoreCase) == 0)
+                if (string.Equals("1", logPipelineExecutionDetailsStr, StringComparison.OrdinalIgnoreCase))
                     logPipelineExecutionDetails = true;
-            }
-
-            string customPSSnapInType = ReadStringValue(mshsnapinKey, RegistryStrings.MshSnapin_CustomPSSnapInType, false);
-            if (string.IsNullOrEmpty(customPSSnapInType))
-            {
-                customPSSnapInType = null;
             }
 
             Collection<string> types = ReadMultiStringValue(mshsnapinKey, RegistryStrings.MshSnapin_BuiltInTypes, false);
             Collection<string> formats = ReadMultiStringValue(mshsnapinKey, RegistryStrings.MshSnapin_BuiltInFormats, false);
 
             s_mshsnapinTracer.WriteLine("Successfully read registry values for mshsnapin {0}. Constructing PSSnapInInfo object.", mshsnapinId);
-            PSSnapInInfo mshSnapinInfo = new PSSnapInInfo(mshsnapinId, false, applicationBase, assemblyName, moduleName, monadVersion, version, types, formats, description, vendor, customPSSnapInType);
+            PSSnapInInfo mshSnapinInfo = new PSSnapInInfo(mshsnapinId, false, applicationBase, assemblyName, moduleName, monadVersion, version, types, formats, description, vendor);
             mshSnapinInfo.LogPipelineExecutionDetails = logPipelineExecutionDetails;
 
             return mshSnapinInfo;
         }
 
         /// <summary>
-        /// Gets multistring value for name
+        /// Gets multistring value for name.
         /// </summary>
         /// <param name="mshsnapinKey"></param>
         /// <param name="name"></param>
@@ -764,7 +748,7 @@ namespace System.Management.Automation
                 {
                     s_mshsnapinTracer.TraceError("Mandatory property {0} not specified for registry key {1}",
                         name, mshsnapinKey.Name);
-                    throw PSTraceSource.NewArgumentException("name", MshSnapinInfo.MandatoryValueNotPresent, name, mshsnapinKey.Name);
+                    throw PSTraceSource.NewArgumentException(nameof(name), MshSnapinInfo.MandatoryValueNotPresent, name, mshsnapinKey.Name);
                 }
                 else
                 {
@@ -777,9 +761,8 @@ namespace System.Management.Automation
 
             if (msv == null)
             {
-                //Check if the value is in string format
-                string singleValue = value as string;
-                if (singleValue != null)
+                // Check if the value is in string format
+                if (value is string singleValue)
                 {
                     msv = new string[1];
                     msv[0] = singleValue;
@@ -792,7 +775,7 @@ namespace System.Management.Automation
                 {
                     s_mshsnapinTracer.TraceError("Cannot get string/multi-string value for mandatory property {0} in registry key {1}",
                         name, mshsnapinKey.Name);
-                    throw PSTraceSource.NewArgumentException("name", MshSnapinInfo.MandatoryValueNotInCorrectFormatMultiString, name, mshsnapinKey.Name);
+                    throw PSTraceSource.NewArgumentException(nameof(name), MshSnapinInfo.MandatoryValueNotInCorrectFormatMultiString, name, mshsnapinKey.Name);
                 }
                 else
                 {
@@ -806,7 +789,7 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Get the value for name
+        /// Get the value for name.
         /// </summary>
         /// <param name="mshsnapinKey"></param>
         /// <param name="name"></param>
@@ -821,19 +804,19 @@ namespace System.Management.Automation
             Dbg.Assert(mshsnapinKey != null, "Caller should validate the parameter");
 
             object value = mshsnapinKey.GetValue(name);
-            if (value == null && mandatory == true)
+            if (value == null && mandatory)
             {
                 s_mshsnapinTracer.TraceError("Mandatory property {0} not specified for registry key {1}",
                         name, mshsnapinKey.Name);
-                throw PSTraceSource.NewArgumentException("name", MshSnapinInfo.MandatoryValueNotPresent, name, mshsnapinKey.Name);
+                throw PSTraceSource.NewArgumentException(nameof(name), MshSnapinInfo.MandatoryValueNotPresent, name, mshsnapinKey.Name);
             }
 
             string s = value as string;
-            if (string.IsNullOrEmpty(s) && mandatory == true)
+            if (string.IsNullOrEmpty(s) && mandatory)
             {
                 s_mshsnapinTracer.TraceError("Value is null or empty for mandatory property {0} in {1}",
                         name, mshsnapinKey.Name);
-                throw PSTraceSource.NewArgumentException("name", MshSnapinInfo.MandatoryValueNotInCorrectFormat, name, mshsnapinKey.Name);
+                throw PSTraceSource.NewArgumentException(nameof(name), MshSnapinInfo.MandatoryValueNotInCorrectFormat, name, mshsnapinKey.Name);
             }
 
             s_mshsnapinTracer.WriteLine("Successfully read value {0} for property {1} from {2}",
@@ -860,38 +843,40 @@ namespace System.Management.Automation
             catch (ArgumentOutOfRangeException)
             {
                 s_mshsnapinTracer.TraceError("Cannot convert value {0} to version format", temp);
-                throw PSTraceSource.NewArgumentException("name", MshSnapinInfo.VersionValueInCorrect, name, mshsnapinKey.Name);
+                throw PSTraceSource.NewArgumentException(nameof(name), MshSnapinInfo.VersionValueInCorrect, name, mshsnapinKey.Name);
             }
             catch (ArgumentException)
             {
                 s_mshsnapinTracer.TraceError("Cannot convert value {0} to version format", temp);
-                throw PSTraceSource.NewArgumentException("name", MshSnapinInfo.VersionValueInCorrect, name, mshsnapinKey.Name);
+                throw PSTraceSource.NewArgumentException(nameof(name), MshSnapinInfo.VersionValueInCorrect, name, mshsnapinKey.Name);
             }
             catch (OverflowException)
             {
                 s_mshsnapinTracer.TraceError("Cannot convert value {0} to version format", temp);
-                throw PSTraceSource.NewArgumentException("name", MshSnapinInfo.VersionValueInCorrect, name, mshsnapinKey.Name);
+                throw PSTraceSource.NewArgumentException(nameof(name), MshSnapinInfo.VersionValueInCorrect, name, mshsnapinKey.Name);
             }
             catch (FormatException)
             {
                 s_mshsnapinTracer.TraceError("Cannot convert value {0} to version format", temp);
-                throw PSTraceSource.NewArgumentException("name", MshSnapinInfo.VersionValueInCorrect, name, mshsnapinKey.Name);
+                throw PSTraceSource.NewArgumentException(nameof(name), MshSnapinInfo.VersionValueInCorrect, name, mshsnapinKey.Name);
             }
 
             s_mshsnapinTracer.WriteLine("Successfully converted string {0} to version format.", v);
             return v;
         }
 
-        internal static void ReadRegistryInfo(out Version assemblyVersion, out string publicKeyToken, out string culture, out string architecture, out string applicationBase, out Version psVersion)
+        internal static void ReadRegistryInfo(out Version assemblyVersion, out string publicKeyToken, out string culture, out string applicationBase, out Version psVersion)
         {
             applicationBase = Utils.DefaultPowerShellAppBase;
-            Dbg.Assert(!string.IsNullOrEmpty(applicationBase),
-                string.Format(CultureInfo.CurrentCulture, "{0} is empty or null", RegistryStrings.MonadEngine_ApplicationBase));
+            Dbg.Assert(
+                !string.IsNullOrEmpty(applicationBase),
+                string.Create(CultureInfo.CurrentCulture, $"{RegistryStrings.MonadEngine_ApplicationBase} is empty or null"));
 
             // Get the PSVersion from Utils..this is hardcoded
             psVersion = PSVersionInfo.PSVersion;
-            Dbg.Assert(psVersion != null,
-                string.Format(CultureInfo.CurrentCulture, "{0} is null", RegistryStrings.MonadEngine_MonadVersion));
+            Dbg.Assert(
+                psVersion != null,
+                string.Create(CultureInfo.CurrentCulture, $"{RegistryStrings.MonadEngine_MonadVersion} is null"));
 
             // Get version number in x.x.x.x format
             // This information is available from the executing assembly
@@ -900,28 +885,25 @@ namespace System.Management.Automation
             // culture, publickeytoken...This will break the scenarios where only one of
             // the assemblies is patched. ie., all monad assemblies should have the
             // same version number.
-
-            Assembly currentAssembly = typeof(PSSnapInReader).Assembly;
-            assemblyVersion = currentAssembly.GetName().Version;
-            byte[] publicTokens = currentAssembly.GetName().GetPublicKeyToken();
+            AssemblyName assemblyName = typeof(PSSnapInReader).Assembly.GetName();
+            assemblyVersion = assemblyName.Version;
+            byte[] publicTokens = assemblyName.GetPublicKeyToken();
             if (publicTokens.Length == 0)
             {
                 throw PSTraceSource.NewArgumentException("PublicKeyToken", MshSnapinInfo.PublicKeyTokenAccessFailed);
             }
+
             publicKeyToken = ConvertByteArrayToString(publicTokens);
+
             // save some cpu cycles by hardcoding the culture to neutral
             // assembly should never be targeted to a particular culture
             culture = "neutral";
-            // Hardcoding the architecture MSIL as PowerShell assemblies are architecture neutral, this should
-            // be changed if the assumption is broken. Preferred hardcoded string to using (for perf reasons):
-            // string architecture = currentAssembly.GetName().ProcessorArchitecture.ToString()
-            architecture = "MSIL";
         }
 
         /// <summary>
-        /// PublicKeyToken is in the form of byte[]. Use this function to convert to a string
+        /// PublicKeyToken is in the form of byte[]. Use this function to convert to a string.
         /// </summary>
-        /// <param name="tokens">array of byte's</param>
+        /// <param name="tokens">Array of byte's.</param>
         /// <returns></returns>
         internal static string ConvertByteArrayToString(byte[] tokens)
         {
@@ -936,74 +918,100 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Reads core snapin for monad engine
+        /// Reads core snapin for monad engine.
         /// </summary>
         /// <returns>
         /// A PSSnapInInfo object
         /// </returns>
         internal static PSSnapInInfo ReadCoreEngineSnapIn()
         {
-            Version assemblyVersion, psVersion;
-            string publicKeyToken = null;
-            string culture = null;
-            string architecture = null;
-            string applicationBase = null;
-
-            ReadRegistryInfo(out assemblyVersion, out publicKeyToken, out culture, out architecture, out applicationBase, out psVersion);
+            ReadRegistryInfo(
+                out Version assemblyVersion,
+                out string publicKeyToken,
+                out string culture,
+                out string applicationBase,
+                out Version psVersion);
 
             // System.Management.Automation formats & types files
             Collection<string> types = new Collection<string>(new string[] { "types.ps1xml", "typesv3.ps1xml" });
             Collection<string> formats = new Collection<string>(new string[]
-                        {"Certificate.format.ps1xml","DotNetTypes.format.ps1xml","FileSystem.format.ps1xml",
-                         "Help.format.ps1xml","HelpV3.format.ps1xml","PowerShellCore.format.ps1xml","PowerShellTrace.format.ps1xml",
+                        {"Certificate.format.ps1xml", "DotNetTypes.format.ps1xml", "FileSystem.format.ps1xml",
+                         "Help.format.ps1xml", "HelpV3.format.ps1xml", "PowerShellCore.format.ps1xml", "PowerShellTrace.format.ps1xml",
                          "Registry.format.ps1xml"});
 
-            string strongName = string.Format(CultureInfo.InvariantCulture, "{0}, Version={1}, Culture={2}, PublicKeyToken={3}, ProcessorArchitecture={4}",
-                s_coreSnapin.AssemblyName, assemblyVersion, culture, publicKeyToken, architecture);
+            string strongName = string.Format(
+                CultureInfo.InvariantCulture,
+                "{0}, Version={1}, Culture={2}, PublicKeyToken={3}",
+                s_coreSnapin.AssemblyName,
+                assemblyVersion,
+                culture,
+                publicKeyToken);
 
             string moduleName = Path.Combine(applicationBase, s_coreSnapin.AssemblyName + ".dll");
 
-            PSSnapInInfo coreMshSnapin = new PSSnapInInfo(s_coreSnapin.PSSnapInName, true, applicationBase,
-                strongName, moduleName, psVersion, assemblyVersion, types, formats, null,
-                s_coreSnapin.Description, s_coreSnapin.DescriptionIndirect, null, null,
-                s_coreSnapin.VendorIndirect, null);
+            PSSnapInInfo coreMshSnapin = new PSSnapInInfo(
+                s_coreSnapin.PSSnapInName,
+                isDefault: true,
+                applicationBase,
+                strongName,
+                moduleName,
+                psVersion,
+                assemblyVersion,
+                types,
+                formats,
+                description: null,
+                s_coreSnapin.Description,
+                s_coreSnapin.DescriptionIndirect,
+                vendor: null,
+                vendorFallback: null,
+                s_coreSnapin.VendorIndirect);
+#if !UNIX
+            // NOTE: On Unix, logging has to be deferred until after command-line parsing
+            // complete. On Windows, deferring the call is not needed
+            // and this is in the startup code path.
             SetSnapInLoggingInformation(coreMshSnapin);
+#endif
 
             return coreMshSnapin;
         }
 
         /// <summary>
-        /// Reads all registered mshsnapins for currently executing monad engine
+        /// Reads all registered mshsnapins for currently executing monad engine.
         /// </summary>
         /// <returns>
         /// A collection of PSSnapInInfo objects
         /// </returns>
         internal static Collection<PSSnapInInfo> ReadEnginePSSnapIns()
         {
-            Version assemblyVersion, psVersion;
-            string publicKeyToken = null;
-            string culture = null;
-            string architecture = null;
-            string applicationBase = null;
-
-            ReadRegistryInfo(out assemblyVersion, out publicKeyToken, out culture, out architecture, out applicationBase, out psVersion);
+            ReadRegistryInfo(
+                out Version assemblyVersion,
+                out string publicKeyToken,
+                out string culture,
+                out string applicationBase,
+                out Version psVersion);
 
             // System.Management.Automation formats & types files
             Collection<string> smaFormats = new Collection<string>(new string[]
-                        {"Certificate.format.ps1xml","DotNetTypes.format.ps1xml","FileSystem.format.ps1xml",
-                         "Help.format.ps1xml","HelpV3.format.ps1xml","PowerShellCore.format.ps1xml","PowerShellTrace.format.ps1xml",
+                        {"Certificate.format.ps1xml", "DotNetTypes.format.ps1xml", "FileSystem.format.ps1xml",
+                         "Help.format.ps1xml", "HelpV3.format.ps1xml", "PowerShellCore.format.ps1xml", "PowerShellTrace.format.ps1xml",
                          "Registry.format.ps1xml"});
             Collection<string> smaTypes = new Collection<string>(new string[] { "types.ps1xml", "typesv3.ps1xml" });
 
             // create default mshsnapininfo objects..
             Collection<PSSnapInInfo> engineMshSnapins = new Collection<PSSnapInInfo>();
+            string assemblyVersionString = assemblyVersion.ToString();
 
             for (int item = 0; item < DefaultMshSnapins.Count; item++)
             {
                 DefaultPSSnapInInformation defaultMshSnapinInfo = DefaultMshSnapins[item];
 
-                string strongName = string.Format(CultureInfo.InvariantCulture, "{0}, Version={1}, Culture={2}, PublicKeyToken={3}, ProcessorArchitecture={4}",
-                    defaultMshSnapinInfo.AssemblyName, assemblyVersion.ToString(), culture, publicKeyToken, architecture);
+                string strongName = string.Format(
+                    CultureInfo.InvariantCulture,
+                    "{0}, Version={1}, Culture={2}, PublicKeyToken={3}",
+                    defaultMshSnapinInfo.AssemblyName,
+                    assemblyVersionString,
+                    culture,
+                    publicKeyToken);
 
                 Collection<string> formats = null;
                 Collection<string> types = null;
@@ -1013,8 +1021,7 @@ namespace System.Management.Automation
                     formats = smaFormats;
                     types = smaTypes;
                 }
-                else if (defaultMshSnapinInfo.AssemblyName.Equals("Microsoft.PowerShell.Commands.Diagnostics",
-                    StringComparison.OrdinalIgnoreCase))
+                else if (defaultMshSnapinInfo.AssemblyName.Equals("Microsoft.PowerShell.Commands.Diagnostics", StringComparison.OrdinalIgnoreCase))
                 {
                     types = new Collection<string>(new string[] { "GetEvent.types.ps1xml" });
                     formats = new Collection<string>(new string[] { "Event.format.ps1xml", "Diagnostics.format.ps1xml" });
@@ -1026,19 +1033,22 @@ namespace System.Management.Automation
 
                 string moduleName = Path.Combine(applicationBase, defaultMshSnapinInfo.AssemblyName + ".dll");
 
-                if (File.Exists(moduleName))
-                {
-                    moduleName = Path.Combine(applicationBase, defaultMshSnapinInfo.AssemblyName + ".dll");
-                }
-                else
-                {
-                    moduleName = defaultMshSnapinInfo.AssemblyName;
-                }
-
-                PSSnapInInfo defaultMshSnapin = new PSSnapInInfo(defaultMshSnapinInfo.PSSnapInName, true, applicationBase,
-                    strongName, moduleName, psVersion, assemblyVersion, types, formats, null,
-                    defaultMshSnapinInfo.Description, defaultMshSnapinInfo.DescriptionIndirect, null, null,
-                    defaultMshSnapinInfo.VendorIndirect, null);
+                PSSnapInInfo defaultMshSnapin = new PSSnapInInfo(
+                    defaultMshSnapinInfo.PSSnapInName,
+                    isDefault: true,
+                    applicationBase,
+                    strongName,
+                    moduleName,
+                    psVersion,
+                    assemblyVersion,
+                    types,
+                    formats,
+                    description: null,
+                    defaultMshSnapinInfo.Description,
+                    defaultMshSnapinInfo.DescriptionIndirect,
+                    vendor: null,
+                    vendorFallback: null,
+                    defaultMshSnapinInfo.VendorIndirect);
 
                 SetSnapInLoggingInformation(defaultMshSnapin);
                 engineMshSnapins.Add(defaultMshSnapin);
@@ -1048,11 +1058,11 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Enable Snapin logging based on group policy
+        /// Enable Snapin logging based on group policy.
         /// </summary>
         private static void SetSnapInLoggingInformation(PSSnapInInfo psSnapInInfo)
         {
-            IEnumerable<String> names;
+            IEnumerable<string> names;
             ModuleCmdletBase.ModuleLoggingGroupPolicyStatus status = ModuleCmdletBase.GetModuleLoggingInformation(out names);
             if (status != ModuleCmdletBase.ModuleLoggingGroupPolicyStatus.Undefined)
             {
@@ -1061,7 +1071,7 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Enable Snapin logging based on group policy
+        /// Enable Snapin logging based on group policy.
         /// </summary>
         private static void SetSnapInLoggingInformation(PSSnapInInfo psSnapInInfo, ModuleCmdletBase.ModuleLoggingGroupPolicyStatus status, IEnumerable<string> moduleOrSnapinNames)
         {
@@ -1086,7 +1096,7 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Get the key to monad root
+        /// Get the key to monad root.
         /// </summary>
         /// <returns></returns>
         /// <exception cref="SecurityException">
@@ -1100,19 +1110,20 @@ namespace System.Management.Automation
             RegistryKey rootKey = Registry.LocalMachine.OpenSubKey(RegistryStrings.MonadRootKeyPath);
             if (rootKey == null)
             {
-                //This should never occur because this code is running
-                //because monad is installed. { well this can occur if someone
-                //deletes the registry key after starting monad
+                // This should never occur because this code is running
+                // because monad is installed. { well this can occur if someone
+                // deletes the registry key after starting monad
                 Dbg.Assert(false, "Root Key of Monad installation is not present");
                 throw PSTraceSource.NewArgumentException("monad", MshSnapinInfo.MonadRootRegistryAccessFailed);
             }
+
             return rootKey;
         }
 
         /// <summary>
         /// Get the registry key to PSEngine.
         /// </summary>
-        /// <returns>RegistryKey</returns>
+        /// <returns>RegistryKey.</returns>
         /// <param name="psVersion">Major version in string format.</param>
         /// <exception cref="ArgumentException">
         /// Monad registration information is not available.
@@ -1143,7 +1154,7 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Gets the version root key for specified monad version
+        /// Gets the version root key for specified monad version.
         /// </summary>
         /// <param name="rootKey"></param>
         /// <param name="psVersion"></param>
@@ -1165,13 +1176,14 @@ namespace System.Management.Automation
             RegistryKey versionRoot = rootKey.OpenSubKey(versionKey);
             if (versionRoot == null)
             {
-                throw PSTraceSource.NewArgumentException("psVersion", MshSnapinInfo.SpecifiedVersionNotFound, versionKey);
+                throw PSTraceSource.NewArgumentException(nameof(psVersion), MshSnapinInfo.SpecifiedVersionNotFound, versionKey);
             }
+
             return versionRoot;
         }
 
         /// <summary>
-        /// Gets the mshsnapin root key for specified monad version
+        /// Gets the mshsnapin root key for specified monad version.
         /// </summary>
         /// <param name="versionRootKey"></param>
         /// <param name="psVersion"></param>
@@ -1191,13 +1203,14 @@ namespace System.Management.Automation
             RegistryKey mshsnapinRoot = versionRootKey.OpenSubKey(RegistryStrings.MshSnapinKey);
             if (mshsnapinRoot == null)
             {
-                throw PSTraceSource.NewArgumentException("psVersion", MshSnapinInfo.NoMshSnapinPresentForVersion, psVersion);
+                throw PSTraceSource.NewArgumentException(nameof(psVersion), MshSnapinInfo.NoMshSnapinPresentForVersion, psVersion);
             }
+
             return mshsnapinRoot;
         }
 
         /// <summary>
-        /// Gets the mshsnapin key for specified monad version and mshsnapin name
+        /// Gets the mshsnapin key for specified monad version and mshsnapin name.
         /// </summary>
         /// <param name="mshSnapInName"></param>
         /// <param name="psVersion"></param>
@@ -1217,8 +1230,9 @@ namespace System.Management.Automation
             RegistryKey mshsnapinRoot = versionRootKey.OpenSubKey(RegistryStrings.MshSnapinKey);
             if (mshsnapinRoot == null)
             {
-                throw PSTraceSource.NewArgumentException("psVersion", MshSnapinInfo.NoMshSnapinPresentForVersion, psVersion);
+                throw PSTraceSource.NewArgumentException(nameof(psVersion), MshSnapinInfo.NoMshSnapinPresentForVersion, psVersion);
             }
+
             RegistryKey mshsnapinKey = mshsnapinRoot.OpenSubKey(mshSnapInName);
             return mshsnapinKey;
         }
@@ -1257,7 +1271,6 @@ namespace System.Management.Automation
                                            "CoreMshSnapInResources,Description", "CoreMshSnapInResources,Vendor");
 
         /// <summary>
-        ///
         /// </summary>
         private static IList<DefaultPSSnapInInformation> DefaultMshSnapins
         {
@@ -1267,7 +1280,9 @@ namespace System.Management.Automation
                 {
                     lock (s_syncObject)
                     {
+#pragma warning disable IDE0074 // Disabling the rule because it can't be applied on non Unix
                         if (s_defaultMshSnapins == null)
+#pragma warning restore IDE0074
                         {
                             s_defaultMshSnapins = new List<DefaultPSSnapInInformation>()
                             {
@@ -1276,18 +1291,18 @@ namespace System.Management.Automation
                                     "GetEventResources,Description", "GetEventResources,Vendor"),
 #endif
                                 new DefaultPSSnapInInformation("Microsoft.PowerShell.Host", "Microsoft.PowerShell.ConsoleHost", null,
-                                    "HostMshSnapInResources,Description","HostMshSnapInResources,Vendor"),
+                                    "HostMshSnapInResources,Description", "HostMshSnapInResources,Vendor"),
 
                                 s_coreSnapin,
 
                                 new DefaultPSSnapInInformation("Microsoft.PowerShell.Utility", "Microsoft.PowerShell.Commands.Utility", null,
-                                    "UtilityMshSnapInResources,Description","UtilityMshSnapInResources,Vendor"),
+                                    "UtilityMshSnapInResources,Description", "UtilityMshSnapInResources,Vendor"),
 
                                 new DefaultPSSnapInInformation("Microsoft.PowerShell.Management", "Microsoft.PowerShell.Commands.Management", null,
-                                    "ManagementMshSnapInResources,Description","ManagementMshSnapInResources,Vendor"),
+                                    "ManagementMshSnapInResources,Description", "ManagementMshSnapInResources,Vendor"),
 
                                 new DefaultPSSnapInInformation("Microsoft.PowerShell.Security", "Microsoft.PowerShell.Security", null,
-                                    "SecurityMshSnapInResources,Description","SecurityMshSnapInResources,Vendor")
+                                    "SecurityMshSnapInResources,Description", "SecurityMshSnapInResources,Vendor")
                             };
 
 #if !UNIX
@@ -1304,12 +1319,12 @@ namespace System.Management.Automation
                 return s_defaultMshSnapins;
             }
         }
+
         private static IList<DefaultPSSnapInInformation> s_defaultMshSnapins = null;
-        private static object s_syncObject = new object();
+        private static readonly object s_syncObject = new object();
 
         #endregion
 
-        private static PSTraceSource s_mshsnapinTracer = PSTraceSource.GetTracer("MshSnapinLoadUnload", "Loading and unloading mshsnapins", false);
+        private static readonly PSTraceSource s_mshsnapinTracer = PSTraceSource.GetTracer("MshSnapinLoadUnload", "Loading and unloading mshsnapins", false);
     }
 }
-

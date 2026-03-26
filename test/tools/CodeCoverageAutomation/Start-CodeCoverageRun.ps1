@@ -1,4 +1,4 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 param(
     [Parameter(Mandatory = $true, Position = 0)] $coverallsToken,
@@ -121,9 +121,14 @@ Write-LogPassThru -Message "***** New Run *****"
 Write-LogPassThru -Message "Forcing winrm quickconfig as it is required for remoting tests."
 winrm quickconfig -force
 
-$codeCoverageZip = 'https://ci.appveyor.com/api/projects/PowerShell/powershell-f975h/artifacts/CodeCoverage.zip'
-$testContentZip = 'https://ci.appveyor.com/api/projects/PowerShell/powershell-f975h/artifacts/tests.zip'
-$openCoverZip = 'https://ci.appveyor.com/api/projects/PowerShell/powershell-f975h/artifacts/OpenCover.zip'
+$appVeyorUri = "https://ci.appveyor.com/api"
+$project = Invoke-RestMethod -Method Get -Uri "${appVeyorUri}/projects/PowerShell/powershell-f975h"
+$jobId = $project.build.jobs[0].jobId
+
+$appVeyorBaseUri = "${appVeyorUri}/buildjobs/${jobId}/artifacts"
+$codeCoverageZip = "${appVeyorBaseUri}/CodeCoverage.zip"
+$testContentZip =  "${appVeyorBaseUri}/tests.zip"
+$openCoverZip =    "${appVeyorBaseUri}/OpenCover.zip"
 
 Write-LogPassThru -Message "codeCoverageZip: $codeCoverageZip"
 Write-LogPassThru -Message "testcontentZip: $testContentZip"
@@ -173,21 +178,21 @@ try
     {
         Remove-Item $CoverageZipFilePath -Force
     }
-    Invoke-WebRequest -uri $codeCoverageZip -outfile "$outputBaseFolder\PSCodeCoverage.zip"
+    Invoke-WebRequest -Uri $codeCoverageZip -OutFile "$outputBaseFolder\PSCodeCoverage.zip"
 
     $TestsZipFilePath = "$outputBaseFolder\tests.zip"
     if(Test-Path $TestsZipFilePath)
     {
         Remove-Item $TestsZipFilePath -Force
     }
-    Invoke-WebRequest -uri $testContentZip -outfile $TestsZipFilePath
+    Invoke-WebRequest -Uri $testContentZip -OutFile $TestsZipFilePath
 
     $OpenCoverZipFilePath = "$outputBaseFolder\OpenCover.zip"
     if(Test-Path $OpenCoverZipFilePath)
     {
         Remove-Item $OpenCoverZipFilePath -Force
     }
-    Invoke-WebRequest -uri $openCoverZip -outfile $OpenCoverZipFilePath
+    Invoke-WebRequest -Uri $openCoverZip -OutFile $OpenCoverZipFilePath
 
     Write-LogPassThru -Message "Downloads complete. Starting expansion"
 
@@ -195,19 +200,19 @@ try
     {
         Remove-Item -Force -Recurse $psBinPath
     }
-    Expand-Archive -path $CoverageZipFilePath -destinationpath "$psBinPath" -Force
+    Expand-Archive -Path $CoverageZipFilePath -DestinationPath "$psBinPath" -Force
 
     if(Test-Path $testRootPath)
     {
         Remove-Item -Force -Recurse $testRootPath
     }
-    Expand-Archive -path $TestsZipFilePath -destinationpath $testRootPath -Force
+    Expand-Archive -Path $TestsZipFilePath -DestinationPath $testRootPath -Force
 
     if(Test-Path $openCoverPath)
     {
         Remove-Item -Force -Recurse $openCoverPath
     }
-    Expand-Archive -path $OpenCoverZipFilePath -destinationpath $openCoverPath -Force
+    Expand-Archive -Path $OpenCoverZipFilePath -DestinationPath $openCoverPath -Force
     Write-LogPassThru -Message "Expansion complete."
 
     if(Test-Path $elevatedLogs)
@@ -313,12 +318,12 @@ try
     }
     catch {
         ("ERROR: " + $_.ScriptStackTrace) | Write-LogPassThru
-        $_ 2>&1 | out-string -Stream | %{ "ERROR: $_" } | Write-LogPassThru
+        $_ 2>&1 | Out-String -Stream | %{ "ERROR: $_" } | Write-LogPassThru
     }
 
     if(Test-Path $outputLog)
     {
-        Write-LogPassThru -Message (get-childitem $outputLog).FullName
+        Write-LogPassThru -Message (Get-ChildItem $outputLog).FullName
     }
 
     Write-LogPassThru -Message "Test run done."

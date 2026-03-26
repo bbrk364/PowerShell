@@ -1,5 +1,6 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
+
 // ----------------------------------------------------------------------
 //  Contents:  Entry points for managed PowerShell plugin worker used to
 //  host powershell in a WSMan service.
@@ -22,9 +23,9 @@ namespace System.Management.Automation.Remoting
         // the following variables are used to block thread from sending
         // data to the client until the client sends a receive request.
         private bool _isRequestPending;
-        private object _syncObject;
-        private ManualResetEvent _waitHandle;
-        private Dictionary<Guid, WSManPluginServerTransportManager> _activeCmdTransportManagers;
+        private readonly object _syncObject;
+        private readonly ManualResetEvent _waitHandle;
+        private readonly Dictionary<Guid, WSManPluginServerTransportManager> _activeCmdTransportManagers;
         private bool _isClosed;
         // used to keep track of last error..this will be used
         // for reporting operation complete to WSMan.
@@ -48,7 +49,7 @@ namespace System.Management.Automation.Remoting
             PSRemotingCryptoHelper cryptoHelper)
             : base(fragmentSize, cryptoHelper)
         {
-            _syncObject = new Object();
+            _syncObject = new object();
             _activeCmdTransportManagers = new Dictionary<Guid, WSManPluginServerTransportManager>();
             _waitHandle = new ManualResetEvent(false);
         }
@@ -63,7 +64,6 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="isShuttingDown">true if the method is called from RegisterWaitForSingleObject
         /// callback. This boolean is used to decide whether to UnregisterWait or
@@ -107,6 +107,7 @@ namespace System.Management.Automation.Remoting
                 {
                     cmdTransportKvp.Value.Close(reasonForClose);
                 }
+
                 _activeCmdTransportManagers.Clear();
 
                 if (_registeredShutDownWaitHandle != null)
@@ -152,19 +153,19 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        /// used by powershell DS handler. notifies transport that powershell is back to running state
-        /// no payload
+        /// Used by powershell DS handler. notifies transport that powershell is back to running state
+        /// no payload.
         /// </summary>
         internal override void ReportExecutionStatusAsRunning()
         {
-            if (true == _isClosed)
+            if (_isClosed)
             {
                 return;
             }
 
             int result = (int)WSManPluginErrorCodes.NoError;
 
-            //there should have been a receive request in place already
+            // there should have been a receive request in place already
 
             lock (_syncObject)
             {
@@ -180,14 +181,14 @@ namespace System.Management.Automation.Remoting
                 }
             }
 
-            if ((int)WSManPluginErrorCodes.NoError != result)
+            if (result != (int)WSManPluginErrorCodes.NoError)
             {
                 ReportError(result, "WSManPluginReceiveResult");
             }
         }
 
         /// <summary>
-        /// if flush is true, data will be sent immediately to the client. This is accomplished
+        /// If flush is true, data will be sent immediately to the client. This is accomplished
         /// by using WSMAN_FLAG_RECEIVE_FLUSH flag provided by WSMan API.
         /// </summary>
         /// <param name="data"></param>
@@ -200,7 +201,7 @@ namespace System.Management.Automation.Remoting
             bool reportAsPending,
             bool reportAsDataBoundary)
         {
-            if (true == _isClosed)
+            if (_isClosed)
             {
                 return;
             }
@@ -231,7 +232,7 @@ namespace System.Management.Automation.Remoting
                         if (flush)
                             flags |= (int)WSManNativeApi.WSManFlagReceive.WSMAN_FLAG_RECEIVE_FLUSH;
                         if (reportAsDataBoundary)
-                            //currently assigning hardcoded value for this flag, this is a new change in wsman.h and needs to be replaced with the actual definition once
+                            // currently assigning hardcoded value for this flag, this is a new change in wsman.h and needs to be replaced with the actual definition once
                             // modified wsman.h is in public headers
                             flags |= (int)WSManNativeApi.WSManFlagReceive.WSMAN_FLAG_RECEIVE_RESULT_DATA_BOUNDARY;
 
@@ -245,7 +246,8 @@ namespace System.Management.Automation.Remoting
                     }
                 }
             }
-            if ((int)WSManPluginErrorCodes.NoError != result)
+
+            if (result != (int)WSManPluginErrorCodes.NoError)
             {
                 ReportError(result, "WSManPluginReceiveResult");
             }
@@ -261,7 +263,6 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="powerShellCmdId"></param>
         /// <returns></returns>
@@ -303,6 +304,7 @@ namespace System.Management.Automation.Remoting
                 _activeCmdTransportManagers.Remove(cmdId);
             }
         }
+
         #endregion
         internal bool EnableTransportManagerSendDataToClient(
             WSManNativeApi.WSManPluginRequest requestDetails,
@@ -386,7 +388,7 @@ namespace System.Management.Automation.Remoting
 
     internal class WSManPluginCommandTransportManager : WSManPluginServerTransportManager
     {
-        private WSManPluginServerTransportManager _serverTransportMgr;
+        private readonly WSManPluginServerTransportManager _serverTransportMgr;
         private System.Guid _cmdId;
 
         // Create Cmd Transport Manager for this sessn transport manager
@@ -399,7 +401,7 @@ namespace System.Management.Automation.Remoting
 
         internal void Initialize()
         {
-            this.PowerShellGuidObserver += new System.EventHandler(OnPowershellGuidReported);
+            this.PowerShellGuidObserver += OnPowershellGuidReported;
             this.MigrateDataReadyEventHandlers(_serverTransportMgr);
         }
 
@@ -407,7 +409,7 @@ namespace System.Management.Automation.Remoting
         {
             _cmdId = (System.Guid)src;
             _serverTransportMgr.ReportTransportMgrForCmd(_cmdId, this);
-            this.PowerShellGuidObserver -= new System.EventHandler(this.OnPowershellGuidReported);
+            this.PowerShellGuidObserver -= this.OnPowershellGuidReported;
         }
     }
-} // namespace System.Management.Automation.Remoting
+}

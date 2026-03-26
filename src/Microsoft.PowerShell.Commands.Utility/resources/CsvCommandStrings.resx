@@ -127,8 +127,8 @@
         Reviewed by TArcher on 2010-06-29.
     </comment>
   </data>
-  <data name="CannotSpecifyIncludeTypeInformationAndNoTypeInformation" xml:space="preserve">
-    <value>You must specify either the -IncludeTypeInformation or -NoTypeInformation parameters, but not both.</value>
+  <data name="CannotSpecifyQuoteFieldsAndUseQuotes" xml:space="preserve">
+    <value>You must specify either the -UseQuotes or -QuoteFields parameters, but not both.</value>
   </data>
   <data name="CannotSpecifyPathAndLiteralPath" xml:space="preserve">
     <value>You must specify either the -Path or -LiteralPath parameters, but not both.</value>
@@ -153,5 +153,8 @@
   </data>
   <data name="EOFIsReached" xml:space="preserve">
     <value>EOF is reached.</value>
+  </data>
+  <data name="CannotSpecifyAppendAndNoHeader" xml:space="preserve">
+    <value>You must specify either the -Append or -NoHeader parameters, but not both.</value>
   </data>
 </root>

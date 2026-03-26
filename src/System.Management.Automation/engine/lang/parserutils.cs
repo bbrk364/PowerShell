@@ -1,87 +1,25 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Reflection;
-using System.Runtime.CompilerServices;
-using System.Runtime.Serialization;
-using System.Text;
-using System.Text.RegularExpressions;
 using System.Globalization;
 using System.Management.Automation.Internal;
 using System.Management.Automation.Internal.Host;
 using System.Management.Automation.Language;
 using System.Management.Automation.Runspaces;
+using System.Runtime.CompilerServices;
+using System.Runtime.Serialization;
+using System.Text.RegularExpressions;
+
 using Dbg = System.Management.Automation.Diagnostics;
 
 #pragma warning disable 1634, 1691 // Stops compiler from warning about unknown warnings
 
 namespace System.Management.Automation
 {
-    #region SpecialCharacters
-    /// <summary>
-    /// Define the various unicode special characters that
-    /// the parser has to deal with.
-    /// </summary>
-    internal static class SpecialCharacters
-    {
-        public const char enDash = (char)0x2013;
-        public const char emDash = (char)0x2014;
-        public const char horizontalBar = (char)0x2015;
-
-        public const char quoteSingleLeft = (char)0x2018;   // left single quotation mark
-        public const char quoteSingleRight = (char)0x2019;  // right single quotation mark
-        public const char quoteSingleBase = (char)0x201a;   // single low-9 quotation mark
-        public const char quoteReversed = (char)0x201b;     // single high-reversed-9 quotation mark
-        public const char quoteDoubleLeft = (char)0x201c;   // left double quotation mark
-        public const char quoteDoubleRight = (char)0x201d;  // right double quotation mark
-        public const char quoteLowDoubleLeft = (char)0x201E;// low double left quote used in german.
-
-        public static bool IsDash(char c)
-        {
-            return (c == enDash || c == emDash || c == horizontalBar || c == '-');
-        }
-        public static bool IsSingleQuote(char c)
-        {
-            return (c == quoteSingleLeft || c == quoteSingleRight || c == quoteSingleBase ||
-                c == quoteReversed || c == '\'');
-        }
-        public static bool IsDoubleQuote(char c)
-        {
-            return (c == '"' || c == quoteDoubleLeft || c == quoteDoubleRight || c == quoteLowDoubleLeft);
-        }
-        public static bool IsQuote(char c)
-        {
-            return (IsSingleQuote(c) || IsDoubleQuote(c));
-        }
-        public static bool IsDelimiter(char c, char delimiter)
-        {
-            if (delimiter == '"') return IsDoubleQuote(c);
-            if (delimiter == '\'') return IsSingleQuote(c);
-            return (c == delimiter);
-        }
-        public static bool IsCurlyBracket(char c)
-        {
-            return (c == '{' || c == '}');
-        }
-        /// <summary>
-        /// Canonicalize the quote character - map all of the aliases for " or '
-        /// into their ascii equivalent.
-        /// </summary>
-        /// <param name="c">The character to map</param>
-        /// <returns>The mapped character.</returns>
-        public static char AsQuote(char c)
-        {
-            if (IsSingleQuote(c)) return '\'';
-            if (IsDoubleQuote(c)) return '"';
-            return (c);
-        }
-    };
-
-    #endregion SpecialChars
-
     #region Flow Control Exceptions
 
     /// <summary>
@@ -90,11 +28,6 @@ namespace System.Management.Automation
     public abstract class FlowControlException : SystemException
     {
         internal FlowControlException() { }
-
-        internal FlowControlException(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
     }
 
     /// <summary>
@@ -105,11 +38,6 @@ namespace System.Management.Automation
         internal LoopFlowException(string label)
         {
             this.Label = label ?? string.Empty;
-        }
-
-        internal LoopFlowException(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
         }
 
         internal LoopFlowException() { }
@@ -134,7 +62,7 @@ namespace System.Management.Automation
             // If the flow statement has no label, it always matches (because it just means, break or continue from
             // the most nested loop.)  Otherwise, compare the labels.
 
-            return String.IsNullOrEmpty(flowLabel) || flowLabel.Equals(loopLabel, StringComparison.OrdinalIgnoreCase);
+            return string.IsNullOrEmpty(flowLabel) || flowLabel.Equals(loopLabel, StringComparison.OrdinalIgnoreCase);
         }
     }
 
@@ -153,19 +81,14 @@ namespace System.Management.Automation
         internal BreakException() { }
 
         [SuppressMessage("Microsoft.Design", "CA1032:ImplementStandardExceptionConstructors", Justification = "This exception should only be thrown from SMA.dll")]
-        internal BreakException(String label, Exception innerException)
+        internal BreakException(string label, Exception innerException)
             : base(label)
-        {
-        }
-
-        private BreakException(SerializationInfo info, StreamingContext context)
-            : base(info, context)
         {
         }
     }
 
     /// <summary>
-    /// Flow control ContinueException
+    /// Flow control ContinueException.
     /// </summary>
     public sealed class ContinueException : LoopFlowException
     {
@@ -179,13 +102,8 @@ namespace System.Management.Automation
         internal ContinueException() { }
 
         [SuppressMessage("Microsoft.Design", "CA1032:ImplementStandardExceptionConstructors", Justification = "This exception should only be thrown from SMA.dll")]
-        internal ContinueException(String label, Exception innerException)
+        internal ContinueException(string label, Exception innerException)
             : base(label)
-        {
-        }
-
-        private ContinueException(SerializationInfo info, StreamingContext context)
-            : base(info, context)
         {
         }
     }
@@ -212,18 +130,12 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Argument
+        /// Argument.
         /// </summary>
         public object Argument { get; internal set; }
 
         [SuppressMessage("Microsoft.Design", "CA1032:ImplementStandardExceptionConstructors", Justification = "This exception should only be thrown from SMA.dll")]
         internal ExitException() { }
-
-        [SuppressMessage("Microsoft.Design", "CA1032:ImplementStandardExceptionConstructors", Justification = "This exception should only be thrown from SMA.dll")]
-        private ExitException(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
     }
 
     /// <summary>
@@ -252,7 +164,7 @@ namespace System.Management.Automation
             this.RequestingCommandProcessor = requestingCommand.Context.CurrentCommandProcessor;
         }
 
-        public CommandProcessorBase RequestingCommandProcessor { get; private set; }
+        public CommandProcessorBase RequestingCommandProcessor { get; }
     }
 
     #endregion Flow Control Exceptions
@@ -313,7 +225,7 @@ namespace System.Management.Automation
     internal delegate object PowerShellBinaryOperator(ExecutionContext context, IScriptExtent errorPosition, object lval, object rval);
 
     /// <summary>
-    /// A static class holding various operations specific to the msh interpreter such as
+    /// A static class holding various operations specific to the PowerShell interpreter such as
     /// various math operations, ToString() and a routine to extract the base object from an
     /// PSObject in a canonical fashion.
     /// </summary>
@@ -340,6 +252,7 @@ namespace System.Management.Automation
 
         private const int _MinCache = -100;
         private const int _MaxCache = 1000;
+
         private static readonly object[] s_integerCache = new object[_MaxCache - _MinCache];
         private static readonly string[] s_chars = new string[255];
         internal static readonly object _TrueObject = (object)true;
@@ -359,14 +272,15 @@ namespace System.Management.Automation
         /// <summary>
         /// Convert an object into an int, avoiding boxing small integers...
         /// </summary>
-        /// <param name="value">The int to convert</param>
-        /// <returns>The reference equivalent</returns>
+        /// <param name="value">The int to convert.</param>
+        /// <returns>The reference equivalent.</returns>
         internal static object IntToObject(int value)
         {
             if (value < _MaxCache && value >= _MinCache)
             {
                 return s_integerCache[value - _MinCache];
             }
+
             return (object)value;
         }
 
@@ -384,7 +298,7 @@ namespace System.Management.Automation
         /// <param name="obj"></param>
         /// <param name="errorPosition">The position to use for error reporting.</param>
         /// <returns></returns>
-        /// <exception cref="RuntimeException">The result could not be represented as an integer</exception>
+        /// <exception cref="RuntimeException">The result could not be represented as an integer.</exception>
         internal static int FixNum(object obj, IScriptExtent errorPosition)
         {
             obj = PSObject.Base(obj);
@@ -416,19 +330,20 @@ namespace System.Management.Automation
                 re.ErrorRecord.SetInvocationInfo(new InvocationInfo(null, errorPosition));
                 throw re;
             }
+
             return result;
         }
 
         /// <summary>
-        /// private method used to call the op_* operations for the math operators
+        /// Private method used to call the op_* operations for the math operators.
         /// </summary>
-        /// <param name="lval">left operand</param>
-        /// <param name="rval">right operand</param>
-        /// <param name="op">name of the operation method to perform</param>
+        /// <param name="lval">Left operand.</param>
+        /// <param name="rval">Right operand.</param>
+        /// <param name="op">Name of the operation method to perform.</param>
         /// <param name="errorPosition">The position to use for error reporting.</param>
-        /// <param name="errorOp">the string to use in error messages representing the op</param>
-        /// <returns>The result of the operation</returns>
-        /// <exception cref="RuntimeException">An error occurred performing the operation, see inner exception</exception>
+        /// <param name="errorOp">The string to use in error messages representing the op.</param>
+        /// <returns>The result of the operation.</returns>
+        /// <exception cref="RuntimeException">An error occurred performing the operation, see inner exception.</exception>
         internal static object ImplicitOp(object lval, object rval, string op, IScriptExtent errorPosition, string errorOp)
         {
             // Get the base object. At somepoint, we may allow users to dynamically extend
@@ -437,8 +352,8 @@ namespace System.Management.Automation
             lval = PSObject.Base(lval);
             rval = PSObject.Base(rval);
 
-            Type lvalType = lval != null ? lval.GetType() : null;
-            Type rvalType = rval != null ? rval.GetType() : null;
+            Type lvalType = lval?.GetType();
+            Type rvalType = rval?.GetType();
             Type opType;
             if (lvalType == null || (lvalType.IsPrimitive))
             {
@@ -511,7 +426,7 @@ namespace System.Management.Automation
 
         // uses "yield" from C# 2.0, which automatically creates
         // an enumerable out of the loop code. See
-        // http://msdn.microsoft.com/msdnmag/issues/04/05/C20/ for
+        // https://msdn.microsoft.com/msdnmag/issues/04/05/C20/ for
         // more details.
         private static IEnumerable<string> enumerateContent(ExecutionContext context, IScriptExtent errorPosition, SplitImplOptions implOptions, object tuple)
         {
@@ -534,22 +449,27 @@ namespace System.Management.Automation
             {
                 result |= RegexOptions.CultureInvariant;
             }
+
             if ((options & SplitOptions.IgnorePatternWhitespace) != 0)
             {
                 result |= RegexOptions.IgnorePatternWhitespace;
             }
+
             if ((options & SplitOptions.Multiline) != 0)
             {
                 result |= RegexOptions.Multiline;
             }
+
             if ((options & SplitOptions.Singleline) != 0)
             {
                 result |= RegexOptions.Singleline;
             }
+
             if ((options & SplitOptions.IgnoreCase) != 0)
             {
                 result |= RegexOptions.IgnoreCase;
             }
+
             if ((options & SplitOptions.ExplicitCapture) != 0)
             {
                 result |= RegexOptions.ExplicitCapture;
@@ -571,15 +491,7 @@ namespace System.Management.Automation
             return SplitOperatorImpl(context, errorPosition, lval, rval, SplitImplOptions.None, ignoreCase);
         }
 
-        private static void ExtendList<T>(IList<T> list, IList<T> items)
-        {
-            foreach (T item in items)
-            {
-                list.Add(item);
-            }
-        }
-
-        private static object SplitOperatorImpl(ExecutionContext context, IScriptExtent errorPosition, object lval, object rval, SplitImplOptions implOptions, bool ignoreCase)
+        private static IReadOnlyList<string> SplitOperatorImpl(ExecutionContext context, IScriptExtent errorPosition, object lval, object rval, SplitImplOptions implOptions, bool ignoreCase)
         {
             IEnumerable<string> content = enumerateContent(context, errorPosition, implOptions, lval);
 
@@ -603,6 +515,7 @@ namespace System.Management.Automation
                 throw InterpreterError.NewInterpreterException(rval, typeof(RuntimeException), errorPosition,
                     "BadOperatorArgument", ParserStrings.BadOperatorArgument, "-split", rval);
             }
+
             if (args.Length >= 2)
                 limit = FixNum(args[1], errorPosition);
             if (args.Length >= 3 && args[2] != null)
@@ -616,6 +529,7 @@ namespace System.Management.Automation
                         throw InterpreterError.NewInterpreterException(null, typeof(ParseException),
                             errorPosition, "InvalidSplitOptionWithPredicate", ParserStrings.InvalidSplitOptionWithPredicate);
                     }
+
                     if (ignoreCase && (options & SplitOptions.IgnoreCase) == 0)
                     {
                         options |= SplitOptions.IgnoreCase;
@@ -627,92 +541,176 @@ namespace System.Management.Automation
                 options |= SplitOptions.IgnoreCase;
             }
 
-            if (predicate != null)
+            if (predicate == null)
+            {
+                return SplitWithPattern(context, errorPosition, content, separatorPattern, limit, options);
+            }
+            else if (limit >= 0)
             {
                 return SplitWithPredicate(context, errorPosition, content, predicate, limit);
             }
             else
             {
-                return SplitWithPattern(context, errorPosition, content, separatorPattern, limit, options);
+                return NegativeSplitWithPredicate(context, errorPosition, content, predicate, limit);
             }
         }
 
-        private static object SplitWithPredicate(ExecutionContext context, IScriptExtent errorPosition, IEnumerable<string> content, ScriptBlock predicate, int limit)
+        private static IReadOnlyList<string> NegativeSplitWithPredicate(ExecutionContext context, IScriptExtent errorPosition, IEnumerable<string> content, ScriptBlock predicate, int limit)
         {
-            List<string> results = new List<string>();
+            var results = new List<string>();
+
+            if (limit == -1)
+            {
+                // If the user just wants 1 string
+                // then just return the content
+                return new List<string>(content);
+            }
+
             foreach (string item in content)
             {
-                List<string> split = new List<String>();
+                var split = new List<string>();
 
-                if (limit == 1)
-                {
-                    // Don't bother with looking for any delimiters,
-                    // just return the original string.
-                    results.Add(item);
-                    continue;
-                }
+                // Used to traverse through the item
+                int cursor = item.Length - 1;
 
-                StringBuilder buf = new StringBuilder();
-                for (int strIndex = 0; strIndex < item.Length; strIndex++)
+                int subStringLength = 0;
+
+                for (int charCount = 0; charCount < item.Length; charCount++)
                 {
-                    object isDelimChar = predicate.DoInvokeReturnAsIs(
+                    // Evaluate the predicate using the character at cursor.
+                    object predicateResult = predicate.DoInvokeReturnAsIs(
                         useLocalScope: true,
                         errorHandlingBehavior: ScriptBlock.ErrorHandlingBehavior.WriteToExternalErrorPipe,
-                        dollarUnder: CharToString(item[strIndex]),
+                        dollarUnder: CharToString(item[cursor]),
                         input: AutomationNull.Value,
                         scriptThis: AutomationNull.Value,
-                        args: new object[] { item, strIndex });
-                    if (LanguagePrimitives.IsTrue(isDelimChar))
+                        args: new object[] { item, cursor });
+
+                    if (!LanguagePrimitives.IsTrue(predicateResult))
                     {
-                        split.Add(buf.ToString());
-                        buf = new StringBuilder();
-
-                        if (limit > 0 && split.Count >= (limit - 1))
-                        {
-                            // We're one item below the limit. If
-                            // we have any string left, go ahead
-                            // and add it as the last item, otherwise
-                            // add an empty string if there was
-                            // a delimiter at the end.
-                            if ((strIndex + 1) < item.Length)
-                            {
-                                split.Add(item.Substring(strIndex + 1));
-                            }
-                            else
-                            {
-                                split.Add(string.Empty);
-                            }
-                            break;
-                        }
-
-                        // If this delimiter is at the end of the string,
-                        // add an empty string to denote the item "after"
-                        // it.
-                        if (strIndex == (item.Length - 1))
-                        {
-                            split.Add(string.Empty);
-                        }
+                        subStringLength++;
+                        cursor -= 1;
+                        continue;
                     }
-                    else
+
+                    split.Add(item.Substring(cursor + 1, subStringLength));
+
+                    subStringLength = 0;
+
+                    cursor -= 1;
+
+                    if (System.Math.Abs(limit) == (split.Count + 1))
                     {
-                        buf.Append(item[strIndex]);
+                        break;
                     }
                 }
 
-                // Add any remainder, if we're under the limit.
-                if (buf.Length > 0 &&
-                    (limit <= 0 || split.Count < limit))
+                if (cursor == -1)
                 {
-                    split.Add(buf.ToString());
+                    // Used when the limit is negative
+                    // and the cursor was allowed to go
+                    // all the way to the start of the
+                    // string.
+                    split.Add(item.Substring(0, subStringLength));
+                }
+                else
+                {
+                    // Used to get the rest of the string
+                    // when using a negative limit and
+                    // the cursor doesn't reach the end
+                    // of the string.
+                    split.Add(item.Substring(0, cursor + 1));
                 }
 
-                ExtendList(results, split);
+                split.Reverse();
+
+                results.AddRange(split);
             }
 
             return results.ToArray();
         }
 
-        private static object SplitWithPattern(ExecutionContext context, IScriptExtent errorPosition, IEnumerable<string> content, string separatorPattern, int limit, SplitOptions options)
+        private static IReadOnlyList<string> SplitWithPredicate(ExecutionContext context, IScriptExtent errorPosition, IEnumerable<string> content, ScriptBlock predicate, int limit)
+        {
+            var results = new List<string>();
+
+            if (limit == 1)
+            {
+                // If the user just wants 1 string
+                // then just return the content
+                return new List<string>(content);
+            }
+
+            foreach (string item in content)
+            {
+                var split = new List<string>();
+
+                // Used to traverse through the item
+                int cursor = 0;
+
+                // This is used to calculate how much to split from item.
+                int subStringLength = 0;
+
+                for (int charCount = 0; charCount < item.Length; charCount++)
+                {
+                    // Evaluate the predicate using the character at cursor.
+                    object predicateResult = predicate.DoInvokeReturnAsIs(
+                        useLocalScope: true,
+                        errorHandlingBehavior: ScriptBlock.ErrorHandlingBehavior.WriteToExternalErrorPipe,
+                        dollarUnder: CharToString(item[cursor]),
+                        input: AutomationNull.Value,
+                        scriptThis: AutomationNull.Value,
+                        args: new object[] { item, cursor });
+
+                    // If the current character is not a delimiter
+                    // then it must be included into a substring.
+                    if (!LanguagePrimitives.IsTrue(predicateResult))
+                    {
+                        subStringLength++;
+
+                        cursor += 1;
+
+                        continue;
+                    }
+
+                    // Else, if the character is a delimiter
+                    // then add a substring to the split list.
+                    split.Add(item.Substring(cursor - subStringLength, subStringLength));
+
+                    subStringLength = 0;
+
+                    cursor += 1;
+
+                    if (limit == (split.Count + 1))
+                    {
+                        break;
+                    }
+                }
+
+                if (cursor == item.Length)
+                {
+                    // Used to get the rest of the string
+                    // when the limit is not negative and
+                    // the cursor is allowed to make it to
+                    // the end of the string.
+                    split.Add(item.Substring(cursor - subStringLength, subStringLength));
+                }
+                else
+                {
+                    // Used to get the rest of the string
+                    // when the limit is not negative and
+                    // the cursor is not at the end of the
+                    // string.
+                    split.Add(item.Substring(cursor, item.Length - cursor));
+                }
+
+                results.AddRange(split);
+            }
+
+            return results.ToArray();
+        }
+
+        private static IReadOnlyList<string> SplitWithPattern(ExecutionContext context, IScriptExtent errorPosition, IEnumerable<string> content, string separatorPattern, int limit, SplitOptions options)
         {
             // Default to Regex matching if no match specified.
             if ((options & SplitOptions.SimpleMatch) == 0 &&
@@ -735,21 +733,25 @@ namespace System.Management.Automation
                 separatorPattern = Regex.Escape(separatorPattern);
             }
 
-            if (limit < 0)
+            RegexOptions regexOptions = parseRegexOptions(options);
+
+            int calculatedLimit = limit;
+
+            // If the limit is negative then set Regex to read from right to left
+            if (calculatedLimit < 0)
             {
-                // Regex only allows 0 to signify "no limit", whereas
-                // we allow any integer <= 0.
-                limit = 0;
+                regexOptions |= RegexOptions.RightToLeft;
+                calculatedLimit *= -1;
             }
 
-            RegexOptions regexOptions = parseRegexOptions(options);
             Regex regex = NewRegex(separatorPattern, regexOptions);
 
-            List<string> results = new List<string>();
+            var results = new List<string>();
+
             foreach (string item in content)
             {
-                string[] split = regex.Split(item, limit, 0);
-                ExtendList(results, split);
+                string[] split = regex.Split(item, calculatedLimit);
+                results.AddRange(split);
             }
 
             return results.ToArray();
@@ -758,23 +760,23 @@ namespace System.Management.Automation
         /// <summary>
         /// Implementation of the PowerShell unary -join operator...
         /// </summary>
-        /// <param name="context">The execution context to use</param>
+        /// <param name="context">The execution context to use.</param>
         /// <param name="errorPosition">The position to use for error reporting.</param>
-        /// <param name="lval">left operand</param>
-        /// <returns>The result of the operator</returns>
+        /// <param name="lval">Left operand.</param>
+        /// <returns>The result of the operator.</returns>
         internal static object UnaryJoinOperator(ExecutionContext context, IScriptExtent errorPosition, object lval)
         {
             return JoinOperator(context, errorPosition, lval, string.Empty);
         }
 
         /// <summary>
-        /// Implementation of the PowerShell binary -join operator
+        /// Implementation of the PowerShell binary -join operator.
         /// </summary>
-        /// <param name="context">The execution context to use</param>
+        /// <param name="context">The execution context to use.</param>
         /// <param name="errorPosition">The position to use for error reporting.</param>
-        /// <param name="lval">left operand</param>
-        /// <param name="rval">right operand</param>
-        /// <returns>The result of the operator</returns>
+        /// <param name="lval">Left operand.</param>
+        /// <param name="rval">Right operand.</param>
+        /// <returns>The result of the operator.</returns>
         internal static object JoinOperator(ExecutionContext context, IScriptExtent errorPosition, object lval, object rval)
         {
             string separator = PSObject.ToStringParser(context, rval);
@@ -873,20 +875,19 @@ namespace System.Management.Automation
         private static object AsChar(object obj)
         {
             if (obj is char) return obj;
-            if (obj is string str && str.Length == 1 && !Char.IsDigit(str, 0)) return str[0];
+            if (obj is string str && str.Length == 1 && !char.IsDigit(str, 0)) return str[0];
             return null;
         }
-
 
         /// <summary>
         /// The implementation of the PowerShell -replace operator....
         /// </summary>
-        /// <param name="context">The execution context in which to evaluate the expression</param>
+        /// <param name="context">The execution context in which to evaluate the expression.</param>
         /// <param name="errorPosition">The position to use for error reporting.</param>
-        /// <param name="lval">The object on which to replace the values</param>
+        /// <param name="lval">The object on which to replace the values.</param>
         /// <param name="rval">The replacement description.</param>
-        /// <param name="ignoreCase">True for -ireplace/-replace, false for -creplace</param>
-        /// <returns>The result of the operator</returns>
+        /// <param name="ignoreCase">True for -ireplace/-replace, false for -creplace.</param>
+        /// <returns>The result of the operator.</returns>
         internal static object ReplaceOperator(ExecutionContext context, IScriptExtent errorPosition, object lval, object rval, bool ignoreCase)
         {
             object pattern = string.Empty;
@@ -900,7 +901,7 @@ namespace System.Management.Automation
                 {
                     // only allow 1 or 2 arguments to -replace
                     throw InterpreterError.NewInterpreterException(rval, typeof(RuntimeException), errorPosition,
-                        "BadReplaceArgument", ParserStrings.BadReplaceArgument, ignoreCase ? "-ireplace" : "-replace", rList.Count);
+                        "BadReplaceArgument", ParserStrings.BadReplaceArgument, errorPosition.Text, rList.Count);
                 }
 
                 if (rList.Count > 0)
@@ -938,12 +939,13 @@ namespace System.Management.Automation
                 }
             }
 
+            var replacer = ReplaceOperatorImpl.Create(context, rr, substitute);
             IEnumerator list = LanguagePrimitives.GetEnumerator(lval);
             if (list == null)
             {
-                string lvalString = lval?.ToString() ?? String.Empty;
+                string lvalString = PSObject.ToStringParser(context, lval) ?? string.Empty;
 
-                return ReplaceOperatorImpl(context, lvalString, rr, substitute);
+                return replacer.Replace(lvalString);
             }
             else
             {
@@ -951,61 +953,95 @@ namespace System.Management.Automation
                 while (ParserOps.MoveNext(context, errorPosition, list))
                 {
                     string lvalString = PSObject.ToStringParser(context, ParserOps.Current(errorPosition, list));
-                    resultList.Add(ReplaceOperatorImpl(context, lvalString, rr, substitute));
+                    resultList.Add(replacer.Replace(lvalString));
                 }
 
                 return resultList.ToArray();
             }
         }
 
-        /// <summary>
-        /// ReplaceOperator implementation.
-        /// Abstracts away conversion of the optional substitute parameter to either a string or a MatchEvaluator delegate
-        /// and finally returns the result of the final Regex.Replace operation.
-        /// </summary>
-        /// <param name="context">The execution context in which to evaluate the expression</param>
-        /// <param name="input">The input string</param>
-        /// <param name="regex">A Regex instance.</param>
-        /// <param name="substitute">The substitute value</param>
-        /// <returns>The result of the regex.Replace operation</returns>
-        private static object ReplaceOperatorImpl(ExecutionContext context, string input, Regex regex, object substitute)
+        private struct ReplaceOperatorImpl
         {
-            switch (substitute)
+            public static ReplaceOperatorImpl Create(ExecutionContext context, Regex regex, object substitute)
             {
-                case string replacementString:
-                    return regex.Replace(input, replacementString);
+                return new ReplaceOperatorImpl(context, regex, substitute);
+            }
 
-                case ScriptBlock sb:
-                    MatchEvaluator me = match => {
-                        var result = sb.DoInvokeReturnAsIs(
-                            useLocalScope: false, /* Use current scope to be consistent with 'ForEach/Where-Object {}' and 'collection.ForEach{}/Where{}' */
-                            errorHandlingBehavior: ScriptBlock.ErrorHandlingBehavior.WriteToCurrentErrorPipe,
-                            dollarUnder: match,
-                            input: AutomationNull.Value,
-                            scriptThis: AutomationNull.Value,
-                            args: Utils.EmptyArray<object>());
+            private readonly Regex _regex;
+            private readonly string _cachedReplacementString;
+            private readonly MatchEvaluator _cachedMatchEvaluator;
 
-                        return PSObject.ToStringParser(context, result);;
-                    };
-                    return regex.Replace(input, me);
+            private ReplaceOperatorImpl(
+                ExecutionContext context,
+                Regex regex,
+                object substitute)
+            {
+                _regex = regex;
+                _cachedReplacementString = null;
+                _cachedMatchEvaluator = null;
 
-                case object val when LanguagePrimitives.TryConvertTo(val, out MatchEvaluator matchEvaluator):
-                    return regex.Replace(input, matchEvaluator);
+                switch (substitute)
+                {
+                    case string replacement:
+                        _cachedReplacementString = replacement;
+                        break;
 
-                default:
-                    string replacement = PSObject.ToStringParser(context, substitute);
-                    return regex.Replace(input, replacement);
+                    case ScriptBlock sb:
+                        _cachedMatchEvaluator = GetMatchEvaluator(context, sb);
+                        break;
+
+                    case object val when LanguagePrimitives.TryConvertTo(val, out _cachedMatchEvaluator):
+                        break;
+
+                    default:
+                        _cachedReplacementString = PSObject.ToStringParser(context, substitute);
+                        break;
+                }
+            }
+
+            // Local helper function to avoid creating an instance of the generated delegate helper class
+            // every time 'ReplaceOperatorImpl' is invoked.
+            private static MatchEvaluator GetMatchEvaluator(ExecutionContext context, ScriptBlock sb)
+            {
+                return match =>
+                {
+                    var result = sb.DoInvokeReturnAsIs(
+                        useLocalScope: false, /* Use current scope to be consistent with 'ForEach/Where-Object {}' and 'collection.ForEach{}/Where{}' */
+                        errorHandlingBehavior: ScriptBlock.ErrorHandlingBehavior.WriteToCurrentErrorPipe,
+                        dollarUnder: match,
+                        input: AutomationNull.Value,
+                        scriptThis: AutomationNull.Value,
+                        args: Array.Empty<object>());
+
+                    return PSObject.ToStringParser(context, result);
+                };
+            }
+
+            /// <summary>
+            /// ReplaceOperator implementation.
+            /// Abstracts away conversion of the optional substitute parameter to either a string or a MatchEvaluator delegate
+            /// and finally returns the result of the final Regex.Replace operation.
+            /// </summary>
+            public object Replace(string input)
+            {
+                if (_cachedReplacementString is not null)
+                {
+                    return _regex.Replace(input, _cachedReplacementString);
+                }
+
+                Dbg.Assert(_cachedMatchEvaluator is not null, "_cachedMatchEvaluator should be not null when code reach here.");
+                return _regex.Replace(input, _cachedMatchEvaluator);
             }
         }
 
         /// <summary>
         /// Implementation of the PowerShell type operators...
         /// </summary>
-        /// <param name="context">The execution context to use</param>
+        /// <param name="context">The execution context to use.</param>
         /// <param name="errorPosition">The position to use for error reporting.</param>
-        /// <param name="left">left operand</param>
-        /// <param name="right">right operand</param>
-        /// <returns>The result of the operator</returns>
+        /// <param name="left">Left operand.</param>
+        /// <param name="right">Right operand.</param>
+        /// <returns>The result of the operator.</returns>
         internal static object IsOperator(ExecutionContext context, IScriptExtent errorPosition, object left, object right)
         {
             object lval = PSObject.Base(left);
@@ -1042,11 +1078,11 @@ namespace System.Management.Automation
         /// <summary>
         /// Implementation of the PowerShell type operators...
         /// </summary>
-        /// <param name="context">The execution context to use</param>
+        /// <param name="context">The execution context to use.</param>
         /// <param name="errorPosition">The position to use for error reporting.</param>
-        /// <param name="left">left operand</param>
-        /// <param name="right">right operand</param>
-        /// <returns>The result of the operator</returns>
+        /// <param name="left">Left operand.</param>
+        /// <param name="right">Right operand.</param>
+        /// <returns>The result of the operator.</returns>
         internal static object IsNotOperator(ExecutionContext context, IScriptExtent errorPosition, object left, object right)
         {
             object lval = PSObject.Base(left);
@@ -1081,14 +1117,14 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Implementation of the PowerShell -like operator
+        /// Implementation of the PowerShell -like operator.
         /// </summary>
-        /// <param name="context">The execution context to use</param>
+        /// <param name="context">The execution context to use.</param>
         /// <param name="errorPosition">The position to use for error reporting.</param>
-        /// <param name="lval">left operand</param>
-        /// <param name="rval">right operand</param>
-        /// <param name="operator">the operator</param>
-        /// <returns>The result of the operator</returns>
+        /// <param name="lval">Left operand.</param>
+        /// <param name="rval">Right operand.</param>
+        /// <param name="operator">The operator.</param>
+        /// <returns>The result of the operator.</returns>
         internal static object LikeOperator(ExecutionContext context, IScriptExtent errorPosition, object lval, object rval, TokenKind @operator)
         {
             var wcp = rval as WildcardPattern;
@@ -1103,7 +1139,7 @@ namespace System.Management.Automation
             IEnumerator list = LanguagePrimitives.GetEnumerator(lval);
             if (list == null)
             {
-                string lvalString = lval == null ? String.Empty : PSObject.ToStringParser(context, lval);
+                string lvalString = lval == null ? string.Empty : PSObject.ToStringParser(context, lval);
 
                 return BoolToObject(wcp.IsMatch(lvalString) ^ notLike);
             }
@@ -1114,7 +1150,7 @@ namespace System.Management.Automation
             {
                 object val = ParserOps.Current(errorPosition, list);
 
-                string lvalString = val == null ? String.Empty : PSObject.ToStringParser(context, val);
+                string lvalString = val == null ? string.Empty : PSObject.ToStringParser(context, val);
 
                 if (wcp.IsMatch(lvalString) ^ notLike)
                 {
@@ -1126,33 +1162,30 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Implementation of the PowerShell -match operator
+        /// Implementation of the PowerShell -match operator.
         /// </summary>
-        /// <param name="context">The execution context to use</param>
+        /// <param name="context">The execution context to use.</param>
         /// <param name="errorPosition">The position to use for error reporting.</param>
-        /// <param name="lval">left operand</param>
-        /// <param name="rval">right operand</param>
-        /// <param name="ignoreCase">ignore case?</param>
-        /// <param name="notMatch">true for -notmatch, false for -match</param>
-        /// <returns>The result of the operator</returns>
+        /// <param name="lval">Left operand.</param>
+        /// <param name="rval">Right operand.</param>
+        /// <param name="ignoreCase">Ignore case?</param>
+        /// <param name="notMatch">True for -notmatch, false for -match.</param>
+        /// <returns>The result of the operator.</returns>
         internal static object MatchOperator(ExecutionContext context, IScriptExtent errorPosition, object lval, object rval, bool notMatch, bool ignoreCase)
         {
             RegexOptions reOptions = ignoreCase ? RegexOptions.IgnoreCase : RegexOptions.None;
 
             // if passed an explicit regex, just use it
             // otherwise compile the expression.
-            Regex r = PSObject.Base(rval) as Regex;
-            if (r == null)
-            {
-                // In this situation, creation of Regex should not fail. We are not
-                // processing ArgumentException in this case.
-                r = NewRegex(PSObject.ToStringParser(context, rval), reOptions);
-            }
+            // In this situation, creation of Regex should not fail. We are not
+            // processing ArgumentException in this case.
+            Regex r = PSObject.Base(rval) as Regex
+                ?? NewRegex(PSObject.ToStringParser(context, rval), reOptions);
 
             IEnumerator list = LanguagePrimitives.GetEnumerator(lval);
             if (list == null)
             {
-                string lvalString = lval == null ? String.Empty : PSObject.ToStringParser(context, lval);
+                string lvalString = lval == null ? string.Empty : PSObject.ToStringParser(context, lval);
 
                 // Find a match in the string.
                 Match m = r.Match(lvalString);
@@ -1195,7 +1228,7 @@ namespace System.Management.Automation
                     {
                         object val = list.Current;
 
-                        string lvalString = val == null ? String.Empty : PSObject.ToStringParser(context, val);
+                        string lvalString = val == null ? string.Empty : PSObject.ToStringParser(context, val);
 
                         // Find a single match in the string.
                         Match m = r.Match(lvalString);
@@ -1204,6 +1237,7 @@ namespace System.Management.Automation
                         {
                             resultList.Add(val);
                         }
+
                         if (check++ > 1000)
                         {
                             // Check to see if we're stopping every one in a while...
@@ -1263,13 +1297,13 @@ namespace System.Management.Automation
         /// <summary>
         /// Implementation of the PowerShell -contains/-notcontains operators (and case sensitive variants)
         /// </summary>
-        /// <param name="context">The execution context to use</param>
+        /// <param name="context">The execution context to use.</param>
         /// <param name="errorPosition">The position to use for error reporting.</param>
-        /// <param name="left">left operand</param>
-        /// <param name="right">right operand</param>
-        /// <param name="ignoreCase">ignore case?</param>
-        /// <param name="contains">true for -contains, false for -notcontains</param>
-        /// <returns>The result of the operator</returns>
+        /// <param name="left">Left operand.</param>
+        /// <param name="right">Right operand.</param>
+        /// <param name="ignoreCase">Ignore case?</param>
+        /// <param name="contains">True for -contains, false for -notcontains.</param>
+        /// <returns>The result of the operator.</returns>
         internal static object ContainsOperator(ExecutionContext context, IScriptExtent errorPosition, object left, object right, bool contains, bool ignoreCase)
         {
             IEnumerator list = LanguagePrimitives.GetEnumerator(left);
@@ -1318,45 +1352,48 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Cache regular expressions...
+        /// Cache regular expressions.
         /// </summary>
-        /// <param name="patternString">The string to find the pattern for</param>
-        /// <param name="options">The options used to create the regex...</param>
-        /// <returns>A case-insensitive Regex...</returns>
+        /// <param name="patternString">The string to find the pattern for.</param>
+        /// <param name="options">The options used to create the regex.</param>
+        /// <returns>New or cached Regex.</returns>
         internal static Regex NewRegex(string patternString, RegexOptions options)
         {
-            if (options != RegexOptions.IgnoreCase)
-                return new Regex(patternString, options);
-
-            lock (s_regexCache)
+            var subordinateRegexCache = s_regexCache.GetOrAdd(options, s_subordinateRegexCacheCreationDelegate);
+            if (subordinateRegexCache.TryGetValue(patternString, out Regex result))
             {
-                Regex result;
-                if (s_regexCache.TryGetValue(patternString, out result))
+                return result;
+            }
+            else
+            {
+                if (subordinateRegexCache.Count > MaxRegexCache)
                 {
-                    return result;
+                    // TODO: it would be useful to get a notice (in telemetry?) if the cache is full.
+                    subordinateRegexCache.Clear();
                 }
-                else
-                {
-                    if (s_regexCache.Count > MaxRegexCache)
-                        s_regexCache.Clear();
-                    Regex re = new Regex(patternString, RegexOptions.IgnoreCase);
-                    s_regexCache.Add(patternString, re);
-                    return re;
-                }
+
+                var regex = new Regex(patternString, options);
+                return subordinateRegexCache.GetOrAdd(patternString, regex);
             }
         }
-        private static Dictionary<string, Regex> s_regexCache = new Dictionary<string, Regex>();
+
+        private static readonly ConcurrentDictionary<RegexOptions, ConcurrentDictionary<string, Regex>> s_regexCache =
+            new ConcurrentDictionary<RegexOptions, ConcurrentDictionary<string, Regex>>();
+
+        private static readonly Func<RegexOptions, ConcurrentDictionary<string, Regex>> s_subordinateRegexCacheCreationDelegate =
+            key => new ConcurrentDictionary<string, Regex>(StringComparer.Ordinal);
+
         private const int MaxRegexCache = 1000;
 
         /// <summary>
         /// A routine used to advance an enumerator and catch errors that might occur
-        /// performing the operation
+        /// performing the operation.
         /// </summary>
-        /// <param name="context">The execution context used to see if the pipeline is stopping</param>
+        /// <param name="context">The execution context used to see if the pipeline is stopping.</param>
         /// <param name="errorPosition">The position to use for error reporting.</param>
         /// <param name="enumerator">THe enumerator to advance.</param>
-        /// <exception cref="RuntimeException">An error occurred moving to the next element in the enumeration</exception>
-        /// <returns>True if the move succeeded</returns>
+        /// <exception cref="RuntimeException">An error occurred moving to the next element in the enumeration.</exception>
+        /// <returns>True if the move succeeded.</returns>
         internal static bool MoveNext(ExecutionContext context, IScriptExtent errorPosition, IEnumerator enumerator)
         {
             try
@@ -1390,7 +1427,7 @@ namespace System.Management.Automation
         /// Wrapper caller for enumerator.MoveNext - handles and republishes errors...
         /// </summary>
         /// <param name="errorPosition">The position to use for error reporting.</param>
-        /// <param name="enumerator">The enumerator to read from</param>
+        /// <param name="enumerator">The enumerator to read from.</param>
         /// <returns></returns>
         internal static object Current(IScriptExtent errorPosition, IEnumerator enumerator)
         {
@@ -1418,25 +1455,27 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Retrieves the obj's type full name
+        /// Retrieves the obj's type full name.
         /// </summary>
-        /// <param name="obj">the object we want to retrieve the type's full name from</param>
-        /// <returns>The obj's type full name</returns>
+        /// <param name="obj">The object we want to retrieve the type's full name from.</param>
+        /// <returns>The obj's type full name.</returns>
         internal static string GetTypeFullName(object obj)
         {
             if (obj == null)
             {
-                return String.Empty;
+                return string.Empty;
             }
-            PSObject mshObj = obj as PSObject;
-            if (mshObj == null)
+
+            if (obj is not PSObject mshObj)
             {
                 return obj.GetType().FullName;
             }
+
             if (mshObj.InternalTypeNames.Count == 0)
             {
                 return typeof(PSObject).FullName;
             }
+
             return mshObj.InternalTypeNames[0];
         }
 
@@ -1445,14 +1484,14 @@ namespace System.Management.Automation
         /// methods and ScriptBlock notes. Native methods currently take precedence over notes...
         /// </summary>
         /// <param name="errorPosition">The position to use for error reporting.</param>
-        /// <param name="target">The object to call the method on. It shouldn't be an msh object</param>
-        /// <param name="methodName">The name of the method to call</param>
-        /// <param name="invocationConstraints">Invocation constraints</param>
+        /// <param name="target">The object to call the method on. It shouldn't be a PSObject.</param>
+        /// <param name="methodName">The name of the method to call.</param>
+        /// <param name="invocationConstraints">Invocation constraints.</param>
         /// <param name="paramArray">The arguments to pass to the method.</param>
         /// <param name="callStatic">Set to true if you want to call a static method.</param>
-        /// <param name="valueToSet">If not automation null, then this must be a settable property</param>
-        /// <exception cref="RuntimeException">Wraps the exception returned from the method call</exception>
-        /// <exception cref="FlowControlException">Internal exception from a flow control statement</exception>
+        /// <param name="valueToSet">If not automation null, then this must be a settable property.</param>
+        /// <exception cref="RuntimeException">Wraps the exception returned from the method call.</exception>
+        /// <exception cref="FlowControlException">Internal exception from a flow control statement.</exception>
         /// <returns></returns>
         internal static object CallMethod(
             IScriptExtent errorPosition,
@@ -1476,6 +1515,7 @@ namespace System.Management.Automation
                     // "you can't call a method on null"
                     throw InterpreterError.NewInterpreterException(methodName, typeof(RuntimeException), errorPosition, "InvokeMethodOnNull", ParserStrings.InvokeMethodOnNull);
                 }
+
                 targetBase = PSObject.Base(target);
                 targetAsPSObject = PSObject.AsPSObject(target);
 
@@ -1530,13 +1570,12 @@ namespace System.Management.Automation
                 // not really a method call.
                 if (valueToSet != AutomationNull.Value)
                 {
-                    PSParameterizedProperty propertyToSet = targetMethod as PSParameterizedProperty;
-
-                    if (propertyToSet == null)
+                    if (targetMethod is not PSParameterizedProperty propertyToSet)
                     {
                         throw InterpreterError.NewInterpreterException(methodName, typeof(RuntimeException), errorPosition,
                                                                        "ParameterizedPropertyAssignmentFailed", ParserStrings.ParameterizedPropertyAssignmentFailed, GetTypeFullName(target), methodName);
                     }
+
                     propertyToSet.InvokeSet(valueToSet, paramArray);
                     return valueToSet;
                 }
@@ -1581,7 +1620,7 @@ namespace System.Management.Automation
                 throw InterpreterError.NewInterpreterExceptionByMessage(typeof(RuntimeException), errorPosition,
                     e.Message, "MethodInvocationException", e);
             }
-        } // CallMethod
+        }
     }
 
     #endregion ParserOps
@@ -1593,12 +1632,15 @@ namespace System.Management.Automation
     /// </summary>
     internal class RangeEnumerator : IEnumerator
     {
-        private int _lowerBound;
+        private readonly int _lowerBound;
+
         internal int LowerBound
         {
             get { return _lowerBound; }
         }
-        private int _upperBound;
+
+        private readonly int _upperBound;
+
         internal int UpperBound
         {
             get { return _upperBound; }
@@ -1606,7 +1648,7 @@ namespace System.Management.Automation
 
         private int _current;
 
-        Object IEnumerator.Current
+        object IEnumerator.Current
         {
             get { return Current; }
         }
@@ -1621,7 +1663,7 @@ namespace System.Management.Automation
             get { return _current; }
         }
 
-        private int _increment = 1;
+        private readonly int _increment = 1;
 
         private bool _firstElement = true;
 
@@ -1647,6 +1689,7 @@ namespace System.Management.Automation
                 _firstElement = false;
                 return true;
             }
+
             if (_current == _upperBound)
                 return false;
 
@@ -1661,7 +1704,7 @@ namespace System.Management.Automation
     /// </summary>
     internal class CharRangeEnumerator : IEnumerator
     {
-        private int _increment = 1;
+        private readonly int _increment = 1;
 
         private bool _firstElement = true;
 
@@ -1674,20 +1717,14 @@ namespace System.Management.Automation
                 _increment = -1;
         }
 
-        Object IEnumerator.Current
+        object IEnumerator.Current
         {
             get { return Current; }
         }
 
-        internal char LowerBound
-        {
-            get; private set;
-        }
+        internal char LowerBound { get; }
 
-        internal char UpperBound
-        {
-            get; private set;
-        }
+        internal char UpperBound { get; }
 
         public char Current
         {
@@ -1724,10 +1761,10 @@ namespace System.Management.Automation
     internal static class InterpreterError
     {
         /// <summary>
-        /// Create a new instance of an interpreter exception
+        /// Create a new instance of an interpreter exception.
         /// </summary>
         /// <param name="targetObject">The target object for this exception.</param>
-        /// <param name="exceptionType">Type of exception to build</param>
+        /// <param name="exceptionType">Type of exception to build.</param>
         /// <param name="errorPosition">The position to use for error reporting.</param>
         /// <param name="resourceIdAndErrorId">
         /// ResourceID to look up template message, and also ErrorID
@@ -1735,8 +1772,8 @@ namespace System.Management.Automation
         /// <param name="resourceString">
         /// Resource string that holds the error message
         /// </param>
-        /// <param name="args">Insertion parameters to message</param>
-        /// <returns>A new instance of the specified exception type</returns>
+        /// <param name="args">Insertion parameters to message.</param>
+        /// <returns>A new instance of the specified exception type.</returns>
         internal static RuntimeException NewInterpreterException(object targetObject,
             Type exceptionType, IScriptExtent errorPosition, string resourceIdAndErrorId, string resourceString, params object[] args)
         {
@@ -1744,10 +1781,10 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Create a new instance of an interpreter exception
+        /// Create a new instance of an interpreter exception.
         /// </summary>
-        /// <param name="targetObject">The object associated with the problem</param>
-        /// <param name="exceptionType">Type of exception to build</param>
+        /// <param name="targetObject">The object associated with the problem.</param>
+        /// <param name="exceptionType">Type of exception to build.</param>
         /// <param name="errorPosition">The position to use for error reporting.</param>
         /// <param name="resourceIdAndErrorId">
         /// ResourceID to look up template message, and also ErrorID
@@ -1755,15 +1792,15 @@ namespace System.Management.Automation
         /// <param name="resourceString">
         /// Resource string which holds the error message
         /// </param>
-        /// <param name="innerException">inner exception</param>
-        /// <param name="args">Insertion parameters to message</param>
-        /// <returns>New instance of an interpreter exception</returns>
+        /// <param name="innerException">Inner exception.</param>
+        /// <param name="args">Insertion parameters to message.</param>
+        /// <returns>New instance of an interpreter exception.</returns>
         internal static RuntimeException NewInterpreterExceptionWithInnerException(object targetObject,
             Type exceptionType, IScriptExtent errorPosition, string resourceIdAndErrorId, string resourceString, Exception innerException, params object[] args)
         {
             // errToken may be null
-            if (String.IsNullOrEmpty(resourceIdAndErrorId))
-                throw PSTraceSource.NewArgumentException("resourceIdAndErrorId");
+            if (string.IsNullOrEmpty(resourceIdAndErrorId))
+                throw PSTraceSource.NewArgumentException(nameof(resourceIdAndErrorId));
             // innerException may be null
             // args may be null or empty
 
@@ -1772,7 +1809,7 @@ namespace System.Management.Automation
             try
             {
                 string message;
-                if (args == null || 0 == args.Length)
+                if (args == null || args.Length == 0)
                 {
                     // Don't format in case the string contains literal curly braces
                     message = resourceString;
@@ -1781,7 +1818,8 @@ namespace System.Management.Automation
                 {
                     message = StringUtil.Format(resourceString, args);
                 }
-                if (String.IsNullOrEmpty(message))
+
+                if (string.IsNullOrEmpty(message))
                 {
                     Dbg.Assert(false,
                         "Could not load text for parser exception '"
@@ -1817,27 +1855,28 @@ namespace System.Management.Automation
                     + "' due to FormatException " + e.Message);
                 rte = NewBackupInterpreterException(exceptionType, errorPosition, resourceIdAndErrorId, e);
             }
+
             rte.SetTargetObject(targetObject);
 
             return rte;
         }
 
         /// <summary>
-        /// Create a new instance of an interpreter exception
+        /// Create a new instance of an interpreter exception.
         /// </summary>
-        /// <param name="exceptionType">Type of exception to build</param>
+        /// <param name="exceptionType">Type of exception to build.</param>
         /// <param name="errorPosition">The position to use for error reporting.</param>
-        /// <param name="message">Message</param>
-        /// <param name="errorId">ErrorID</param>
-        /// <param name="innerException">inner exception</param>
-        /// <returns>New instance of ParseException</returns>
+        /// <param name="message">Message.</param>
+        /// <param name="errorId">ErrorID.</param>
+        /// <param name="innerException">Inner exception.</param>
+        /// <returns>New instance of ParseException.</returns>
         internal static RuntimeException NewInterpreterExceptionByMessage(
             Type exceptionType, IScriptExtent errorPosition, string message, string errorId, Exception innerException)
         {
             // errToken may be null
             // only assert -- be permissive at runtime
-            Dbg.Assert(!String.IsNullOrEmpty(message), "message was null or empty");
-            Dbg.Assert(!String.IsNullOrEmpty(errorId), "errorId was null or empty");
+            Dbg.Assert(!string.IsNullOrEmpty(message), "message was null or empty");
+            Dbg.Assert(!string.IsNullOrEmpty(errorId), "errorId was null or empty");
             // innerException may be null
 
             RuntimeException e;
@@ -1908,6 +1947,22 @@ namespace System.Management.Automation
                 }
             }
         }
+
+        internal static void UpdateExceptionErrorRecordHistoryId(RuntimeException exception, ExecutionContext context)
+        {
+            InvocationInfo invInfo = exception.ErrorRecord.InvocationInfo;
+            if (invInfo is not { HistoryId: -1 })
+            {
+                return;
+            }
+
+            if (context?.CurrentCommandProcessor is null)
+            {
+                return;
+            }
+
+            invInfo.HistoryId = context.CurrentCommandProcessor.Command.MyInvocation.HistoryId;
+        }
     }
     #endregion InterpreterError
 
@@ -1931,7 +1986,7 @@ namespace System.Management.Automation
             if (context.PSDebugTraceLevel > level)
             {
                 string message;
-                if (args == null || 0 == args.Length)
+                if (args == null || args.Length == 0)
                 {
                     // Don't format in case the string contains literal curly braces
                     message = resourceString;
@@ -1940,7 +1995,8 @@ namespace System.Management.Automation
                 {
                     message = StringUtil.Format(resourceString, args);
                 }
-                if (String.IsNullOrEmpty(message))
+
+                if (string.IsNullOrEmpty(message))
                 {
                     message = "Could not load text for msh script tracing message id '" + messageId + "'";
                     Dbg.Assert(false, message);

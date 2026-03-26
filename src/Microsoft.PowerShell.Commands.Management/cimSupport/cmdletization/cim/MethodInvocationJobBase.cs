@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
@@ -6,15 +6,17 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Management.Automation;
+
 using Microsoft.Management.Infrastructure;
 using Microsoft.Management.Infrastructure.Options;
 using Microsoft.PowerShell.Cim;
+
 using Dbg = System.Management.Automation.Diagnostics;
 
 namespace Microsoft.PowerShell.Cmdletization.Cim
 {
     /// <summary>
-    /// Job wrapping invocation of an extrinsic CIM method
+    /// Job wrapping invocation of an extrinsic CIM method.
     /// </summary>
     internal abstract class MethodInvocationJobBase<T> : CimChildJobBase<T>
     {
@@ -58,13 +60,14 @@ namespace Microsoft.PowerShell.Cmdletization.Cim
                     IsValuePresent = inputParameter.IsValuePresent
                 });
             }
+
             return result;
         }
 
         internal IEnumerable<MethodParameter> GetMethodInputParameters()
         {
-            var allMethodParameters = this.GetMethodInputParametersCore(p => !p.Name.StartsWith(CustomOperationOptionPrefix, StringComparison.OrdinalIgnoreCase));
-            var methodParametersWithInputValue = allMethodParameters.Where(p => p.IsValuePresent);
+            var allMethodParameters = this.GetMethodInputParametersCore(static p => !p.Name.StartsWith(CustomOperationOptionPrefix, StringComparison.OrdinalIgnoreCase));
+            var methodParametersWithInputValue = allMethodParameters.Where(static p => p.IsValuePresent);
             return methodParametersWithInputValue;
         }
 
@@ -78,7 +81,7 @@ namespace Microsoft.PowerShell.Cmdletization.Cim
             IDictionary<string, object> result = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
 
             IEnumerable<MethodParameter> customOptions = this
-                .GetMethodInputParametersCore(p => p.Name.StartsWith(CustomOperationOptionPrefix, StringComparison.OrdinalIgnoreCase));
+                .GetMethodInputParametersCore(static p => p.Name.StartsWith(CustomOperationOptionPrefix, StringComparison.OrdinalIgnoreCase));
             foreach (MethodParameter customOption in customOptions)
             {
                 if (customOption.Value == null)
@@ -101,7 +104,7 @@ namespace Microsoft.PowerShell.Cmdletization.Cim
             }
 
             var outParameters = allParameters_plus_returnValue
-                .Where(p => (0 != (p.Bindings & (MethodParameterBindings.Out | MethodParameterBindings.Error))));
+                .Where(static p => ((p.Bindings & (MethodParameterBindings.Out | MethodParameterBindings.Error)) != 0));
 
             return outParameters;
         }

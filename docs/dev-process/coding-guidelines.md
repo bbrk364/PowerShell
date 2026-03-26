@@ -86,8 +86,14 @@ We also run the [.NET code formatter tool](https://github.com/dotnet/codeformatt
 
 * Make sure the added/updated comments are meaningful, accurate and easy to understand.
 
-* Public members must use [doc comments](https://docs.microsoft.com/dotnet/csharp/programming-guide/xmldoc/xml-documentation-comments).
+### Documentation comments
+
+* Create documentation using [XML documentation comments](https://learn.microsoft.com/dotnet/csharp/language-reference/xmldoc/) so that Visual Studio and other IDEs can use IntelliSense to show quick information about types or members.
+
+* Publicly visible types and their members must be documented.
   Internal and private members may use doc comments but it is not required.
+
+* Documentation text should be written using complete sentences ending with full stops.
 
 ## Performance Considerations
 
@@ -108,8 +114,8 @@ Some general guidelines:
 * Be aware of APIs such as `String.Split(params char[])` that do not provide overloads to avoid array allocation.
   When calling such APIs, reuse a static array when possible (e.g. `Utils.Separators.Colon`).
 
-* Avoid creating empty arrays.
-  Instead, reuse the static ones via `Utils.EmptyArray<T>`.
+* Avoid using string interpolations and overloads with implicit parameters such as `Culture` and `StringComparison`.
+  Instead, use overloads with more explicit parameters such as `String.Format(IFormatProvider, String, Object[])` and `Equals(String, String, StringComparison)`.
 
 * Avoid unnecessary memory allocation in a loop.
   Move the memory allocation outside the loop if possible.
@@ -152,7 +158,7 @@ such as `password`, `crypto`, `encryption`, `decryption`, `certificate`, `authen
 
 When facing a PR with such changes,
 the reviewers should request a designated security Subject Matter Expert (SME) to review the PR.
-Currently, @PaulHigin and @TravisEz13 are our security SMEs.
+Currently, [@PaulHigin](https://github.com/PaulHigin) and [@TravisEz13](https://github.com/TravisEz13) are our security SMEs.
 See [CODEOWNERS](../../.github/CODEOWNERS) for more information about the area experts.
 
 ## Best Practices
@@ -162,7 +168,7 @@ See [CODEOWNERS](../../.github/CODEOWNERS) for more information about the area e
 * Avoid a method that is too long and complex.
   In such case, separate it to multiple methods or even a nested class as you see fit.
 
-* Use `using` statement instead of `try/finally` if the only code in the `finally` block is to call the `Dispose` method.
+* Use the `using` statement instead of `try/finally` if the only code in the `finally` block is to call the `Dispose` method.
 
 * Use of object initializers (e.g. `new Example { Name = "Name", ID = 1 }`) is encouraged for better readability,
   but not required.
@@ -183,16 +189,16 @@ See [CODEOWNERS](../../.github/CODEOWNERS) for more information about the area e
 * Consider using the `Interlocked` class instead of the `lock` statement to atomically change simple states. The `Interlocked` class provides better performance for updates that must be atomic.
 
 * Here are some useful links for your reference:
-  * [Framework Design Guidelines](https://docs.microsoft.com/dotnet/standard/design-guidelines/index) - Naming, Design and Usage guidelines including:
-    * [Arrays](https://docs.microsoft.com/dotnet/standard/design-guidelines/arrays)
-    * [Collections](https://docs.microsoft.com/dotnet/standard/design-guidelines/guidelines-for-collections)
-    * [Exceptions](https://docs.microsoft.com/dotnet/standard/design-guidelines/exceptions)
-  * [Best Practices for Developing World-Ready Applications](https://docs.microsoft.com/dotnet/standard/globalization-localization/best-practices-for-developing-world-ready-apps) - Unicode, Culture, Encoding and Localization.
-  * [Best Practices for Exceptions](https://docs.microsoft.com/dotnet/standard/exceptions/best-practices-for-exceptions)
-  * [Best Practices for Using Strings in .NET](https://docs.microsoft.com/dotnet/standard/base-types/best-practices-strings)
-  * [Best Practices for Regular Expressions in .NET](https://docs.microsoft.com/dotnet/standard/base-types/best-practices)
-  * [Serialization Guidelines](https://docs.microsoft.com/dotnet/standard/serialization/serialization-guidelines)
-  * [Managed Threading Best Practices](https://docs.microsoft.com/dotnet/standard/threading/managed-threading-best-practices)
+  * [Framework Design Guidelines](https://learn.microsoft.com/dotnet/standard/design-guidelines/index) - Naming, Design and Usage guidelines including:
+    * [Arrays](https://learn.microsoft.com/dotnet/standard/design-guidelines/arrays)
+    * [Collections](https://learn.microsoft.com/dotnet/standard/design-guidelines/guidelines-for-collections)
+    * [Exceptions](https://learn.microsoft.com/dotnet/standard/design-guidelines/exceptions)
+  * [Best Practices for Developing World-Ready Applications](https://learn.microsoft.com/dotnet/core/extensions/best-practices-for-developing-world-ready-apps) - Unicode, Culture, Encoding and Localization.
+  * [Best Practices for Exceptions](https://learn.microsoft.com/dotnet/standard/exceptions/best-practices-for-exceptions)
+  * [Best Practices for Using Strings in .NET](https://learn.microsoft.com/dotnet/standard/base-types/best-practices-strings)
+  * [Best Practices for Regular Expressions in .NET](https://learn.microsoft.com/dotnet/standard/base-types/best-practices)
+  * [Serialization Guidelines](https://learn.microsoft.com/dotnet/standard/serialization/serialization-guidelines)
+  * [Managed Threading Best Practices](https://learn.microsoft.com/dotnet/standard/threading/managed-threading-best-practices)
 
 ## Portable Code
 

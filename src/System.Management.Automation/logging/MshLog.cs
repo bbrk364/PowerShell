@@ -1,19 +1,18 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Management.Automation.Runspaces;
 using System.Management.Automation.Tracing;
 using System.Security;
 using System.Threading;
-using System.Globalization;
 
 namespace System.Management.Automation
 {
     /// <summary>
-    ///
     /// Monad Logging in general is a two layer architecture. At the upper layer are the
     /// Msh Log Engine and Logging Api. At the lower layer is the Provider Interface
     /// and Log Providers. This architecture is adopted to achieve independency between
@@ -61,16 +60,16 @@ namespace System.Management.Automation
         /// The value of this dictionary is never empty. A value of type DummyProvider means
         /// no logging.
         /// </summary>
-        private static ConcurrentDictionary<string, Collection<LogProvider>> s_logProviders =
+        private static readonly ConcurrentDictionary<string, Collection<LogProvider>> s_logProviders =
             new ConcurrentDictionary<string, Collection<LogProvider>>();
 
         private const string _crimsonLogProviderAssemblyName = "MshCrimsonLog";
         private const string _crimsonLogProviderTypeName = "System.Management.Automation.Logging.CrimsonLogProvider";
 
-        private static Collection<string> s_ignoredCommands = new Collection<string>();
+        private static readonly Collection<string> s_ignoredCommands = new Collection<string>();
 
         /// <summary>
-        /// Static constructor
+        /// Static constructor.
         /// </summary>
         static MshLog()
         {
@@ -86,7 +85,6 @@ namespace System.Management.Automation
         /// In the longer turn, we may need to use a "Provider Catalog" for
         /// log provider loading.
         /// </summary>
-        ///
         /// <param name="shellId"></param>
         /// <returns></returns>
         private static IEnumerable<LogProvider> GetLogProvider(string shellId)
@@ -95,16 +93,15 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Get Log Provider based on Execution Context
+        /// Get Log Provider based on Execution Context.
         /// </summary>
-        ///
         /// <param name="executionContext"></param>
         /// <returns></returns>
         private static IEnumerable<LogProvider> GetLogProvider(ExecutionContext executionContext)
         {
             if (executionContext == null)
             {
-                throw PSTraceSource.NewArgumentNullException("executionContext");
+                throw PSTraceSource.NewArgumentNullException(nameof(executionContext));
             }
 
             string shellId = executionContext.ShellID;
@@ -113,15 +110,14 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Get Log Provider based on Log Context
+        /// Get Log Provider based on Log Context.
         /// </summary>
-        ///
         /// <param name="logContext"></param>
         /// <returns></returns>
         private static IEnumerable<LogProvider> GetLogProvider(LogContext logContext)
         {
             System.Diagnostics.Debug.Assert(logContext != null);
-            System.Diagnostics.Debug.Assert(!String.IsNullOrEmpty(logContext.ShellId));
+            System.Diagnostics.Debug.Assert(!string.IsNullOrEmpty(logContext.ShellId));
 
             return GetLogProvider(logContext.ShellId);
         }
@@ -138,11 +134,6 @@ namespace System.Management.Automation
 
             try
             {
-#if !CORECLR    //TODO:CORECLR EventLogLogProvider not handled yet
-                LogProvider eventLogLogProvider = new EventLogLogProvider(shellId);
-                providers.Add(eventLogLogProvider);
-#endif
-
 #if UNIX
                 LogProvider sysLogProvider = new PSSysLogProvider();
                 providers.Add(sysLogProvider);
@@ -174,7 +165,6 @@ namespace System.Management.Automation
         /// <summary>
         /// This will set the current log provider to be dummy log.
         /// </summary>
-        ///
         /// <param name="shellId"></param>
         internal static void SetDummyLog(string shellId)
         {
@@ -195,35 +185,37 @@ namespace System.Management.Automation
         /// Variant form of this function is defined below, which will make parameters additionalInfo
         /// and newEngineState optional.
         /// </summary>
-        /// <param name="executionContext">Execution context for the engine that is running</param>
-        /// <param name="eventId">EventId for the event to be logged</param>
-        /// <param name="exception">Exception associated with this event</param>
-        /// <param name="severity">Severity of this event</param>
-        /// <param name="additionalInfo">Additional information for this event</param>
-        /// <param name="newEngineState">New engine state</param>
+        /// <param name="executionContext">Execution context for the engine that is running.</param>
+        /// <param name="eventId">EventId for the event to be logged.</param>
+        /// <param name="exception">Exception associated with this event.</param>
+        /// <param name="severity">Severity of this event.</param>
+        /// <param name="additionalInfo">Additional information for this event.</param>
+        /// <param name="newEngineState">New engine state.</param>
         internal static void LogEngineHealthEvent(ExecutionContext executionContext,
                                                 int eventId,
                                                 Exception exception,
                                                 Severity severity,
-                                                Dictionary<String, String> additionalInfo,
+                                                Dictionary<string, string> additionalInfo,
                                                 EngineState newEngineState)
         {
             if (executionContext == null)
             {
-                PSTraceSource.NewArgumentNullException("executionContext");
+                PSTraceSource.NewArgumentNullException(nameof(executionContext));
                 return;
             }
 
             if (exception == null)
             {
-                PSTraceSource.NewArgumentNullException("exception");
+                PSTraceSource.NewArgumentNullException(nameof(exception));
                 return;
             }
 
             InvocationInfo invocationInfo = null;
-            IContainsErrorRecord icer = exception as IContainsErrorRecord;
-            if (icer != null && icer.ErrorRecord != null)
+            if (exception is IContainsErrorRecord icer && icer.ErrorRecord != null)
+            {
                 invocationInfo = icer.ErrorRecord.InvocationInfo;
+            }
+
             foreach (LogProvider provider in GetLogProvider(executionContext))
             {
                 if (NeedToLogEngineHealthEvent(provider, executionContext))
@@ -240,7 +232,7 @@ namespace System.Management.Automation
 
         /// <summary>
         /// This is a variation of LogEngineHealthEvent api to make additionalInfo and newEngineState
-        /// optional
+        /// optional.
         /// </summary>
         /// <param name="executionContext"></param>
         /// <param name="eventId"></param>
@@ -272,7 +264,7 @@ namespace System.Management.Automation
 
         /// <summary>
         /// This is a variation of LogEngineHealthEvent api to make newEngineState
-        /// optional
+        /// optional.
         /// </summary>
         /// <param name="executionContext"></param>
         /// <param name="eventId"></param>
@@ -283,14 +275,14 @@ namespace System.Management.Automation
                                                 int eventId,
                                                 Exception exception,
                                                 Severity severity,
-                                                Dictionary<String, String> additionalInfo)
+                                                Dictionary<string, string> additionalInfo)
         {
             LogEngineHealthEvent(executionContext, eventId, exception, severity, additionalInfo, EngineState.None);
         }
 
         /// <summary>
         /// This is a variation of LogEngineHealthEvent api to make additionalInfo
-        /// optional
+        /// optional.
         /// </summary>
         /// <param name="executionContext"></param>
         /// <param name="eventId"></param>
@@ -313,25 +305,25 @@ namespace System.Management.Automation
         ///
         /// This API is currently used only by runspace before engine start.
         /// </summary>
-        /// <param name="logContext">logContext to be </param>
-        /// <param name="eventId">EventId for the event to be logged</param>
-        /// <param name="exception">Exception associated with this event</param>
-        /// <param name="additionalInfo">Additional information for this event</param>
+        /// <param name="logContext">LogContext to be.</param>
+        /// <param name="eventId">EventId for the event to be logged.</param>
+        /// <param name="exception">Exception associated with this event.</param>
+        /// <param name="additionalInfo">Additional information for this event.</param>
         internal static void LogEngineHealthEvent(LogContext logContext,
                                                 int eventId,
                                                 Exception exception,
-                                                Dictionary<String, String> additionalInfo
+                                                Dictionary<string, string> additionalInfo
                                                 )
         {
             if (logContext == null)
             {
-                PSTraceSource.NewArgumentNullException("logContext");
+                PSTraceSource.NewArgumentNullException(nameof(logContext));
                 return;
             }
 
             if (exception == null)
             {
-                PSTraceSource.NewArgumentNullException("exception");
+                PSTraceSource.NewArgumentNullException(nameof(exception));
                 return;
             }
 
@@ -355,16 +347,16 @@ namespace System.Management.Automation
         /// Variant form of this function is defined below, which will make parameter additionalInfo
         /// optional.
         /// </summary>
-        /// <param name="executionContext">execution context for current engine instance</param>
-        /// <param name="engineState">new engine state</param>
-        /// <param name="invocationInfo">invocationInfo for current command that is running</param>
+        /// <param name="executionContext">Execution context for current engine instance.</param>
+        /// <param name="engineState">New engine state.</param>
+        /// <param name="invocationInfo">InvocationInfo for current command that is running.</param>
         internal static void LogEngineLifecycleEvent(ExecutionContext executionContext,
                                                 EngineState engineState,
                                                 InvocationInfo invocationInfo)
         {
             if (executionContext == null)
             {
-                PSTraceSource.NewArgumentNullException("executionContext");
+                PSTraceSource.NewArgumentNullException(nameof(executionContext));
                 return;
             }
 
@@ -401,11 +393,10 @@ namespace System.Management.Automation
 
         /// <summary>
         /// LogProviderHealthEvent: Log a command health event.
-        ///
         /// </summary>
-        /// <param name="executionContext">Execution context for the engine that is running</param>
-        /// <param name="exception">Exception associated with this event</param>
-        /// <param name="severity">Severity of this event</param>
+        /// <param name="executionContext">Execution context for the engine that is running.</param>
+        /// <param name="exception">Exception associated with this event.</param>
+        /// <param name="severity">Severity of this event.</param>
         internal static void LogCommandHealthEvent(ExecutionContext executionContext,
                                                 Exception exception,
                                                 Severity severity
@@ -413,20 +404,22 @@ namespace System.Management.Automation
         {
             if (executionContext == null)
             {
-                PSTraceSource.NewArgumentNullException("executionContext");
+                PSTraceSource.NewArgumentNullException(nameof(executionContext));
                 return;
             }
 
             if (exception == null)
             {
-                PSTraceSource.NewArgumentNullException("exception");
+                PSTraceSource.NewArgumentNullException(nameof(exception));
                 return;
             }
 
             InvocationInfo invocationInfo = null;
-            IContainsErrorRecord icer = exception as IContainsErrorRecord;
-            if (icer != null && icer.ErrorRecord != null)
+            if (exception is IContainsErrorRecord icer && icer.ErrorRecord != null)
+            {
                 invocationInfo = icer.ErrorRecord.InvocationInfo;
+            }
+
             foreach (LogProvider provider in GetLogProvider(executionContext))
             {
                 if (NeedToLogCommandHealthEvent(provider, executionContext))
@@ -445,22 +438,22 @@ namespace System.Management.Automation
         ///
         /// This is the only form of CommandLifecycleEvent logging api.
         /// </summary>
-        /// <param name="executionContext">Execution Context for the current running engine</param>
-        /// <param name="commandState">new command state</param>
-        /// <param name="invocationInfo">invocation data for current command that is running</param>
+        /// <param name="executionContext">Execution Context for the current running engine.</param>
+        /// <param name="commandState">New command state.</param>
+        /// <param name="invocationInfo">Invocation data for current command that is running.</param>
         internal static void LogCommandLifecycleEvent(ExecutionContext executionContext,
                                                 CommandState commandState,
                                                 InvocationInfo invocationInfo)
         {
             if (executionContext == null)
             {
-                PSTraceSource.NewArgumentNullException("executionContext");
+                PSTraceSource.NewArgumentNullException(nameof(executionContext));
                 return;
             }
 
             if (invocationInfo == null)
             {
-                PSTraceSource.NewArgumentNullException("invocationInfo");
+                PSTraceSource.NewArgumentNullException(nameof(invocationInfo));
                 return;
             }
 
@@ -475,7 +468,8 @@ namespace System.Management.Automation
                 if (NeedToLogCommandLifecycleEvent(provider, executionContext))
                 {
                     provider.LogCommandLifecycleEvent(
-                        () => logContext ?? (logContext = GetLogContext(executionContext, invocationInfo)), commandState);
+                        () => logContext ??= GetLogContext(executionContext, invocationInfo),
+                        commandState);
                 }
             }
         }
@@ -487,16 +481,16 @@ namespace System.Management.Automation
         /// of invocationInfo. It is likely that invocationInfo is not available if
         /// the command failed security check.
         /// </summary>
-        /// <param name="executionContext">Execution Context for the current running engine</param>
-        /// <param name="commandState">new command state</param>
-        /// <param name="commandName">current command that is running</param>
+        /// <param name="executionContext">Execution Context for the current running engine.</param>
+        /// <param name="commandState">New command state.</param>
+        /// <param name="commandName">Current command that is running.</param>
         internal static void LogCommandLifecycleEvent(ExecutionContext executionContext,
                                                 CommandState commandState,
                                                 string commandName)
         {
             if (executionContext == null)
             {
-                PSTraceSource.NewArgumentNullException("executionContext");
+                PSTraceSource.NewArgumentNullException(nameof(executionContext));
                 return;
             }
 
@@ -513,6 +507,7 @@ namespace System.Management.Automation
                                 logContext = GetLogContext(executionContext, null);
                                 logContext.CommandName = commandName;
                             }
+
                             return logContext;
                         }, commandState);
                 }
@@ -525,19 +520,18 @@ namespace System.Management.Automation
 
         /// <summary>
         /// LogPipelineExecutionDetailEvent: Log a pipeline execution detail event.
-        ///
         /// </summary>
-        /// <param name="executionContext">Execution Context for the current running engine</param>
-        /// <param name="detail">detail to be logged for this pipeline execution detail</param>
-        /// <param name="invocationInfo">invocation data for current command that is running</param>
+        /// <param name="executionContext">Execution Context for the current running engine.</param>
+        /// <param name="detail">Detail to be logged for this pipeline execution detail.</param>
+        /// <param name="invocationInfo">Invocation data for current command that is running.</param>
         internal static void LogPipelineExecutionDetailEvent(ExecutionContext executionContext,
-                                                            List<String> detail,
+                                                            List<string> detail,
                                                             InvocationInfo invocationInfo)
 
         {
             if (executionContext == null)
             {
-                PSTraceSource.NewArgumentNullException("executionContext");
+                PSTraceSource.NewArgumentNullException(nameof(executionContext));
                 return;
             }
 
@@ -557,18 +551,18 @@ namespace System.Management.Automation
         /// instead of invocationInfo. This will save the need to fill in the commandName for
         /// this event.
         /// </summary>
-        /// <param name="executionContext">Execution Context for the current running engine</param>
-        /// <param name="detail">detail to be logged for this pipeline execution detail</param>
-        /// <param name="scriptName">script that is currently running</param>
-        /// <param name="commandLine">command line that is currently running</param>
+        /// <param name="executionContext">Execution Context for the current running engine.</param>
+        /// <param name="detail">Detail to be logged for this pipeline execution detail.</param>
+        /// <param name="scriptName">Script that is currently running.</param>
+        /// <param name="commandLine">Command line that is currently running.</param>
         internal static void LogPipelineExecutionDetailEvent(ExecutionContext executionContext,
-                                                            List<String> detail,
+                                                            List<string> detail,
                                                             string scriptName,
                                                             string commandLine)
         {
             if (executionContext == null)
             {
-                PSTraceSource.NewArgumentNullException("executionContext");
+                PSTraceSource.NewArgumentNullException(nameof(executionContext));
                 return;
             }
 
@@ -591,12 +585,11 @@ namespace System.Management.Automation
 
         /// <summary>
         /// LogProviderHealthEvent: Log a Provider health event.
-        ///
         /// </summary>
-        /// <param name="executionContext">Execution context for the engine that is running</param>
-        /// <param name="providerName">Name of the provider</param>
-        /// <param name="exception">Exception associated with this event</param>
-        /// <param name="severity">Severity of this event</param>
+        /// <param name="executionContext">Execution context for the engine that is running.</param>
+        /// <param name="providerName">Name of the provider.</param>
+        /// <param name="exception">Exception associated with this event.</param>
+        /// <param name="severity">Severity of this event.</param>
         internal static void LogProviderHealthEvent(ExecutionContext executionContext,
                                                 string providerName,
                                                 Exception exception,
@@ -605,20 +598,22 @@ namespace System.Management.Automation
         {
             if (executionContext == null)
             {
-                PSTraceSource.NewArgumentNullException("executionContext");
+                PSTraceSource.NewArgumentNullException(nameof(executionContext));
                 return;
             }
 
             if (exception == null)
             {
-                PSTraceSource.NewArgumentNullException("exception");
+                PSTraceSource.NewArgumentNullException(nameof(exception));
                 return;
             }
 
             InvocationInfo invocationInfo = null;
-            IContainsErrorRecord icer = exception as IContainsErrorRecord;
-            if (icer != null && icer.ErrorRecord != null)
+            if (exception is IContainsErrorRecord icer && icer.ErrorRecord != null)
+            {
                 invocationInfo = icer.ErrorRecord.InvocationInfo;
+            }
+
             foreach (LogProvider provider in GetLogProvider(executionContext))
             {
                 if (NeedToLogProviderHealthEvent(provider, executionContext))
@@ -637,16 +632,16 @@ namespace System.Management.Automation
         ///
         /// This is the only form of ProviderLifecycleEvent logging api.
         /// </summary>
-        /// <param name="executionContext">Execution Context for current engine that is running</param>
-        /// <param name="providerName">Provider name</param>
-        /// <param name="providerState">New provider state</param>
+        /// <param name="executionContext">Execution Context for current engine that is running.</param>
+        /// <param name="providerName">Provider name.</param>
+        /// <param name="providerState">New provider state.</param>
         internal static void LogProviderLifecycleEvent(ExecutionContext executionContext,
                                                      string providerName,
                                                      ProviderState providerState)
         {
             if (executionContext == null)
             {
-                PSTraceSource.NewArgumentNullException("executionContext");
+                PSTraceSource.NewArgumentNullException(nameof(executionContext));
                 return;
             }
 
@@ -669,11 +664,11 @@ namespace System.Management.Automation
         /// This is the basic form of LoggingSettingsEvent API. Variation of this function defined
         /// below will make parameter invocationInfo optional.
         /// </summary>
-        /// <param name="executionContext">Execution context for current running engine</param>
-        /// <param name="variableName">Variable name</param>
-        /// <param name="newValue">New value for the variable</param>
-        /// <param name="previousValue">Previous value for the variable</param>
-        /// <param name="invocationInfo">Invocation data for the command that is currently running</param>
+        /// <param name="executionContext">Execution context for current running engine.</param>
+        /// <param name="variableName">Variable name.</param>
+        /// <param name="newValue">New value for the variable.</param>
+        /// <param name="previousValue">Previous value for the variable.</param>
+        /// <param name="invocationInfo">Invocation data for the command that is currently running.</param>
         internal static void LogSettingsEvent(ExecutionContext executionContext,
                                             string variableName,
                                             string newValue,
@@ -682,7 +677,7 @@ namespace System.Management.Automation
         {
             if (executionContext == null)
             {
-                PSTraceSource.NewArgumentNullException("executionContext");
+                PSTraceSource.NewArgumentNullException(nameof(executionContext));
                 return;
             }
 
@@ -782,7 +777,7 @@ namespace System.Management.Automation
                 logContext.HostId = (string)executionContext.EngineHostInterface.InstanceId.ToString();
             }
 
-            logContext.HostApplication = String.Join(" ", Environment.GetCommandLineArgs());
+            logContext.HostApplication = string.Join(' ', Environment.GetCommandLineArgs());
 
             if (executionContext.CurrentRunspace != null)
             {
@@ -815,9 +810,7 @@ namespace System.Management.Automation
                 logContext.User = Logging.UnknownUserName;
             }
 
-            System.Management.Automation.Remoting.PSSenderInfo psSenderInfo =
-                    executionContext.SessionState.PSVariable.GetValue("PSSenderInfo") as System.Management.Automation.Remoting.PSSenderInfo;
-            if (psSenderInfo != null)
+            if (executionContext.SessionState.PSVariable.GetValue("PSSenderInfo") is System.Management.Automation.Remoting.PSSenderInfo psSenderInfo)
             {
                 logContext.ConnectedUser = psSenderInfo.UserInfo.Identity.Name;
             }
@@ -1017,7 +1010,7 @@ namespace System.Management.Automation
         private static int s_nextSequenceNumber = 0;
 
         /// <summary>
-        /// generate next sequence id to be attached to current event.
+        /// Generate next sequence id to be attached to current event.
         /// </summary>
         /// <value></value>
         private static string NextSequenceNumber
@@ -1032,20 +1025,20 @@ namespace System.Management.Automation
 
         #region EventId Constants
 
-        //General health issues.
+        // General health issues.
         internal const int EVENT_ID_GENERAL_HEALTH_ISSUE = 100;
 
         // Dependency. resource not available
         internal const int EVENT_ID_RESOURCE_NOT_AVAILABLE = 101;
-        //Connectivity. network connection failure
+        // Connectivity. network connection failure
         internal const int EVENT_ID_NETWORK_CONNECTIVITY_ISSUE = 102;
-        //Settings. fail to set some configuration settings
+        // Settings. fail to set some configuration settings
         internal const int EVENT_ID_CONFIGURATION_FAILURE = 103;
-        //Performance. system is experiencing some performance issues
+        // Performance. system is experiencing some performance issues
         internal const int EVENT_ID_PERFORMANCE_ISSUE = 104;
-        //Security: system is experiencing some security issues
+        // Security: system is experiencing some security issues
         internal const int EVENT_ID_SECURITY_ISSUE = 105;
-        //Workload. system is overloaded.
+        // Workload. system is overloaded.
         internal const int EVENT_ID_SYSTEM_OVERLOADED = 106;
 
         // Beta 1 only -- Unexpected Exception
@@ -1055,7 +1048,7 @@ namespace System.Management.Automation
     }
 
     /// <summary>
-    /// Log context cache
+    /// Log context cache.
     /// </summary>
     internal class LogContextCache
     {
@@ -1065,7 +1058,7 @@ namespace System.Management.Automation
     #region Command State and Provider State
 
     /// <summary>
-    /// Severity of the event
+    /// Severity of the event.
     /// </summary>
     internal enum Severity
     {
@@ -1092,44 +1085,39 @@ namespace System.Management.Automation
         /// Informational.
         /// </summary>
         Informational
-    };
+    }
 
     /// <summary>
-    /// enum for command states
+    /// Enum for command states.
     /// </summary>
     internal enum CommandState
     {
         /// <summary>
-        ///
         /// </summary>
         Started = 0,
 
         /// <summary>
-        ///
         /// </summary>
         Stopped = 1,
 
         /// <summary>
-        ///
         /// </summary>
         Terminated = 2
-    };
+    }
 
     /// <summary>
-    /// enum for provider states
+    /// Enum for provider states.
     /// </summary>
     internal enum ProviderState
     {
         /// <summary>
-        ///
         /// </summary>
         Started = 0,
 
         /// <summary>
-        ///
         /// </summary>
         Stopped = 1,
-    };
+    }
 
     #endregion
 }

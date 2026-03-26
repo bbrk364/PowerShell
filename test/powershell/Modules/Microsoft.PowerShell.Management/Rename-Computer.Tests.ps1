@@ -1,4 +1,4 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 $RenameTesthook = "TestRenameComputer"
 $RenameResultName = "TestRenameComputerResults"
@@ -7,13 +7,14 @@ $DefaultResultValue = 0
 try
 {
     # set up for testing
+    $originalDefaultParameterValues = $PSDefaultParameterValues.Clone()
     $PSDefaultParameterValues["it:skip"] = ! $IsWindows
     Enable-Testhook -testhookName $RenameTesthook
     # we also set TestStopComputer
     Enable-Testhook -testhookName TestStopComputer
 
     # TEST START HERE
-    Describe "Rename-Computer" -Tag Feature {
+    Describe "Rename-Computer" -Tag Feature,RequireAdminOnWindows {
         # if we throw in BeforeEach, the test will fail and the stop will not be called
         BeforeEach {
             if ( ! (Test-TesthookIsSet -testhookName $RenameTesthook) ) {
@@ -73,7 +74,7 @@ try
 }
 finally
 {
-    $PSDefaultParameterValues.Remove("it:skip")
+    $global:PSDefaultParameterValues = $originalDefaultParameterValues
     Disable-Testhook -testhookName $RenameTestHook
     Disable-Testhook -testhookName TestStopComputer
     Set-TesthookResult -testhookName $RenameResultName -value 0

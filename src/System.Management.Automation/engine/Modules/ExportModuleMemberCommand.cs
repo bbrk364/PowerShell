@@ -1,11 +1,12 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Management.Automation;
 using System.Management.Automation.Internal;
-using System.Diagnostics.CodeAnalysis;
+using System.Management.Automation.Security;
 
 //
 // Now define the set of commands for manipulating modules.
@@ -15,9 +16,9 @@ namespace Microsoft.PowerShell.Commands
 {
     #region Export-ModuleMember
     /// <summary>
-    /// Implements a cmdlet that loads a module
+    /// Implements a cmdlet that loads a module.
     /// </summary>
-    [Cmdlet(VerbsData.Export, "ModuleMember", HelpUri = "https://go.microsoft.com/fwlink/?LinkID=141551")]
+    [Cmdlet(VerbsData.Export, "ModuleMember", HelpUri = "https://go.microsoft.com/fwlink/?LinkID=2096578")]
     public sealed class ExportModuleMemberCommand : PSCmdlet
     {
         /// <summary>
@@ -28,6 +29,11 @@ namespace Microsoft.PowerShell.Commands
         [SuppressMessage("Microsoft.Performance", "CA1819:PropertiesShouldNotReturnArrays", Justification = "Cmdlets use arrays for parameters.")]
         public string[] Function
         {
+            get
+            {
+                return _functionList;
+            }
+
             set
             {
                 _functionList = value;
@@ -42,8 +48,8 @@ namespace Microsoft.PowerShell.Commands
                     }
                 }
             }
-            get { return _functionList; }
         }
+
         private string[] _functionList;
         private List<WildcardPattern> _functionPatterns;
 
@@ -55,6 +61,11 @@ namespace Microsoft.PowerShell.Commands
         [SuppressMessage("Microsoft.Performance", "CA1819:PropertiesShouldNotReturnArrays", Justification = "Cmdlets use arrays for parameters.")]
         public string[] Cmdlet
         {
+            get
+            {
+                return _cmdletList;
+            }
+
             set
             {
                 _cmdletList = value;
@@ -69,8 +80,8 @@ namespace Microsoft.PowerShell.Commands
                     }
                 }
             }
-            get { return _cmdletList; }
         }
+
         private string[] _cmdletList;
         private List<WildcardPattern> _cmdletPatterns;
 
@@ -82,6 +93,11 @@ namespace Microsoft.PowerShell.Commands
         [SuppressMessage("Microsoft.Performance", "CA1819:PropertiesShouldNotReturnArrays", Justification = "Cmdlets use arrays for parameters.")]
         public string[] Variable
         {
+            get
+            {
+                return _variableExportList;
+            }
+
             set
             {
                 _variableExportList = value;
@@ -96,8 +112,8 @@ namespace Microsoft.PowerShell.Commands
                     }
                 }
             }
-            get { return _variableExportList; }
         }
+
         private string[] _variableExportList;
         private List<WildcardPattern> _variablePatterns;
 
@@ -109,6 +125,11 @@ namespace Microsoft.PowerShell.Commands
         [SuppressMessage("Microsoft.Performance", "CA1819:PropertiesShouldNotReturnArrays", Justification = "Cmdlets use arrays for parameters.")]
         public string[] Alias
         {
+            get
+            {
+                return _aliasExportList;
+            }
+
             set
             {
                 _aliasExportList = value;
@@ -123,8 +144,8 @@ namespace Microsoft.PowerShell.Commands
                     }
                 }
             }
-            get { return _aliasExportList; }
         }
+
         private string[] _aliasExportList;
         private List<WildcardPattern> _aliasPatterns;
 
@@ -142,10 +163,30 @@ namespace Microsoft.PowerShell.Commands
                 ThrowTerminatingError(er);
             }
 
+            // Prevent script injection attack by disallowing ExportModuleMemberCommand to export module members across
+            // language boundaries. This will prevent injected untrusted script from exporting private trusted module functions.
+            if (Context.EngineSessionState.Module?.LanguageMode != null &&
+                Context.LanguageMode != Context.EngineSessionState.Module.LanguageMode)
+            {
+                if (SystemPolicy.GetSystemLockdownPolicy() != SystemEnforcementMode.Audit)
+                {
+                    var se = new PSSecurityException(Modules.CannotExportMembersAccrossLanguageBoundaries);
+                    var er = new ErrorRecord(se, "Modules_CannotExportMembersAccrossLanguageBoundaries", ErrorCategory.SecurityError, this);
+                    ThrowTerminatingError(er);
+                }
+
+                SystemPolicy.LogWDACAuditMessage(
+                    context: Context,
+                    title: Modules.WDACExportModuleCommandLogTitle,
+                    message: StringUtil.Format(Modules.WDACExportModuleCommandLogMessage, Context.EngineSessionState.Module.Name, Context.EngineSessionState.Module.LanguageMode, Context.LanguageMode),
+                    fqid: "ExportModuleMemberCmdletNotAllowed",
+                    dropIntoDebugger: true);
+            }
+
             ModuleIntrinsics.ExportModuleMembers(this,
                 this.Context.EngineSessionState,
                 _functionPatterns, _cmdletPatterns, _aliasPatterns, _variablePatterns, null);
         }
     }
     #endregion Export-ModuleMember
-} // Microsoft.PowerShell.Commands
+}

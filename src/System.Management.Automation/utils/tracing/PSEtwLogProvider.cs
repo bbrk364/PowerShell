@@ -1,5 +1,6 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
+
 #if !UNIX
 
 using System.Diagnostics.Eventing;
@@ -10,16 +11,16 @@ using System.Collections.Generic;
 namespace System.Management.Automation.Tracing
 {
     /// <summary>
-    /// ETW log provider implementation
+    /// ETW log provider implementation.
     /// </summary>
     internal class PSEtwLogProvider : LogProvider
     {
-        private static EventProvider etwProvider;
+        private static readonly EventProvider etwProvider;
         internal static readonly Guid ProviderGuid = new Guid("F90714A8-5509-434A-BF6D-B1624C8A19A2");
-        private static EventDescriptor _xferEventDescriptor = new EventDescriptor(0x1f05, 0x1, 0x11, 0x5, 0x14, 0x0, (long)0x4000000000000000);
+        private static readonly EventDescriptor _xferEventDescriptor = new EventDescriptor(0x1f05, 0x1, 0x11, 0x5, 0x14, 0x0, (long)0x4000000000000000);
 
         /// <summary>
-        /// Class constructor
+        /// Class constructor.
         /// </summary>
         static PSEtwLogProvider()
         {
@@ -44,14 +45,13 @@ namespace System.Management.Automation.Tracing
         }
 
         /// <summary>
-        /// Provider interface function for logging health event
+        /// Provider interface function for logging health event.
         /// </summary>
         /// <param name="logContext"></param>
         /// <param name="eventId"></param>
         /// <param name="exception"></param>
         /// <param name="additionalInfo"></param>
-        ///
-        internal override void LogEngineHealthEvent(LogContext logContext, int eventId, Exception exception, Dictionary<String, String> additionalInfo)
+        internal override void LogEngineHealthEvent(LogContext logContext, int eventId, Exception exception, Dictionary<string, string> additionalInfo)
         {
             StringBuilder payload = new StringBuilder();
 
@@ -63,12 +63,11 @@ namespace System.Management.Automation.Tracing
         }
 
         /// <summary>
-        /// Provider interface function for logging engine lifecycle event
+        /// Provider interface function for logging engine lifecycle event.
         /// </summary>
         /// <param name="logContext"></param>
         /// <param name="newState"></param>
         /// <param name="previousState"></param>
-        ///
         internal override void LogEngineLifecycleEvent(LogContext logContext, EngineState newState, EngineState previousState)
         {
             if (IsEnabled(PSLevel.Informational, PSKeyword.Cmdlets | PSKeyword.UseAlwaysAnalytic))
@@ -92,7 +91,7 @@ namespace System.Management.Automation.Tracing
         }
 
         /// <summary>
-        /// Provider interface function for logging command health event
+        /// Provider interface function for logging command health event.
         /// </summary>
         /// <param name="logContext"></param>
         /// <param name="exception"></param>
@@ -106,11 +105,10 @@ namespace System.Management.Automation.Tracing
         }
 
         /// <summary>
-        /// Provider interface function for logging command lifecycle event
+        /// Provider interface function for logging command lifecycle event.
         /// </summary>
         /// <param name="getLogContext"></param>
         /// <param name="newState"></param>
-        ///
         internal override void LogCommandLifecycleEvent(Func<LogContext> getLogContext, CommandState newState)
         {
             if (IsEnabled(PSLevel.Informational, PSKeyword.Cmdlets | PSKeyword.UseAlwaysAnalytic))
@@ -126,7 +124,17 @@ namespace System.Management.Automation.Tracing
                     }
                     else
                     {
-                        payload.AppendLine(StringUtil.Format(EtwLoggingStrings.CommandStateChange, logContext.CommandName, newState.ToString()));
+                        if (newState == CommandState.Stopped ||
+                            newState == CommandState.Terminated)
+                        {
+                            // When state is stopped or terminated only log the CommandName
+                            payload.AppendLine(StringUtil.Format(EtwLoggingStrings.CommandStateChange, logContext, newState.ToString()));
+                        }
+                        else
+                        {
+                            // When state is Start log the CommandLine which has arguments for completeness.
+                            payload.AppendLine(StringUtil.Format(EtwLoggingStrings.CommandStateChange, logContext.CommandLine, newState.ToString()));
+                        }
                     }
                 }
 
@@ -147,13 +155,13 @@ namespace System.Management.Automation.Tracing
         /// </summary>
         /// <param name="logContext"></param>
         /// <param name="pipelineExecutionDetail"></param>
-        internal override void LogPipelineExecutionDetailEvent(LogContext logContext, List<String> pipelineExecutionDetail)
+        internal override void LogPipelineExecutionDetailEvent(LogContext logContext, List<string> pipelineExecutionDetail)
         {
             StringBuilder payload = new StringBuilder();
 
             if (pipelineExecutionDetail != null)
             {
-                foreach (String detail in pipelineExecutionDetail)
+                foreach (string detail in pipelineExecutionDetail)
                 {
                     payload.AppendLine(detail);
                 }
@@ -163,7 +171,7 @@ namespace System.Management.Automation.Tracing
         }
 
         /// <summary>
-        /// Provider interface function for logging provider health event
+        /// Provider interface function for logging provider health event.
         /// </summary>
         /// <param name="logContext"></param>
         /// <param name="providerName"></param>
@@ -175,7 +183,7 @@ namespace System.Management.Automation.Tracing
             AppendException(payload, exception);
             payload.AppendLine();
 
-            Dictionary<String, String> additionalInfo = new Dictionary<string, string>();
+            Dictionary<string, string> additionalInfo = new Dictionary<string, string>();
 
             additionalInfo.Add(EtwLoggingStrings.ProviderNameString, providerName);
 
@@ -185,12 +193,51 @@ namespace System.Management.Automation.Tracing
         }
 
         /// <summary>
-        /// Provider interface function for logging provider lifecycle event
+        /// Provider interface function for logging provider health event.
+        /// </summary>
+        /// <param name="state">This the action performed in AmsiUtil class, like init, scan, etc.</param>
+        /// <param name="context">The amsiContext handled - Session pair.</param>
+        internal override void LogAmsiUtilStateEvent(string state, string context)
+        {
+            WriteEvent(PSEventId.Amsi_Init, PSChannel.Analytic, PSOpcode.Method, PSLevel.Informational, PSTask.Amsi, (PSKeyword)0x0, state, context);
+        }
+
+        /// <summary>
+        /// Provider interface function for logging WDAC query event.
+        /// </summary>
+        /// <param name="queryName">Name of the WDAC query.</param>
+        /// <param name="fileName">Name of script file for policy query. Can be null value.</param>
+        /// <param name="querySuccess">Query call succeed code.</param>
+        /// <param name="queryResult">Result code of WDAC query.</param>
+        internal override void LogWDACQueryEvent(
+            string queryName,
+            string fileName,
+            int querySuccess,
+            int queryResult)
+        {
+            WriteEvent(PSEventId.WDAC_Query, PSChannel.Analytic, PSOpcode.Method, PSLevel.Informational, PSTask.WDAC, (PSKeyword)0x0, queryName, fileName, querySuccess, queryResult);
+        }
+
+        /// <summary>
+        /// Provider interface function for logging WDAC audit event.
+        /// </summary>
+        /// <param name="title">Title of WDAC audit event.</param>
+        /// <param name="message">WDAC audit event message.</param>
+        /// <param name="fqid">FullyQualifiedId of WDAC audit event.</param>
+        internal override void LogWDACAuditEvent(
+            string title,
+            string message,
+            string fqid)
+        {
+            WriteEvent(PSEventId.WDAC_Audit, PSChannel.Operational, PSOpcode.Method, PSLevel.Informational, PSTask.WDACAudit, (PSKeyword)0x0, title, message, fqid);
+        }
+
+        /// <summary>
+        /// Provider interface function for logging provider lifecycle event.
         /// </summary>
         /// <param name="logContext"></param>
         /// <param name="providerName"></param>
         /// <param name="newState"></param>
-        ///
         internal override void LogProviderLifecycleEvent(LogContext logContext, string providerName, ProviderState newState)
         {
             if (IsEnabled(PSLevel.Informational, PSKeyword.Cmdlets | PSKeyword.UseAlwaysAnalytic))
@@ -211,13 +258,12 @@ namespace System.Management.Automation.Tracing
         }
 
         /// <summary>
-        /// Provider interface function for logging settings event
+        /// Provider interface function for logging settings event.
         /// </summary>
         /// <param name="logContext"></param>
         /// <param name="variableName"></param>
         /// <param name="value"></param>
         /// <param name="previousValue"></param>
-        ///
         internal override void LogSettingsEvent(LogContext logContext, string variableName, string value, string previousValue)
         {
             if (IsEnabled(PSLevel.Informational, PSKeyword.Cmdlets | PSKeyword.UseAlwaysAnalytic))
@@ -238,7 +284,7 @@ namespace System.Management.Automation.Tracing
         }
 
         /// <summary>
-        /// The ETW provider does not use logging variables
+        /// The ETW provider does not use logging variables.
         /// </summary>
         /// <returns></returns>
         internal override bool UseLoggingVariables()
@@ -247,13 +293,13 @@ namespace System.Management.Automation.Tracing
         }
 
         /// <summary>
-        /// Writes a single event
+        /// Writes a single event.
         /// </summary>
-        /// <param name="id">event id</param>
+        /// <param name="id">Event id.</param>
         /// <param name="channel"></param>
         /// <param name="opcode"></param>
         /// <param name="task"></param>
-        /// <param name="logContext">log context</param>
+        /// <param name="logContext">Log context.</param>
         /// <param name="payLoad"></param>
         internal void WriteEvent(PSEventId id, PSChannel channel, PSOpcode opcode, PSTask task, LogContext logContext, string payLoad)
         {
@@ -262,7 +308,7 @@ namespace System.Management.Automation.Tracing
         }
 
         /// <summary>
-        /// Writes an event
+        /// Writes an event.
         /// </summary>
         /// <param name="id"></param>
         /// <param name="channel"></param>
@@ -288,19 +334,18 @@ namespace System.Management.Automation.Tracing
             EventDescriptor desc = new EventDescriptor((int)id, (byte)PSEventVersion.One, (byte)channel,
                 (byte)level, (byte)opcode, (int)task, longKeyword);
 
-            etwProvider.WriteEvent(ref desc, args);
+            etwProvider.WriteEvent(in desc, args);
         }
 
         /// <summary>
-        /// Writes an activity transfer event
+        /// Writes an activity transfer event.
         /// </summary>
         internal void WriteTransferEvent(Guid parentActivityId)
         {
-            etwProvider.WriteTransferEvent(ref _xferEventDescriptor, parentActivityId, EtwActivity.GetActivityId(), parentActivityId);
+            etwProvider.WriteTransferEvent(in _xferEventDescriptor, parentActivityId, EtwActivity.GetActivityId(), parentActivityId);
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="newActivityId"></param>
         internal void SetActivityIdForCurrentThread(Guid newActivityId)

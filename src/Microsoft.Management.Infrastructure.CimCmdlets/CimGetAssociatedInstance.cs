@@ -1,10 +1,8 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 #region Using directives
 
-using System.Collections;
-using System;
 using System.Collections.Generic;
 
 #endregion
@@ -19,9 +17,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
     internal sealed class CimGetAssociatedInstance : CimAsyncOperation
     {
         /// <summary>
-        /// <para>
-        /// Constructor
-        /// </para>
+        /// Initializes a new instance of the <see cref="CimGetAssociatedInstance"/> class.
         /// </summary>
         public CimGetAssociatedInstance()
             : base()
@@ -33,7 +29,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         /// Base on parametersetName to retrieve associated ciminstances
         /// </para>
         /// </summary>
-        /// <param name="cmdlet"><see cref="GetCimInstanceCommand"/> object</param>
+        /// <param name="cmdlet"><see cref="GetCimInstanceCommand"/> object.</param>
         public void GetCimAssociatedInstance(GetCimAssociatedInstanceCommand cmdlet)
         {
             IEnumerable<string> computerNames = ConstValue.GetComputerNames(cmdlet.ComputerName);
@@ -44,15 +40,17 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                 // try to use namespace of ciminstance, then fall back to default namespace
                 nameSpace = ConstValue.GetNamespace(cmdlet.CimInstance.CimSystemProperties.Namespace);
             }
-            List<CimSessionProxy> proxys = new List<CimSessionProxy>();
+
+            List<CimSessionProxy> proxys = new();
             switch (cmdlet.ParameterSetName)
             {
                 case CimBaseCommand.ComputerSetName:
                     foreach (string computerName in computerNames)
                     {
                         CimSessionProxy proxy = CreateSessionProxy(computerName, cmdlet.CimInstance, cmdlet);
-                            proxys.Add(proxy);
+                        proxys.Add(proxy);
                     }
+
                     break;
                 case CimBaseCommand.SessionSetName:
                     foreach (CimSession session in cmdlet.CimSession)
@@ -60,10 +58,12 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                         CimSessionProxy proxy = CreateSessionProxy(session, cmdlet);
                         proxys.Add(proxy);
                     }
+
                     break;
                 default:
                     return;
             }
+
             foreach (CimSessionProxy proxy in proxys)
             {
                 proxy.EnumerateAssociatedInstancesAsync(
@@ -85,7 +85,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         /// </summary>
         /// <param name="proxy"></param>
         /// <param name="cmdlet"></param>
-        private void SetSessionProxyProperties(
+        private static void SetSessionProxyProperties(
             ref CimSessionProxy proxy,
             GetCimAssociatedInstanceCommand cmdlet)
         {
@@ -117,7 +117,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         }
 
         /// <summary>
-        /// Create <see cref="CimSessionProxy"/> and set properties
+        /// Create <see cref="CimSessionProxy"/> and set properties.
         /// </summary>
         /// <param name="session"></param>
         /// <param name="cmdlet"></param>
@@ -133,5 +133,5 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
 
         #endregion
 
-    }//End Class
-}//End namespace
+    }
+}

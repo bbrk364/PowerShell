@@ -1,5 +1,6 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
+
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -7,6 +8,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.Extensions.Primitives;
 using mvc.Models;
@@ -27,18 +29,29 @@ namespace mvc.Controllers
                 linkNumber = 1;
             }
 
-            string baseUri = Regex.Replace(UriHelper.GetDisplayUrl(Request), "\\?.*", String.Empty);
+            string baseUri = Regex.Replace(UriHelper.GetDisplayUrl(Request), "\\?.*", string.Empty);
 
             string type = Request.Query.TryGetValue("type", out StringValues typeSV) ? typeSV.FirstOrDefault() : "default";
 
-            var linkList = new List<String>();
+            string whitespace = " ";
+            if (type.ToUpper() == "EXTRAWHITESPACE")
+            {
+                whitespace = "  ";
+            }
+            else if (type.ToUpper() == "NOWHITESPACE")
+            {
+                whitespace = string.Empty;
+            }
+
+            var linkList = new List<string>();
             if (maxLinks > 1 && linkNumber > 1)
             {
-                linkList.Add(GetLink(baseUri: baseUri, maxLinks: maxLinks, linkNumber: linkNumber - 1, type: type, rel: "prev"));
+                linkList.Add(GetLink(baseUri: baseUri, maxLinks: maxLinks, linkNumber: linkNumber - 1, type: type, whitespace: whitespace, rel: "prev"));
             }
-            linkList.Add(GetLink(baseUri: baseUri, maxLinks: maxLinks, linkNumber: maxLinks, type: type, rel: "last"));
-            linkList.Add(GetLink(baseUri: baseUri, maxLinks: maxLinks, linkNumber: 1, type: type, rel: "first"));
-            linkList.Add(GetLink(baseUri: baseUri, maxLinks: maxLinks, linkNumber: linkNumber, type: type, rel: "self"));
+
+            linkList.Add(GetLink(baseUri: baseUri, maxLinks: maxLinks, linkNumber: maxLinks, type: type, whitespace: whitespace, rel: "last"));
+            linkList.Add(GetLink(baseUri: baseUri, maxLinks: maxLinks, linkNumber: 1, type: type, whitespace: whitespace, rel: "first"));
+            linkList.Add(GetLink(baseUri: baseUri, maxLinks: maxLinks, linkNumber: linkNumber, type: type, whitespace: whitespace, rel: "self"));
 
             bool sendMultipleHeaders = false;
             bool skipNextLink = false;
@@ -65,7 +78,7 @@ namespace mvc.Controllers
 
             if (!skipNextLink && maxLinks > 1 && linkNumber < maxLinks)
             {
-                linkList.Add(GetLink(baseUri: baseUri, maxLinks: maxLinks, linkNumber: linkNumber + 1, type: type, rel: "next"));
+                linkList.Add(GetLink(baseUri: baseUri, maxLinks: maxLinks, linkNumber: linkNumber + 1, type: type, whitespace: whitespace, rel: "next"));
             }
 
             StringValues linkHeader;
@@ -75,9 +88,10 @@ namespace mvc.Controllers
             }
             else
             {
-                linkHeader = String.Join(",", linkList);
+                linkHeader = string.Join(',', linkList);
             }
-            Response.Headers.Add("Link", linkHeader);
+
+            Response.Headers.Append("Link", linkHeader);
 
             // Generate /Get/ result and append linknumber, maxlinks, and type
             var getController = new GetController();
@@ -96,9 +110,9 @@ namespace mvc.Controllers
             return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
         }
 
-        private string GetLink(string baseUri, int maxLinks, int linkNumber, string type, string rel)
+        private static string GetLink(string baseUri, int maxLinks, int linkNumber, string whitespace, string type, string rel)
         {
-            return String.Format(Constants.LinkUriTemplate, baseUri, maxLinks, linkNumber, type, rel);
+            return string.Format(Constants.LinkUriTemplate, baseUri, maxLinks, linkNumber, type, whitespace, rel);
         }
     }
 }

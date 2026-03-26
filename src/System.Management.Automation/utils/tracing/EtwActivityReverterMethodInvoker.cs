@@ -1,5 +1,6 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
+
 #if !UNIX
 
 namespace System.Management.Automation.Tracing
@@ -9,29 +10,26 @@ namespace System.Management.Automation.Tracing
     internal class EtwActivityReverterMethodInvoker :
         IMethodInvoker
     {
-#region Instance Data
+        #region Instance Data
 
         private readonly IEtwEventCorrelator _eventCorrelator;
         private readonly Func<Guid, Delegate, object[], object> _invoker;
 
-#endregion
+        #endregion
 
-#region Creation/Cleanup
+        #region Creation/Cleanup
 
         public EtwActivityReverterMethodInvoker(IEtwEventCorrelator eventCorrelator)
         {
-            if (eventCorrelator == null)
-            {
-                throw new ArgumentNullException("eventCorrelator");
-            }
+            ArgumentNullException.ThrowIfNull(eventCorrelator);
 
             _eventCorrelator = eventCorrelator;
             _invoker = DoInvoke;
         }
 
-#endregion
+        #endregion
 
-#region Instance Access
+        #region Instance Access
 
         public Delegate Invoker
         {
@@ -51,9 +49,9 @@ namespace System.Management.Automation.Tracing
             return retInvokerArgs;
         }
 
-#endregion
+        #endregion
 
-#region Instance Utilities
+        #region Instance Utilities
 
         private object DoInvoke(Guid relatedActivityId, Delegate method, object[] methodArgs)
         {
@@ -63,7 +61,7 @@ namespace System.Management.Automation.Tracing
             }
         }
 
-#endregion
+        #endregion
     }
 }
 

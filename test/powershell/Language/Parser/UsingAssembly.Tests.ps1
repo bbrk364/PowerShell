@@ -1,11 +1,11 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
 Describe "Using assembly" -Tags "CI" {
 
     try
     {
-        pushd $PSScriptRoot
+        Push-Location $PSScriptRoot
         $guid = [Guid]::NewGuid()
 
         Add-Type -OutputAssembly $PSScriptRoot\UsingAssemblyTest$guid.dll -TypeDefinition @"
@@ -44,24 +44,15 @@ public class ABC {}
             $err[0].ErrorId | Should -Be CannotLoadAssemblyWithUriSchema
         }
 
-        It "parse does not load the assembly" -pending {
+        It "parse does not load the assembly '<Script>'" -TestCases @{ Script = "using assembly UsingAssemblyTest$guid.dll"; Expected = $false },
+                                                      @{ Script = "using assembly '$(Join-Path -Path $PSScriptRoot -ChildPath UsingAssemblyTest$guid.dll)'"; Expected = $false },
+                                                      @{ Script = "using assembly `"$(Join-Path -Path $PSScriptRoot -ChildPath UsingAssemblyTest$guid.dll)`""; Expected = $false } {
+            param ($script)
             $assemblies = [Appdomain]::CurrentDomain.GetAssemblies().GetName().Name
             $assemblies -contains "UsingAssemblyTest$guid" | Should -BeFalse
 
             $err = $null
-            $ast = [System.Management.Automation.Language.Parser]::ParseInput("using assembly .\UsingAssemblyTest$guid.dll", [ref]$null, [ref]$err)
-
-            $assemblies = [Appdomain]::CurrentDomain.GetAssemblies().GetName().Name
-            $assemblies -contains "UsingAssemblyTest$guid" | Should -BeFalse
-            $err.Count | Should -Be 0
-
-            $ast = [System.Management.Automation.Language.Parser]::ParseInput("using assembly '$PSScriptRoot\UsingAssemblyTest$guid.dll'", [ref]$null, [ref]$err)
-
-            $assemblies = [Appdomain]::CurrentDomain.GetAssemblies().GetName().Name
-            $assemblies -contains "UsingAssemblyTest$guid" | Should -BeFalse
-            $err.Count | Should -Be 0
-
-            $ast = [System.Management.Automation.Language.Parser]::ParseInput("using assembly `"$PSScriptRoot\UsingAssemblyTest$guid.dll`"", [ref]$null, [ref]$err)
+            $ast = [System.Management.Automation.Language.Parser]::ParseInput($script, [ref]$null, [ref]$err)
 
             $assemblies = [Appdomain]::CurrentDomain.GetAssemblies().GetName().Name
             $assemblies -contains "UsingAssemblyTest$guid" | Should -BeFalse
@@ -69,39 +60,42 @@ public class ABC {}
         }
 
         It "reports runtime error about non-existing assembly with relative path" {
-            $e = { [scriptblock]::Create("using assembly .\NonExistingAssembly.dll") } | Should -Throw -ErrorId 'ParseException' -PassThru
+            $script = "using assembly {0}" -f (Join-Path "." "NonExistingAssembly.dll")
+            $e = { [scriptblock]::Create($script) } | Should -Throw -ErrorId 'ParseException' -PassThru
             $e.Exception.InnerException.ErrorRecord.FullyQualifiedErrorId | Should -Be 'ErrorLoadingAssembly'
         }
 #>
-        It "Assembly loaded at runtime" -pending {
-            $assemblies = pwsh -noprofile -command @"
-    using assembly .\UsingAssemblyTest$guid.dll
-    [Appdomain]::CurrentDomain.GetAssemblies().GetName().Name
-"@
-            $assemblies -contains "UsingAssemblyTest$guid" | Should -BeTrue
+        Context "Runtime loading of assemblies" {
+            BeforeAll {
+                copy-item "UsingAssemblyTest$guid.dll" $TestDrive
+                $assemblyPath = Join-Path $TestDrive "UsingAssemblyTest$guid.dll"
 
-            $assemblies = pwsh -noprofile -command @"
-    using assembly $PSScriptRoot\UsingAssemblyTest$guid.dll
-    [Appdomain]::CurrentDomain.GetAssemblies().GetName().Name
-"@
-            $assemblies -contains "UsingAssemblyTest$guid" | Should -BeTrue
+                function InvokeScript ([string]$pathToScript) {
+                    $result = & "$PSHOME/pwsh" -noprofile -file $pathToScript
+                    return $result
+                }
+            }
 
-            $assemblies = pwsh -noprofile -command @"
-    using assembly System.Drawing
-    [Appdomain]::CurrentDomain.GetAssemblies().GetName().Name
-"@
-            $assemblies -contains "System.Drawing" | Should -BeTrue
+            It "Assembly loaded at runtime" {
+                $testFile = Join-Path $TestDrive "TestFile1.ps1"
+                $script = "using assembly UsingAssemblyTest$guid.dll`n[ABC].Assembly.Location"
+                Set-Content -Path $testFile -Value $script
+                $assembly = InvokeScript $testFile
+                $assembly | Should -Be $assemblyPath
+            }
 
-            $assemblies = pwsh -noprofile -command @"
-    using assembly 'System.Drawing, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a'
-    [Appdomain]::CurrentDomain.GetAssemblies().GetName().Name
-"@
-            $assemblies -contains "System.Drawing" | Should -BeTrue
+            It "Assembly loaded at runtime with fully qualified name" {
+                $script = "using assembly $assemblyPath`n[ABC].Assembly.Location"
+                $testFile = Join-Path $TestDrive "TestFile2.ps1"
+                Set-Content -Path $testFile -Value $script
+                $assembly = InvokeScript $testFile
+                $assembly | Should -Be $assemblyPath
+            }
         }
     }
     finally
     {
-        Remove-Item .\UsingAssemblyTest$guid.dll
-        popd
+        Remove-Item -ErrorAction Ignore .\UsingAssemblyTest$guid.dll
+        Pop-Location
     }
 }

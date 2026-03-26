@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using Dbg = System.Management.Automation.Diagnostics;
@@ -6,7 +6,7 @@ using Dbg = System.Management.Automation.Diagnostics;
 namespace System.Management.Automation.Internal
 {
     /// <summary>
-    /// Defines enumerations for the keywords
+    /// Defines enumerations for the keywords.
     /// </summary>
     [Flags]
     internal enum PSKeyword : ulong
@@ -25,7 +25,7 @@ namespace System.Management.Automation.Internal
     }
 
     /// <summary>
-    /// Define enumerations for levels
+    /// Define enumerations for levels.
     /// </summary>
     internal enum PSLevel : byte
     {
@@ -39,7 +39,7 @@ namespace System.Management.Automation.Internal
     }
 
     /// <summary>
-    /// Defines enumerations for op codes
+    /// Defines enumerations for op codes.
     /// </summary>
     internal enum PSOpcode : byte
     {
@@ -64,7 +64,7 @@ namespace System.Management.Automation.Internal
     }
 
     /// <summary>
-    /// Defines enumerations for event ids
+    /// Defines enumerations for event ids.
     /// </summary>
     /// <remarks>add an entry for a new event that you
     /// add to the manifest. Set it to the same value
@@ -158,6 +158,13 @@ namespace System.Management.Automation.Internal
         Provider_Lifecycle = 0x1F03,
         Settings = 0x1F04,
         Engine_Trace = 0x1F06,
+        Amsi_Init = 0x4001,
+        WDAC_Query = 0x4002,
+        WDAC_Audit = 0x4003,
+
+        // Experimental Features
+        ExperimentalFeature_InvalidName = 0x3001,
+        ExperimentalFeature_ReadConfig_Error = 0x3002,
 
         // Scheduled Jobs
         ScheduledJob_Start = 0xD001,
@@ -192,7 +199,7 @@ namespace System.Management.Automation.Internal
     }
 
     /// <summary>
-    /// Defines enumerations for channels
+    /// Defines enumerations for channels.
     /// </summary>
     /// <remarks>
     /// On Windows, PSChannel is the numeric channel id value.
@@ -216,7 +223,7 @@ namespace System.Management.Automation.Internal
 #endif
 
     /// <summary>
-    /// Defines enumerations for tasks
+    /// Defines enumerations for tasks.
     /// </summary>
     internal enum PSTask : int
     {
@@ -232,13 +239,17 @@ namespace System.Management.Automation.Internal
         ProviderStart = 0x68,
         ProviderStop = 0x69,
         ExecutePipeline = 0x6A,
+        ExperimentalFeature = 0x6B,
         ScheduledJob = 0x6E,
         NamedPipe = 0x6F,
-        ISEOperation = 0x78
+        ISEOperation = 0x78,
+        Amsi = 0X82,
+        WDAC = 0x83,
+        WDACAudit = 0x84
     }
 
     /// <summary>
-    /// Defines enumerations for version
+    /// Defines enumerations for version.
     /// </summary>
     /// <remarks>all messages in V2 timeframe
     /// should be of version 1</remarks>

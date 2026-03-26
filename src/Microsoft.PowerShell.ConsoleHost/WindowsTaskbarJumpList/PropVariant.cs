@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
@@ -11,7 +11,7 @@ namespace Microsoft.PowerShell
     /// This class is intended for internal use only.
     /// </summary>
     /// <remarks>
-    /// Originally sourced from http://blogs.msdn.com/adamroot/pages/interop-with-propvariants-in-net.aspx
+    /// Originally sourced from https://blogs.msdn.com/adamroot/pages/interop-with-propvariants-in-net.aspx
     /// and modified to add ability to set values
     /// </remarks>
     [StructLayout(LayoutKind.Explicit)]
@@ -19,24 +19,22 @@ namespace Microsoft.PowerShell
     {
         // This is actually a VarEnum value, but the VarEnum type requires 4 bytes instead of the expected 2.
         [FieldOffset(0)]
-        ushort _valueType;
+        private readonly ushort _valueType;
 
         [FieldOffset(8)]
-        IntPtr _ptr;
+        private readonly IntPtr _ptr;
 
         /// <summary>
-        /// Set a string value
+        /// Set a string value.
         /// </summary>
         internal PropVariant(string value)
         {
             if (value == null)
             {
-                throw new ArgumentException("PropVariantNullString", "value");
+                throw new ArgumentException("PropVariantNullString", nameof(value));
             }
 
-#pragma warning disable CS0618 // Type or member is obsolete (might get deprecated in future versions
             _valueType = (ushort)VarEnum.VT_LPWSTR;
-#pragma warning restore CS0618 // Type or member is obsolete (might get deprecated in future versions
             _ptr = Marshal.StringToCoTaskMemUni(value);
         }
 
@@ -51,17 +49,17 @@ namespace Microsoft.PowerShell
         }
 
         /// <summary>
-        /// Finalizer
+        /// Finalizes an instance of the <see cref="PropVariant"/> class.
         /// </summary>
         ~PropVariant()
         {
             Dispose();
         }
 
-        private class PropVariantNativeMethods
+        private static class PropVariantNativeMethods
         {
             [DllImport("Ole32.dll", PreserveSig = false)]
-            internal extern static void PropVariantClear([In, Out] PropVariant pvar);
+            internal static extern void PropVariantClear([In, Out] PropVariant pvar);
         }
     }
 }

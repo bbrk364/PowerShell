@@ -1,26 +1,22 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
 
-#if !SILVERLIGHT // ComObject
-
-#if !CLR2
-using System.Linq.Expressions;
-#else
-using Microsoft.Scripting.Ast;
-#endif
 using System.Diagnostics;
+using System.Linq.Expressions;
+using System.Management.Automation.InteropServices;
 using System.Runtime.InteropServices;
 
 namespace System.Management.Automation.ComInterop
 {
     /// <summary>
-    /// VariantBuilder handles packaging of arguments into a Variant for a call to IDispatch.Invoke
+    /// VariantBuilder handles packaging of arguments into a Variant for a call to IDispatch.Invoke.
     /// </summary>
     internal class VariantBuilder
     {
         private MemberExpression _variant;
         private readonly ArgBuilder _argBuilder;
         private readonly VarEnum _targetComType;
+
         internal ParameterExpression TempVariable { get; private set; }
 
         internal VariantBuilder(VarEnum targetComType, ArgBuilder builder)
@@ -47,7 +43,7 @@ namespace System.Management.Automation.ComInterop
                 // temp = argument
                 // paramVariants._elementN.SetAsByrefT(ref temp)
                 Debug.Assert(TempVariable == null);
-                var argExpr = _argBuilder.MarshalToRef(parameter);
+                Expression argExpr = _argBuilder.MarshalToRef(parameter);
 
                 TempVariable = Expression.Variable(argExpr.Type, null);
                 return Expression.Block(
@@ -68,7 +64,7 @@ namespace System.Management.Automation.ComInterop
             {
                 return Expression.Call(
                     variant,
-                    typeof(Variant).GetMethod("SetAsIConvertible"),
+                    typeof(Variant).GetMethod(nameof(Variant.SetAsIConvertible)),
                     argument
                 );
             }
@@ -97,7 +93,7 @@ namespace System.Management.Automation.ComInterop
 
                 case VarEnum.VT_NULL:
                     // paramVariants._elementN.SetAsNull();
-                    return Expression.Call(variant, typeof(Variant).GetMethod("SetAsNull"));
+                    return Expression.Call(variant, typeof(Variant).GetMethod(nameof(Variant.SetAsNULL)));
 
                 default:
                     Debug.Assert(false, "Unexpected VarEnum");
@@ -107,7 +103,7 @@ namespace System.Management.Automation.ComInterop
 
         private static Expression Release(Expression pUnk)
         {
-            return Expression.Call(typeof(UnsafeMethods).GetMethod("IUnknownReleaseNotZero"), pUnk);
+            return Expression.Call(typeof(UnsafeMethods).GetMethod(nameof(UnsafeMethods.IUnknownReleaseNotZero)), pUnk);
         }
 
         internal Expression Clear()
@@ -117,22 +113,25 @@ namespace System.Management.Automation.ComInterop
                 if (_argBuilder is StringArgBuilder)
                 {
                     Debug.Assert(TempVariable != null);
-                    return Expression.Call(typeof(Marshal).GetMethod("FreeBSTR"), TempVariable);
+                    return Expression.Call(typeof(Marshal).GetMethod(nameof(Marshal.FreeBSTR)), TempVariable);
                 }
-                else if (_argBuilder is DispatchArgBuilder)
+
+                if (_argBuilder is DispatchArgBuilder)
                 {
                     Debug.Assert(TempVariable != null);
                     return Release(TempVariable);
                 }
-                else if (_argBuilder is UnknownArgBuilder)
+
+                if (_argBuilder is UnknownArgBuilder)
                 {
                     Debug.Assert(TempVariable != null);
                     return Release(TempVariable);
                 }
-                else if (_argBuilder is VariantArgBuilder)
+
+                if (_argBuilder is VariantArgBuilder)
                 {
                     Debug.Assert(TempVariable != null);
-                    return Expression.Call(TempVariable, typeof(Variant).GetMethod("Clear"));
+                    return Expression.Call(TempVariable, typeof(Variant).GetMethod(nameof(Variant.Clear)));
                 }
                 return null;
             }
@@ -150,7 +149,7 @@ namespace System.Management.Automation.ComInterop
                 case VarEnum.VT_RECORD:
                 case VarEnum.VT_VARIANT:
                     // paramVariants._elementN.Clear()
-                    return Expression.Call(_variant, typeof(Variant).GetMethod("Clear"));
+                    return Expression.Call(_variant, typeof(Variant).GetMethod(nameof(Variant.Clear)));
 
                 default:
                     Debug.Assert(Variant.IsPrimitiveType(_targetComType), "Unexpected VarEnum");
@@ -174,6 +173,3 @@ namespace System.Management.Automation.ComInterop
         }
     }
 }
-
-#endif
-

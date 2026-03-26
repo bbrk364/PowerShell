@@ -1,5 +1,6 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
+
 /*
  * This is the source code for the tool 'TypeCatalogGen.exe', which has been checked in %SDXROOT%\tools\managed\v4.0\TypeCatalogGen.
  * The tool 'TypeCatalogGen.exe' is used when building 'Microsoft.PowerShell.CoreCLR.AssemblyLoadContext.dll' for OneCore powershell
@@ -10,7 +11,7 @@
  *
  * Compilation Note:
  *    .NET Fx Version    - 4.5
- *    Special Dependency - System.Reflection.Metadata.dll, System.Collections.Immutable.dll (Available as nuget package: http://www.nuget.org/packages/System.Reflection.Metadata)
+ *    Special Dependency - System.Reflection.Metadata.dll, System.Collections.Immutable.dll (Available as nuget package: https://www.nuget.org/packages/System.Reflection.Metadata)
  * To compile the code, create a VS project and get the 'System.Reflection.Metadata' package from nuget. Then add this file to the VS
  * project and compile it.
 */
@@ -26,7 +27,7 @@ using System.Text;
 
 namespace Microsoft.PowerShell.CoreCLR
 {
-    public class TypeCatalogGen
+    public static class TypeCatalogGen
     {
         // Help messages
         private const string Param_TargetCSharpFilePath = "TargetCSharpFilePath";
@@ -96,7 +97,7 @@ Usage: TypeCatalogGen.exe <{0}> <{1}> [{2}]
                         // We only care about public types
                         TypeDefinition typeDefinition = metadataReader.GetTypeDefinition(typeHandle);
                         // The visibility mask is used to mask out the bits that contain the visibility.
-                        // The visibilities are not combineable, e.g. you can't be both public and private, which is why these aren't independent powers of two.
+                        // The visibilities are not combinable, e.g. you can't be both public and private, which is why these aren't independent powers of two.
                         TypeAttributes visibilityBits = typeDefinition.Attributes & TypeAttributes.VisibilityMask;
                         if (visibilityBits != TypeAttributes.Public && visibilityBits != TypeAttributes.NestedPublic)
                         {
@@ -122,6 +123,7 @@ Usage: TypeCatalogGen.exe <{0}> <{1}> [{2}]
 REPLACE '{fullName}' from '{existingTypeMetadata.AssemblyName}' (IsObsolete? {existingTypeMetadata.IsObsolete})
   WITH '{strongAssemblyName}' (IsObsolete? {isTypeObsolete})");
                             }
+
                             typeNameToAssemblyMap[fullName] = new TypeMetadata(strongAssemblyName, isTypeObsolete);
                         }
                         else if (printDebugMessage)
@@ -157,6 +159,7 @@ DUPLICATE key '{fullName}' from '{strongAssemblyName}' (IsObsolete? {isTypeObsol
                     return true;
                 }
             }
+
             return false;
         }
 
@@ -172,7 +175,11 @@ DUPLICATE key '{fullName}' from '{strongAssemblyName}' (IsObsolete? {isTypeObsol
                     // Attribute is defined in the same module
                     MethodDefinition methodDef = reader.GetMethodDefinition((MethodDefinitionHandle)customAttribute.Constructor);
                     TypeDefinitionHandle declaringTypeDefHandle = methodDef.GetDeclaringType();
-                    if (declaringTypeDefHandle.IsNil) { /* Global method */ return false; }
+                    if (declaringTypeDefHandle.IsNil)
+                    {
+                        // Global method
+                        return false;
+                    }
 
                     TypeDefinition declaringTypeDef = reader.GetTypeDefinition(declaringTypeDefHandle);
                     attributeFullName = GetTypeFullName(reader, declaringTypeDef);
@@ -196,6 +203,7 @@ DUPLICATE key '{fullName}' from '{strongAssemblyName}' (IsObsolete? {isTypeObsol
                             // constructor is global method, vararg method, or from a generic type.
                             return false;
                     }
+
                     break;
 
                 default:
@@ -227,9 +235,6 @@ DUPLICATE key '{fullName}' from '{strongAssemblyName}' (IsObsolete? {isTypeObsol
                 case AssemblyHashAlgorithm.Sha1:
                     hashImpl = SHA1.Create();
                     break;
-                case AssemblyHashAlgorithm.MD5:
-                    hashImpl = MD5.Create();
-                    break;
                 case AssemblyHashAlgorithm.Sha256:
                     hashImpl = SHA256.Create();
                     break;
@@ -252,10 +257,8 @@ DUPLICATE key '{fullName}' from '{strongAssemblyName}' (IsObsolete? {isTypeObsol
             }
 
             // Convert bytes to hex format strings in lower case.
-            string publicKeyTokenString = BitConverter.ToString(publicKeyTokenBytes).Replace("-", string.Empty).ToLowerInvariant();
-            string strongAssemblyName = string.Format(CultureInfo.InvariantCulture,
-                                                      "{0}, Version={1}, Culture={2}, PublicKeyToken={3}",
-                                                      asmName, asmVersion, asmCulture, publicKeyTokenString);
+            string publicKeyTokenString = Convert.ToHexString(publicKeyTokenBytes).ToLowerInvariant();
+            string strongAssemblyName = string.Create(CultureInfo.InvariantCulture, $"{asmName}, Version={asmVersion}, Culture={asmCulture}, PublicKeyToken={publicKeyTokenString}");
 
             return strongAssemblyName;
         }
@@ -343,7 +346,7 @@ DUPLICATE key '{fullName}' from '{strongAssemblyName}' (IsObsolete? {isTypeObsol
         }
 
         /// <summary>
-        /// Resolve the target file path
+        /// Resolve the target file path.
         /// </summary>
         private static string ResolveTargetFilePath(string path)
         {
@@ -364,7 +367,7 @@ DUPLICATE key '{fullName}' from '{strongAssemblyName}' (IsObsolete? {isTypeObsol
         }
 
         /// <summary>
-        /// Resolve the reference assembly file paths
+        /// Resolve the reference assembly file paths.
         /// </summary>
         private static List<string> ResolveReferenceAssemblies(string path)
         {
@@ -381,7 +384,7 @@ DUPLICATE key '{fullName}' from '{strongAssemblyName}' (IsObsolete? {isTypeObsol
             }
 
             string allText = File.ReadAllText(referenceListPath);
-            string[] references = allText.Split(new char[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+            string[] references = allText.Split(';', StringSplitOptions.RemoveEmptyEntries);
             List<string> refAssemblyFiles = new List<string>(120);
 
             for (int i = 0; i < references.Length; i++)
@@ -412,7 +415,7 @@ DUPLICATE key '{fullName}' from '{strongAssemblyName}' (IsObsolete? {isTypeObsol
         /// </summary>
         private static void WritePowerShellAssemblyLoadContextPartialClass(string targetFilePath, Dictionary<string, TypeMetadata> typeNameToAssemblyMap)
         {
-            const string SourceFormat = "            typeCatalog[\"{0}\"] = \"{1}\";";
+            const string SourceFormat = "{2}                {{\"{0}\", \"{1}\"}},";
             const string SourceHead = @"//
 // This file is auto-generated by TypeCatalogGen.exe during build of Microsoft.PowerShell.CoreCLR.AssemblyLoadContext.dll.
 // This file will be compiled into Microsoft.PowerShell.CoreCLR.AssemblyLoadContext.dll.
@@ -422,18 +425,16 @@ DUPLICATE key '{fullName}' from '{strongAssemblyName}' (IsObsolete? {isTypeObsol
 // catalog based on the reference assemblies of .NET Core.
 //
 using System.Collections.Generic;
-using System.Runtime.Loader;
 
 namespace System.Management.Automation
 {{
     internal partial class PowerShellAssemblyLoadContext
     {{
-        private Dictionary<string, string> InitializeTypeCatalog()
+        private static Dictionary<string, string> InitializeTypeCatalog()
         {{
-            Dictionary<string, string> typeCatalog = new Dictionary<string, string>({0}, StringComparer.OrdinalIgnoreCase);
-";
+            return new Dictionary<string, string>({0}, StringComparer.OrdinalIgnoreCase) {{";
             const string SourceEnd = @"
-            return typeCatalog;
+            };
         }
     }
 }
@@ -442,8 +443,9 @@ namespace System.Management.Automation
             StringBuilder sourceCode = new StringBuilder(string.Format(CultureInfo.InvariantCulture, SourceHead, typeNameToAssemblyMap.Count));
             foreach (KeyValuePair<string, TypeMetadata> pair in typeNameToAssemblyMap)
             {
-                sourceCode.AppendLine(string.Format(CultureInfo.InvariantCulture, SourceFormat, pair.Key, pair.Value.AssemblyName));
+                sourceCode.Append(string.Format(CultureInfo.InvariantCulture, SourceFormat, pair.Key, pair.Value.AssemblyName, Environment.NewLine));
             }
+
             sourceCode.Append(SourceEnd);
 
             using (FileStream stream = new FileStream(targetFilePath, FileMode.Create, FileAccess.Write))
@@ -454,9 +456,9 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Helper class to keep the metadata of a type
+        /// Helper class to keep the metadata of a type.
         /// </summary>
-        private class TypeMetadata
+        private sealed class TypeMetadata
         {
             internal readonly string AssemblyName;
             internal readonly bool IsObsolete;
@@ -468,4 +470,3 @@ namespace System.Management.Automation
         }
     }
 }
-

@@ -1,17 +1,15 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
+
+using System.Collections.ObjectModel;
+using System.Management.Automation.Runspaces;
+using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace System.Management.Automation.Internal
 {
-    using System;
-    using System.Threading;
-    using System.Runtime.InteropServices;
-    using System.Collections.ObjectModel;
-    using System.Management.Automation.Runspaces;
-    using System.Management.Automation;
-
     /// <summary>
-    /// A PipelineReader for an ObjectStream
+    /// A PipelineReader for an ObjectStream.
     /// </summary>
     /// <remarks>
     /// This class is not safe for multi-threaded operations.
@@ -19,16 +17,13 @@ namespace System.Management.Automation.Internal
     internal abstract class ObjectReaderBase<T> : PipelineReader<T>, IDisposable
     {
         /// <summary>
-        /// Construct with an existing ObjectStream
+        /// Construct with an existing ObjectStream.
         /// </summary>
-        /// <param name="stream">the stream to read</param>
-        /// <exception cref="ArgumentNullException">Thrown if the specified stream is null</exception>
-        public ObjectReaderBase([In, Out] ObjectStreamBase stream)
+        /// <param name="stream">The stream to read.</param>
+        /// <exception cref="ArgumentNullException">Thrown if the specified stream is null.</exception>
+        protected ObjectReaderBase([In, Out] ObjectStreamBase stream)
         {
-            if (stream == null)
-            {
-                throw new ArgumentNullException("stream", "stream may not be null");
-            }
+            ArgumentNullException.ThrowIfNull(stream);
 
             _stream = stream;
         }
@@ -36,7 +31,7 @@ namespace System.Management.Automation.Internal
         #region Events
 
         /// <summary>
-        /// Event fired when objects are added to the underlying stream
+        /// Event fired when objects are added to the underlying stream.
         /// </summary>
         public override event EventHandler DataReady
         {
@@ -48,10 +43,11 @@ namespace System.Management.Automation.Internal
                     InternalDataReady += value;
                     if (firstRegistrant)
                     {
-                        _stream.DataReady += new EventHandler(this.OnDataReady);
+                        _stream.DataReady += this.OnDataReady;
                     }
                 }
             }
+
             remove
             {
                 lock (_monitorObject)
@@ -59,7 +55,7 @@ namespace System.Management.Automation.Internal
                     InternalDataReady -= value;
                     if (InternalDataReady == null)
                     {
-                        _stream.DataReady -= new EventHandler(this.OnDataReady);
+                        _stream.DataReady -= this.OnDataReady;
                     }
                 }
             }
@@ -72,7 +68,7 @@ namespace System.Management.Automation.Internal
         #region Public Properties
 
         /// <summary>
-        /// Waitable handle for caller's to block until data is ready to read from the underlying stream
+        /// Waitable handle for caller's to block until data is ready to read from the underlying stream.
         /// </summary>
         public override WaitHandle WaitHandle
         {
@@ -116,7 +112,7 @@ namespace System.Management.Automation.Internal
         }
 
         /// <summary>
-        /// Returns the number of objects in the underlying stream
+        /// Returns the number of objects in the underlying stream.
         /// </summary>
         public override int Count
         {
@@ -127,7 +123,7 @@ namespace System.Management.Automation.Internal
         }
 
         /// <summary>
-        /// Get the capacity of the stream
+        /// Get the capacity of the stream.
         /// </summary>
         /// <value>
         /// The capacity of the stream.
@@ -150,7 +146,7 @@ namespace System.Management.Automation.Internal
         #region Public Methods
 
         /// <summary>
-        /// Close the stream
+        /// Close the stream.
         /// </summary>
         /// <remarks>
         /// Causes subsequent calls to IsOpen to return false and calls to
@@ -171,10 +167,10 @@ namespace System.Management.Automation.Internal
         #region Private Methods
 
         /// <summary>
-        /// Handle DataReady events from the underlying stream
+        /// Handle DataReady events from the underlying stream.
         /// </summary>
-        /// <param name="sender">The stream raising the event</param>
-        /// <param name="args">standard event args.</param>
+        /// <param name="sender">The stream raising the event.</param>
+        /// <param name="args">Standard event args.</param>
         private void OnDataReady(object sender, EventArgs args)
         {
             // call any event handlers on this, replacing the
@@ -188,7 +184,7 @@ namespace System.Management.Automation.Internal
         #region Private fields
 
         /// <summary>
-        /// The underlying stream
+        /// The underlying stream.
         /// </summary>
         /// <remarks>Can never be null</remarks>
         protected ObjectStreamBase _stream;
@@ -202,14 +198,14 @@ namespace System.Management.Automation.Internal
         /// we are protected from outside code interfering in our
         /// critical section.  Thanks to Wintellect for the hint.
         /// </remarks>
-        private object _monitorObject = new Object();
+        private readonly object _monitorObject = new object();
 
         #endregion Private fields
 
         #region IDisposable
 
         /// <summary>
-        /// public method for dispose
+        /// Public method for dispose.
         /// </summary>
         public void Dispose()
         {
@@ -219,16 +215,16 @@ namespace System.Management.Automation.Internal
         }
 
         /// <summary>
-        /// release all resources
+        /// Release all resources.
         /// </summary>
-        /// <param name="disposing">if true, release all managed resources</param>
+        /// <param name="disposing">If true, release all managed resources.</param>
         protected abstract void Dispose(bool disposing);
 
         #endregion IDisposable
-    } // ObjectReaderBase
+    }
 
     /// <summary>
-    /// A PipelineReader reading objects from an ObjectStream
+    /// A PipelineReader reading objects from an ObjectStream.
     /// </summary>
     /// <remarks>
     /// This class is not safe for multi-threaded operations.
@@ -237,20 +233,20 @@ namespace System.Management.Automation.Internal
     {
         #region ctor
         /// <summary>
-        /// Construct with an existing ObjectStream
+        /// Construct with an existing ObjectStream.
         /// </summary>
-        /// <param name="stream">the stream to read</param>
-        /// <exception cref="ArgumentNullException">Thrown if the specified stream is null</exception>
+        /// <param name="stream">The stream to read.</param>
+        /// <exception cref="ArgumentNullException">Thrown if the specified stream is null.</exception>
         public ObjectReader([In, Out] ObjectStream stream)
             : base(stream)
         { }
         #endregion ctor
 
         /// <summary>
-        /// Read at most <paramref name="count"/> objects
+        /// Read at most <paramref name="count"/> objects.
         /// </summary>
-        /// <param name="count">The maximum number of objects to read</param>
-        /// <returns>The objects read</returns>
+        /// <param name="count">The maximum number of objects to read.</param>
+        /// <returns>The objects read.</returns>
         /// <remarks>
         /// This method blocks if the number of objects in the stream is less than <paramref name="count"/>
         /// and the stream is not closed.
@@ -261,9 +257,9 @@ namespace System.Management.Automation.Internal
         }
 
         /// <summary>
-        /// Read a single object from the stream
+        /// Read a single object from the stream.
         /// </summary>
-        /// <returns>the next object in the stream</returns>
+        /// <returns>The next object in the stream.</returns>
         /// <remarks>This method blocks if the stream is empty</remarks>
         public override object Read()
         {
@@ -316,18 +312,18 @@ namespace System.Management.Automation.Internal
         }
 
         /// <summary>
-        /// Peek the next object
+        /// Peek the next object.
         /// </summary>
-        /// <returns>The next object in the stream or ObjectStream.EmptyObject if the stream is empty</returns>
+        /// <returns>The next object in the stream or ObjectStream.EmptyObject if the stream is empty.</returns>
         public override object Peek()
         {
             return _stream.Peek();
         }
 
         /// <summary>
-        /// release all resources
+        /// Release all resources.
         /// </summary>
-        /// <param name="disposing">if true, release all managed resources</param>
+        /// <param name="disposing">If true, release all managed resources.</param>
         protected override void Dispose(bool disposing)
         {
             if (disposing)
@@ -335,10 +331,10 @@ namespace System.Management.Automation.Internal
                 _stream.Close();
             }
         }
-    } // ObjectReader
+    }
 
     /// <summary>
-    /// A PipelineReader reading PSObjects from an ObjectStream
+    /// A PipelineReader reading PSObjects from an ObjectStream.
     /// </summary>
     /// <remarks>
     /// This class is not safe for multi-threaded operations.
@@ -347,20 +343,20 @@ namespace System.Management.Automation.Internal
     {
         #region ctor
         /// <summary>
-        /// Construct with an existing ObjectStream
+        /// Construct with an existing ObjectStream.
         /// </summary>
-        /// <param name="stream">the stream to read</param>
-        /// <exception cref="ArgumentNullException">Thrown if the specified stream is null</exception>
+        /// <param name="stream">The stream to read.</param>
+        /// <exception cref="ArgumentNullException">Thrown if the specified stream is null.</exception>
         public PSObjectReader([In, Out] ObjectStream stream)
             : base(stream)
         { }
         #endregion ctor
 
         /// <summary>
-        /// Read at most <paramref name="count"/> objects
+        /// Read at most <paramref name="count"/> objects.
         /// </summary>
-        /// <param name="count">The maximum number of objects to read</param>
-        /// <returns>The objects read</returns>
+        /// <param name="count">The maximum number of objects to read.</param>
+        /// <returns>The objects read.</returns>
         /// <remarks>
         /// This method blocks if the number of objects in the stream is less than <paramref name="count"/>
         /// and the stream is not closed.
@@ -371,9 +367,9 @@ namespace System.Management.Automation.Internal
         }
 
         /// <summary>
-        /// Read a single PSObject from the stream
+        /// Read a single PSObject from the stream.
         /// </summary>
-        /// <returns>the next PSObject in the stream</returns>
+        /// <returns>The next PSObject in the stream.</returns>
         /// <remarks>This method blocks if the stream is empty</remarks>
         public override PSObject Read()
         {
@@ -426,18 +422,18 @@ namespace System.Management.Automation.Internal
         }
 
         /// <summary>
-        /// Peek the next PSObject
+        /// Peek the next PSObject.
         /// </summary>
-        /// <returns>The next PSObject in the stream or ObjectStream.EmptyObject if the stream is empty</returns>
+        /// <returns>The next PSObject in the stream or ObjectStream.EmptyObject if the stream is empty.</returns>
         public override PSObject Peek()
         {
             return MakePSObject(_stream.Peek());
         }
 
         /// <summary>
-        /// release all resources
+        /// Release all resources.
         /// </summary>
-        /// <param name="disposing">if true, release all managed resources</param>
+        /// <param name="disposing">If true, release all managed resources.</param>
         protected override void Dispose(bool disposing)
         {
             if (disposing)
@@ -469,13 +465,14 @@ namespace System.Management.Automation.Internal
             {
                 retval.Add(MakePSObject(o));
             }
+
             return retval;
         }
         #endregion Private
-    } // PSObjectReader
+    }
 
     /// <summary>
-    /// A ObjectReader for a PSDataCollection ObjectStream
+    /// A ObjectReader for a PSDataCollection ObjectStream.
     /// </summary>
     /// <remarks>
     /// PSDataCollection is introduced after 1.0. PSDataCollection is
@@ -483,27 +480,27 @@ namespace System.Management.Automation.Internal
     /// commands concurrently.
     /// Only Read() operation is supported currently.
     /// </remarks>
-    internal class PSDataCollectionReader<DataStoreType, ReturnType>
-        : ObjectReaderBase<ReturnType>
+    internal class PSDataCollectionReader<T, TResult>
+        : ObjectReaderBase<TResult>
     {
         #region Private Data
 
-        private PSDataCollectionEnumerator<DataStoreType> _enumerator;
+        private readonly PSDataCollectionEnumerator<T> _enumerator;
 
         #endregion
 
         #region ctor
         /// <summary>
-        /// Construct with an existing ObjectStream
+        /// Construct with an existing ObjectStream.
         /// </summary>
-        /// <param name="stream">the stream to read</param>
-        /// <exception cref="ArgumentNullException">Thrown if the specified stream is null</exception>
-        public PSDataCollectionReader(PSDataCollectionStream<DataStoreType> stream)
+        /// <param name="stream">The stream to read.</param>
+        /// <exception cref="ArgumentNullException">Thrown if the specified stream is null.</exception>
+        public PSDataCollectionReader(PSDataCollectionStream<T> stream)
             : base(stream)
         {
             System.Management.Automation.Diagnostics.Assert(stream.ObjectStore != null,
                 "Stream should have a valid data store");
-            _enumerator = (PSDataCollectionEnumerator<DataStoreType>)stream.ObjectStore.GetEnumerator();
+            _enumerator = (PSDataCollectionEnumerator<T>)stream.ObjectStore.GetEnumerator();
         }
 
         #endregion ctor
@@ -511,9 +508,9 @@ namespace System.Management.Automation.Internal
         /// <summary>
         /// This method is not supported.
         /// </summary>
-        /// <param name="count">The maximum number of objects to read</param>
-        /// <returns>The objects read</returns>
-        public override Collection<ReturnType> Read(int count)
+        /// <param name="count">The maximum number of objects to read.</param>
+        /// <returns>The objects read.</returns>
+        public override Collection<TResult> Read(int count)
         {
             throw new NotSupportedException();
         }
@@ -528,7 +525,7 @@ namespace System.Management.Automation.Internal
         /// <remarks>
         /// This method blocks if the buffer is empty.
         /// </remarks>
-        public override ReturnType Read()
+        public override TResult Read()
         {
             object result = AutomationNull.Value;
             if (_enumerator.MoveNext())
@@ -544,7 +541,7 @@ namespace System.Management.Automation.Internal
         /// </summary>
         /// <returns></returns>
         /// <remarks></remarks>
-        public override Collection<ReturnType> ReadToEnd()
+        public override Collection<TResult> ReadToEnd()
         {
             throw new NotSupportedException();
         }
@@ -554,7 +551,7 @@ namespace System.Management.Automation.Internal
         /// </summary>
         /// <returns></returns>
         /// <remarks></remarks>
-        public override Collection<ReturnType> NonBlockingRead()
+        public override Collection<TResult> NonBlockingRead()
         {
             return NonBlockingRead(Int32.MaxValue);
         }
@@ -567,47 +564,48 @@ namespace System.Management.Automation.Internal
         /// <param name="maxRequested">
         /// Return no more than maxRequested objects.
         /// </param>
-        public override Collection<ReturnType> NonBlockingRead(int maxRequested)
+        public override Collection<TResult> NonBlockingRead(int maxRequested)
         {
             if (maxRequested < 0)
             {
-                throw PSTraceSource.NewArgumentOutOfRangeException("maxRequested", maxRequested);
+                throw PSTraceSource.NewArgumentOutOfRangeException(nameof(maxRequested), maxRequested);
             }
 
             if (maxRequested == 0)
             {
-                return new Collection<ReturnType>();
+                return new Collection<TResult>();
             }
-            Collection<ReturnType> results = new Collection<ReturnType>();
+
+            Collection<TResult> result = new Collection<TResult>();
             int readCount = maxRequested;
 
             while (readCount > 0)
             {
                 if (_enumerator.MoveNext(false))
                 {
-                    results.Add(ConvertToReturnType(_enumerator.Current));
+                    result.Add(ConvertToReturnType(_enumerator.Current));
                     continue;
                 }
 
                 break;
             }
 
-            return results;
+            return result;
         }
 
         /// <summary>
         /// This method is not supported.
         /// </summary>
         /// <returns></returns>
-        public override ReturnType Peek()
+        public override TResult Peek()
         {
             throw new NotSupportedException();
         }
 
         /// <summary>
-        /// release all resources
+        /// Release all resources.
         /// </summary>
-        /// <param name="disposing">if true, release all managed resources</param>
+        /// <param name="disposing">If true, release all managed resources.</param>
         protected override void Dispose(bool disposing)
         {
             if (disposing)
@@ -616,12 +614,12 @@ namespace System.Management.Automation.Internal
             }
         }
 
-        private ReturnType ConvertToReturnType(object inputObject)
+        private static TResult ConvertToReturnType(object inputObject)
         {
-            Type resultType = typeof(ReturnType);
+            Type resultType = typeof(TResult);
             if (typeof(PSObject) == resultType || typeof(object) == resultType)
             {
-                ReturnType result;
+                TResult result;
                 LanguagePrimitives.TryConvertTo(inputObject, out result);
                 return result;
             }
@@ -633,7 +631,7 @@ namespace System.Management.Automation.Internal
     }
 
     /// <summary>
-    /// A ObjectReader for a PSDataCollection ObjectStream
+    /// A ObjectReader for a PSDataCollection ObjectStream.
     /// </summary>
     /// <remarks>
     /// PSDataCollection is introduced after 1.0. PSDataCollection is
@@ -641,24 +639,24 @@ namespace System.Management.Automation.Internal
     /// commands concurrently.
     /// Only Read() operation is supported currently.
     /// </remarks>
-    internal class PSDataCollectionPipelineReader<DataStoreType, ReturnType>
-        : ObjectReaderBase<ReturnType>
+    internal class PSDataCollectionPipelineReader<T, TReturn>
+        : ObjectReaderBase<TReturn>
     {
         #region Private Data
 
-        private PSDataCollection<DataStoreType> _datastore;
+        private readonly PSDataCollection<T> _datastore;
 
         #endregion Private Data
 
         #region ctor
         /// <summary>
-        /// Construct with an existing ObjectStream
+        /// Construct with an existing ObjectStream.
         /// </summary>
-        /// <param name="stream">the stream to read</param>
+        /// <param name="stream">The stream to read.</param>
         /// <param name="computerName"></param>
         /// <param name="runspaceId"></param>
-        internal PSDataCollectionPipelineReader(PSDataCollectionStream<DataStoreType> stream,
-            String computerName, Guid runspaceId)
+        internal PSDataCollectionPipelineReader(PSDataCollectionStream<T> stream,
+            string computerName, Guid runspaceId)
             : base(stream)
         {
             System.Management.Automation.Diagnostics.Assert(stream.ObjectStore != null,
@@ -672,22 +670,22 @@ namespace System.Management.Automation.Internal
 
         /// <summary>
         /// Computer name passed in by the pipeline which
-        /// created this reader
+        /// created this reader.
         /// </summary>
-        internal String ComputerName { get; }
+        internal string ComputerName { get; }
 
         /// <summary>
         /// Runspace Id passed in by the pipeline which
-        /// created this reader
+        /// created this reader.
         /// </summary>
         internal Guid RunspaceId { get; }
 
         /// <summary>
         /// This method is not supported.
         /// </summary>
-        /// <param name="count">The maximum number of objects to read</param>
-        /// <returns>The objects read</returns>
-        public override Collection<ReturnType> Read(int count)
+        /// <param name="count">The maximum number of objects to read.</param>
+        /// <returns>The objects read.</returns>
+        public override Collection<TReturn> Read(int count)
         {
             throw new NotSupportedException();
         }
@@ -702,14 +700,14 @@ namespace System.Management.Automation.Internal
         /// <remarks>
         /// This method blocks if the buffer is empty.
         /// </remarks>
-        public override ReturnType Read()
+        public override TReturn Read()
         {
             object result = AutomationNull.Value;
             if (_datastore.Count > 0)
             {
-                Collection<DataStoreType> resultCollection = _datastore.ReadAndRemove(1);
+                Collection<T> resultCollection = _datastore.ReadAndRemove(1);
 
-                // ReadAndRemove returns a Collection<DataStoreType> type but we
+                // ReadAndRemove returns a Collection<T> type but we
                 // just want the single object contained in the collection.
                 if (resultCollection.Count == 1)
                 {
@@ -725,7 +723,7 @@ namespace System.Management.Automation.Internal
         /// </summary>
         /// <returns></returns>
         /// <remarks></remarks>
-        public override Collection<ReturnType> ReadToEnd()
+        public override Collection<TReturn> ReadToEnd()
         {
             throw new NotSupportedException();
         }
@@ -735,7 +733,7 @@ namespace System.Management.Automation.Internal
         /// </summary>
         /// <returns></returns>
         /// <remarks></remarks>
-        public override Collection<ReturnType> NonBlockingRead()
+        public override Collection<TReturn> NonBlockingRead()
         {
             return NonBlockingRead(Int32.MaxValue);
         }
@@ -748,18 +746,19 @@ namespace System.Management.Automation.Internal
         /// <param name="maxRequested">
         /// Return no more than maxRequested objects.
         /// </param>
-        public override Collection<ReturnType> NonBlockingRead(int maxRequested)
+        public override Collection<TReturn> NonBlockingRead(int maxRequested)
         {
             if (maxRequested < 0)
             {
-                throw PSTraceSource.NewArgumentOutOfRangeException("maxRequested", maxRequested);
+                throw PSTraceSource.NewArgumentOutOfRangeException(nameof(maxRequested), maxRequested);
             }
 
             if (maxRequested == 0)
             {
-                return new Collection<ReturnType>();
+                return new Collection<TReturn>();
             }
-            Collection<ReturnType> results = new Collection<ReturnType>();
+
+            Collection<TReturn> results = new Collection<TReturn>();
             int readCount = maxRequested;
 
             while (readCount > 0)
@@ -781,22 +780,22 @@ namespace System.Management.Automation.Internal
         /// This method is not supported.
         /// </summary>
         /// <returns></returns>
-        public override ReturnType Peek()
+        public override TReturn Peek()
         {
             throw new NotSupportedException();
         }
 
         /// <summary>
-        /// Converts to the return type based on language primitives
+        /// Converts to the return type based on language primitives.
         /// </summary>
-        /// <param name="inputObject">input object to convert</param>
-        /// <returns>input object converted to the specified return type</returns>
-        private ReturnType ConvertToReturnType(object inputObject)
+        /// <param name="inputObject">Input object to convert.</param>
+        /// <returns>Input object converted to the specified return type.</returns>
+        private static TReturn ConvertToReturnType(object inputObject)
         {
-            Type resultType = typeof(ReturnType);
+            Type resultType = typeof(TReturn);
             if (typeof(PSObject) == resultType || typeof(object) == resultType)
             {
-                ReturnType result;
+                TReturn result;
                 LanguagePrimitives.TryConvertTo(inputObject, out result);
                 return result;
             }
@@ -809,9 +808,9 @@ namespace System.Management.Automation.Internal
         #region IDisposable
 
         /// <summary>
-        /// release all resources
+        /// Release all resources.
         /// </summary>
-        /// <param name="disposing">if true, release all managed resources</param>
+        /// <param name="disposing">If true, release all managed resources.</param>
         protected override void Dispose(bool disposing)
         {
             if (disposing)

@@ -1,24 +1,26 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
+
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Management.Automation;
+using System.Management.Automation.Internal;
+using System.Reflection;
+using System.Threading;
+
+using Microsoft.PowerShell.Commands.Internal.Format;
 
 namespace Microsoft.PowerShell.Commands
 {
-    using System;
-    using System.Collections.Generic;
-    using System.IO;
-    using System.Threading;
-    using System.Reflection;
-    using System.Management.Automation;
-    using System.Management.Automation.Internal;
-    using Microsoft.PowerShell.Commands.Internal.Format;
-
-    internal class OutWindowProxy : IDisposable
+    internal sealed class OutWindowProxy : IDisposable
     {
         private const string OutGridViewWindowClassName = "Microsoft.Management.UI.Internal.OutGridViewWindow";
         private const string OriginalTypePropertyName = "OriginalType";
         internal const string OriginalObjectPropertyName = "OutGridViewOriginalObject";
         private const string ToStringValuePropertyName = "ToStringValue";
         private const string IndexPropertyName = "IndexValue";
+
         private int _index;
 
         /// <summary> Columns definition of the underlying Management List</summary>
@@ -26,18 +28,18 @@ namespace Microsoft.PowerShell.Commands
 
         private bool _isWindowStarted;
 
-        private string _title;
+        private readonly string _title;
 
-        private OutputModeOption _outputMode;
+        private readonly OutputModeOption _outputMode;
 
         private AutoResetEvent _closedEvent;
 
-        private OutGridViewCommand _parentCmdlet;
+        private readonly OutGridViewCommand _parentCmdlet;
 
-        private GraphicalHostReflectionWrapper _graphicalHostReflectionWrapper;
+        private readonly GraphicalHostReflectionWrapper _graphicalHostReflectionWrapper;
 
         /// <summary>
-        /// Initializes a new instance of the OutWindowProxy class.
+        /// Initializes a new instance of the <see cref="OutWindowProxy"/> class.
         /// </summary>
         internal OutWindowProxy(string title, OutputModeOption outPutMode, OutGridViewCommand parentCmdlet)
         {
@@ -56,18 +58,11 @@ namespace Microsoft.PowerShell.Commands
         /// <param name="types">An array of types to add.</param>
         internal void AddColumns(string[] propertyNames, string[] displayNames, Type[] types)
         {
-            if (propertyNames == null)
-            {
-                throw new ArgumentNullException("propertyNames");
-            }
-            if (displayNames == null)
-            {
-                throw new ArgumentNullException("displayNames");
-            }
-            if (types == null)
-            {
-                throw new ArgumentNullException("types");
-            }
+            ArgumentNullException.ThrowIfNull(propertyNames);
+
+            ArgumentNullException.ThrowIfNull(displayNames);
+
+            ArgumentNullException.ThrowIfNull(types);
 
             try
             {
@@ -76,8 +71,7 @@ namespace Microsoft.PowerShell.Commands
             catch (TargetInvocationException ex)
             {
                 // Verify if this is an error loading the System.Core dll.
-                FileNotFoundException fileNotFoundEx = ex.InnerException as FileNotFoundException;
-                if (fileNotFoundEx != null && fileNotFoundEx.FileName.Contains("System.Core"))
+                if (ex.InnerException is FileNotFoundException fileNotFoundEx && fileNotFoundEx.FileName.Contains("System.Core"))
                 {
                     _parentCmdlet.ThrowTerminatingError(
                         new ErrorRecord(new InvalidOperationException(
@@ -173,10 +167,7 @@ namespace Microsoft.PowerShell.Commands
         /// </param>
         internal void AddItem(PSObject livePSObject)
         {
-            if (livePSObject == null)
-            {
-                throw new ArgumentNullException("livePSObject");
-            }
+            ArgumentNullException.ThrowIfNull(livePSObject);
 
             if (_headerInfo == null)
             {
@@ -199,10 +190,7 @@ namespace Microsoft.PowerShell.Commands
         /// </param>
         internal void AddHeteroViewItem(PSObject livePSObject)
         {
-            if (livePSObject == null)
-            {
-                throw new ArgumentNullException("livePSObject");
-            }
+            ArgumentNullException.ThrowIfNull(livePSObject);
 
             if (_headerInfo == null)
             {
@@ -226,18 +214,12 @@ namespace Microsoft.PowerShell.Commands
             }
         }
 
-        internal void BlockUntillClosed()
-        {
-            if (_closedEvent != null)
-            {
-                _closedEvent.WaitOne();
-            }
-        }
+        internal void BlockUntilClosed() => _closedEvent?.WaitOne();
 
         /// <summary>
-        /// Implements IDisposable logic
+        /// Implements IDisposable logic.
         /// </summary>
-        /// <param name="isDisposing">true if being called from Dispose</param>
+        /// <param name="isDisposing">True if being called from Dispose.</param>
         private void Dispose(bool isDisposing)
         {
             if (isDisposing)
@@ -251,7 +233,7 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        /// Dispose method in IDisposable
+        /// Dispose method in IDisposable.
         /// </summary>
         public void Dispose()
         {
@@ -293,7 +275,7 @@ namespace Microsoft.PowerShell.Commands
         /// Return the selected item of the OutGridView.
         /// </summary>
         /// <returns>
-        /// The selected item
+        /// The selected item.
         /// </returns>
         internal List<PSObject> GetSelectedItems()
         {

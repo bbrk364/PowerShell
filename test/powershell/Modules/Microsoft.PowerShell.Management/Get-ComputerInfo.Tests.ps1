@@ -1,4 +1,4 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 #
 # TEST SPECIFIC HELPER METHODS FOR TESTING Get-ComputerInfo cmdlet
@@ -6,6 +6,11 @@
 
 $computerInfoAll = $null
 $testStartTime = Get-Date
+
+$excludedProperties = @(
+    "CsPhysicallyInstalledMemory",
+    "OsServerLevel"
+)
 
 function Get-ComputerInfoForTest
 {
@@ -227,9 +232,9 @@ function Get-PropertyNamesForComputerInfoTest
         "WindowsVersion",
         "WindowsUBR")
 
-    if ([System.Management.Automation.Platform]::IsIoT)
+    if ([System.Management.Automation.Platform]::IsIoT -or (Test-IsWinWow64))
     {
-        Write-Verbose -Verbose -Message "WindowsInstallDateFromRegistry is not supported on IoT."
+        Write-Verbose -Verbose -Message "WindowsInstallDateFromRegistry is not supported on current platform."
     }
     else
     {
@@ -472,7 +477,7 @@ public static extern int LCIDToLocaleName(uint localeID, System.Text.StringBuild
     {
         $hal = $null
         $systemDirectory =  Get-CimClassPropVal Win32_OperatingSystem SystemDirectory
-        $halPath = Join-Path -path $systemDirectory -ChildPath "hal.dll"
+        $halPath = Join-Path -Path $systemDirectory -ChildPath "hal.dll"
         $query = 'SELECT * FROM CIM_DataFile Where Name="C:\WINDOWS\system32\hal.dll"'
         $query = $query -replace '\\','\\'
         $instance = Get-CimInstance -Query $query
@@ -1008,7 +1013,19 @@ try {
 
         It "Verify type returned by Get-ComputerInfo" {
             $computerInfo = Get-ComputerInfo
-            $computerInfo | Should -BeOfType 'Microsoft.PowerShell.Commands.ComputerInfo'
+            $computerInfo | Should -BeOfType Microsoft.PowerShell.Commands.ComputerInfo
+        }
+
+        It "Verify progress records in Get-ComputerInfo" {
+            try {
+                $j = Start-Job { Get-ComputerInfo }
+                $j | Wait-Job
+                $j.ChildJobs[0].Progress | Should -HaveCount 9
+                $j.ChildJobs[0].Progress[-1].RecordType | Should -Be ([System.Management.Automation.ProgressRecordType]::Completed)
+            }
+            finally {
+                $j | Remove-Job
+            }
         }
     }
 
@@ -1019,7 +1036,7 @@ try {
                 $computerInformation = Get-ComputerInfoForTest
                 $propertyNames = Get-PropertyNamesForComputerInfoTest
                 $Expected = New-ExpectedComputerInfo $propertyNames
-                $testCases = $propertyNames | %{ @{ "Property" = $_ } }
+                $testCases = $propertyNames | ForEach-Object { @{ "Property" = $_ } }
             }
 
             #
@@ -1029,15 +1046,20 @@ try {
             # easier to debug the problem if we know *all* the failures
             # issue: https://github.com/PowerShell/PowerShell/issues/4762
             #    CsPhysicallyInstalledMemory not available when run in nightly builds
-            It "Test 01. Standard Property test - all properties (<property>)" -testcase $testCases -Pending {
+            It "Test 01. Standard Property test - all properties (<property>)" -testcase $testCases {
                 param ( $property )
+
+                if ($excludedProperties -contains $property) {
+                    Set-ItResult -Pending -Because "'$property' is not available in nightly builds"
+                }
+
                 $specialProperties = "CsNetworkAdapters","CsProcessors","OsHotFixes"
                 if ( $specialProperties -contains $property )
                 {
                     $ObservedList = $ComputerInformation.$property
                     $ExpectedList = $Expected.$property
                     $SpecialPropertyList = ($ObservedList)[0].psobject.properties.name
-                    Compare-Object $ObservedList $ExpectedList -property $SpecialPropertyList | Should -BeNullOrEmpty
+                    Compare-Object $ObservedList $ExpectedList -Property $SpecialPropertyList | Should -BeNullOrEmpty
                 }
                 else
                 {
@@ -1063,7 +1085,7 @@ try {
                 $expectedProperties = @("BiosBIOSVersion")
                 $propertyFilter = "BiosBIOSVersion"
                 $computerInfoWithProp = Get-ComputerInfoForTest -properties $propertyFilter
-                $computerInfoWithProp | Should -BeOfType [pscustomobject]
+                $computerInfoWithProp | Should -BeOfType pscustomobject
                 @($computerInfoWithProp.psobject.properties).count | Should -Be 1
                 $computerInfoWithProp.$propertyFilter | Should -Be $expected.$propertyFilter
             }
@@ -1076,7 +1098,7 @@ try {
                 $expectedProperties = @("BiosBIOSVersion","BiosBuildNumber","BiosCaption")
                 $propertyFilter = @("BiosBIOSVersion","BiosBuildNumber","BiosCaption")
                 $computerInfoWithProp = Get-ComputerInfoForTest -properties $propertyFilter
-                $computerInfoWithProp | Should -BeOfType [pscustomobject]
+                $computerInfoWithProp | Should -BeOfType pscustomobject
                 @($computerInfoWithProp.psobject.properties).count | Should -Be 3
                 foreach($property in $propertyFilter) {
                     $ComputerInfoWithProp.$property | Should -Be $Expected.$property
@@ -1091,7 +1113,7 @@ try {
                 $expectedProperties = $null
                 $propertyFilter = @("BiosBIOSVersionXXX")
                 $computerInfoWithProp = Get-ComputerInfoForTest -properties $propertyFilter
-                $computerInfoWithProp | Should -BeOfType [pscustomobject]
+                $computerInfoWithProp | Should -BeOfType pscustomobject
                 @($computerInfoWithProp.psobject.properties).count | Should -Be 0
             }
 
@@ -1103,7 +1125,7 @@ try {
                 $expectedProperties = $null
                 $propertyFilter = @("BiosBIOSVersionXXX","InvalidProperty1","InvalidProperty2","InvalidProperty3")
                 $computerInfoWithProp = Get-ComputerInfoForTest -properties $propertyFilter
-                $computerInfoWithProp | Should -BeOfType [pscustomobject]
+                $computerInfoWithProp | Should -BeOfType pscustomobject
                 @($computerInfoWithProp.psobject.properties).count | Should -Be 0
             }
 
@@ -1115,7 +1137,7 @@ try {
                 $expectedProperties = @("BiosCodeSet","BiosCurrentLanguage","BiosDescription")
                 $propertyFilter = @("InvalidProperty1","BiosCodeSet","BiosCurrentLanguage","BiosDescription")
                 $computerInfoWithProp = Get-ComputerInfoForTest -properties $propertyFilter
-                $computerInfoWithProp | Should -BeOfType [pscustomobject]
+                $computerInfoWithProp | Should -BeOfType pscustomobject
                 $realProperties  = $propertyFilter | Where-Object { $_ -notmatch "^InvalidProperty[0-9]+" }
                 @($computerInfoWithProp.psobject.properties).count | Should -Be $realProperties.Count
                 foreach ( $property in $realProperties )
@@ -1132,7 +1154,7 @@ try {
                 $expectedProperties = @("BiosCodeSet","BiosCurrentLanguage","BiosDescription")
                 $propertyFilter = @("BiosCodeSet","InvalidProperty1","BiosCurrentLanguage","BiosDescription","InvalidProperty2")
                 $computerInfoWithProp = Get-ComputerInfoForTest -properties $propertyFilter
-                $computerInfoWithProp | Should -BeOfType [pscustomobject]
+                $computerInfoWithProp | Should -BeOfType pscustomobject
                 $realProperties  = $propertyFilter | Where-Object { $_ -notmatch "^InvalidProperty[0-9]+" }
                 @($computerInfoWithProp.psobject.properties).count | Should -Be $realProperties.Count
                 foreach ( $property in $realProperties )
@@ -1149,7 +1171,7 @@ try {
                 $expectedProperties = @("BiosCaption","BiosCharacteristics","BiosCodeSet","BiosCurrentLanguage")
                 $propertyFilter = @("BiosC*")
                 $computerInfoWithProp = Get-ComputerInfoForTest -properties $propertyFilter
-                $computerInfoWithProp | Should -BeOfType [pscustomobject]
+                $computerInfoWithProp | Should -BeOfType pscustomobject
                 @($computerInfoWithProp.psobject.properties).count | Should -Be $expectedProperties.Count
                 foreach ( $property in $expectedProperties )
                 {
@@ -1165,7 +1187,7 @@ try {
                 $expectedProperties = @("BiosCaption","BiosCharacteristics","BiosCodeSet","BiosCurrentLanguage","CsCaption")
                 $propertyFilter = @("BiosC*","CsCaption")
                 $computerInfoWithProp = Get-ComputerInfoForTest -properties $propertyFilter
-                $computerInfoWithProp | Should -BeOfType [pscustomobject]
+                $computerInfoWithProp | Should -BeOfType pscustomobject
                 @($computerInfoWithProp.psobject.properties).count | Should -Be $expectedProperties.Count
                 foreach ( $property in $expectedProperties )
                 {
@@ -1181,7 +1203,7 @@ try {
                 $expectedProperties = @("BiosCaption","BiosCharacteristics","BiosCodeSet","BiosCurrentLanguage","CsCaption")
                 $propertyFilter = @("CsCaption","InvalidProperty1","BiosC*")
                 $computerInfoWithProp = Get-ComputerInfoForTest -properties $propertyFilter
-                $computerInfoWithProp | Should -BeOfType [pscustomobject]
+                $computerInfoWithProp | Should -BeOfType pscustomobject
                 @($computerInfoWithProp.psobject.properties).count | Should -Be $expectedProperties.Count
                 foreach ( $property in $expectedProperties )
                 {
@@ -1197,7 +1219,7 @@ try {
                 $expectedProperties = $null
                 $propertyFilter = @("BiosBIOSVersionX*")
                 $computerInfoWithProp = Get-ComputerInfoForTest -properties $propertyFilter
-                $computerInfoWithProp | Should -BeOfType [pscustomobject]
+                $computerInfoWithProp | Should -BeOfType pscustomobject
                 @($computerInfoWithProp.psobject.properties).count | Should -Be 0
             }
         }
@@ -1292,7 +1314,8 @@ try {
                     "3" = "DMAProtection"
                     "4" = "SecureMemoryOverwrite"
                     "5" = "UEFICodeReadonly"
-                    "6" = "SMMSecurityMitigations1.0"
+                    "6" = "SMMSecurityMitigations"
+                    "7" = "ModeBasedExecutionControl"
                 }
                 $smartStatusValues = @{
                     "0" = "Off"

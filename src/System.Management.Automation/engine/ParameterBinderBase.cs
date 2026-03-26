@@ -1,43 +1,44 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Collections;
-using System.Collections.ObjectModel;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Linq;
 using System.Management.Automation.Internal;
 using System.Management.Automation.Language;
 using System.Reflection;
-using System.Globalization;
-using System.Diagnostics.CodeAnalysis;
+
 using Dbg = System.Management.Automation.Diagnostics;
 
 namespace System.Management.Automation
 {
     /// <summary>
-    /// Flags
+    /// Flags.
     /// </summary>
     [Flags]
     internal enum ParameterBindingFlags
     {
         /// <summary>
-        /// No flags specified
+        /// No flags specified.
         /// </summary>
         None = 0,
 
         /// <summary>
-        /// Set when the argument should be converted to the parameter type
+        /// Set when the argument should be converted to the parameter type.
         /// </summary>
         ShouldCoerceType = 0x01,
 
         /// <summary>
-        /// Set when the argument should not be validated or recorded in BoundParameters
+        /// Set when the argument should not be validated or recorded in BoundParameters.
         /// </summary>
         IsDefaultValue = 0x02,
 
         /// <summary>
-        /// Set when script blocks can be bound as a script block parameter instead of a normal argument
+        /// Set when script blocks can be bound as a script block parameter instead of a normal argument.
         /// </summary>
         DelayBindScriptBlock = 0x04,
 
@@ -57,10 +58,10 @@ namespace System.Management.Automation
     {
         #region tracer
         [TraceSource("ParameterBinderBase", "A abstract helper class for the CommandProcessor that binds parameters to the specified object.")]
-        private static PSTraceSource s_tracer = PSTraceSource.GetTracer("ParameterBinderBase", "A abstract helper class for the CommandProcessor that binds parameters to the specified object.");
+        private static readonly PSTraceSource s_tracer = PSTraceSource.GetTracer("ParameterBinderBase", "A abstract helper class for the CommandProcessor that binds parameters to the specified object.");
 
         [TraceSource("ParameterBinding", "Traces the process of binding the arguments to the parameters of cmdlets, scripts, and applications.")]
-        internal static PSTraceSource bindingTracer =
+        internal static readonly PSTraceSource bindingTracer =
             PSTraceSource.GetTracer(
                 "ParameterBinding",
                 "Traces the process of binding the arguments to the parameters of cmdlets, scripts, and applications.",
@@ -74,23 +75,18 @@ namespace System.Management.Automation
         /// Constructs the parameter binder with the specified type metadata. The binder is only valid
         /// for a single instance of a bindable object and only for the duration of a command.
         /// </summary>
-        ///
         /// <param name="target">
         /// The target object that the parameter values will be bound to.
         /// </param>
-        ///
         /// <param name="invocationInfo">
         /// The invocation information for the code that is being bound.
         /// </param>
-        ///
         /// <param name="context">
         /// The context of the currently running engine.
         /// </param>
-        ///
         /// <param name="command">
         /// The command that the parameter binder is binding to. The command can be null.
         /// </param>
-        ///
         internal ParameterBinderBase(
             object target,
             InvocationInfo invocationInfo,
@@ -115,19 +111,15 @@ namespace System.Management.Automation
         /// Constructs the parameter binder with the specified type metadata. The binder is only valid
         /// for a single instance of a bindable object and only for the duration of a command.
         /// </summary>
-        ///
         /// <param name="invocationInfo">
         /// The invocation information for the code that is being bound.
         /// </param>
-        ///
         /// <param name="context">
         /// The context of the currently running engine.
         /// </param>
-        ///
         /// <param name="command">
         /// The command that the parameter binder is binding to. The command can be null.
         /// </param>
-        ///
         internal ParameterBinderBase(
             InvocationInfo invocationInfo,
             ExecutionContext context,
@@ -180,10 +172,12 @@ namespace System.Management.Automation
         /// </summary>
         internal CommandLineParameters CommandLineParameters
         {
+            get { return _commandLineParameters ??= new CommandLineParameters(); }
+
             // Setter is needed to pass into RuntimeParameterBinder instances
             set { _commandLineParameters = value; }
-            get { return _commandLineParameters ?? (_commandLineParameters = new CommandLineParameters()); }
         }
+
         private CommandLineParameters _commandLineParameters;
 
         /// <summary>
@@ -192,7 +186,7 @@ namespace System.Management.Automation
         internal bool RecordBoundParameters = true;
 
         /// <summary>
-        /// Full Qualified ID for the obsolete parameter warning
+        /// Full Qualified ID for the obsolete parameter warning.
         /// </summary>
         internal const string FQIDParameterObsolete = "ParameterObsolete";
 
@@ -200,17 +194,14 @@ namespace System.Management.Automation
 
         /// <summary>
         /// Derived classes must override this method to get the default parameter
-        /// value so that it can be restored between pipeline input
+        /// value so that it can be restored between pipeline input.
         /// </summary>
-        ///
         /// <param name="name">
         /// The name of the parameter to get the default value of.
         /// </param>
-        ///
         /// <returns>
         /// The value of the parameter specified by name.
         /// </returns>
-        ///
         internal abstract object GetDefaultParameterValue(string name);
 
         #endregion Parameter default values
@@ -252,7 +243,7 @@ namespace System.Management.Automation
             if (!psTypeNamesOfArgumentValue.Contains(psTypeNameRequestedByParameter, StringComparer.OrdinalIgnoreCase))
             {
                 // win8: 228176..The callers know when to ignore and when not to ignore invalid cast exceptions.
-                PSInvalidCastException e = new PSInvalidCastException(ErrorCategory.InvalidArgument.ToString(),
+                PSInvalidCastException e = new PSInvalidCastException(nameof(ErrorCategory.InvalidArgument),
                         null,
                         ParameterBinderStrings.MismatchedPSTypeName,
                         (_invocationInfo != null) && (_invocationInfo.MyCommand != null) ? _invocationInfo.MyCommand.Name : string.Empty,
@@ -302,24 +293,19 @@ namespace System.Management.Automation
         /// parameter, then calls the protected BindParameter method to have
         /// the derived class do the actual binding.
         /// </summary>
-        ///
         /// <param name="parameter">
         /// The parameter to be bound.
         /// </param>
-        ///
         /// <param name="parameterMetadata">
         /// The metadata for the parameter to use in guiding the binding.
         /// </param>
-        ///
         /// <param name="flags">
         /// Flags for type coercion and validation.
         /// </param>
-        ///
         /// <returns>
         /// True if the parameter was successfully bound. False if <paramref name="coerceTypeIfNeeded"/>
         /// is false and the type does not match the parameter type.
         /// </returns>
-        ///
         /// <remarks>
         /// The binding algorithm goes as follows:
         /// 1. The data generation attributes are run
@@ -328,11 +314,9 @@ namespace System.Management.Automation
         /// 4. The data is encoded into the bindable object using the
         ///    protected BindParameter method.
         /// </remarks>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If <paramref name="parameter"/> or <paramref name="parameterMetadata"/> is null.
         /// </exception>
-        ///
         /// <exception cref="ParameterBindingException">
         /// If argument transformation fails.
         /// or
@@ -342,7 +326,6 @@ namespace System.Management.Automation
         /// or
         /// If the binding to the parameter fails.
         /// </exception>
-        ///
         internal virtual bool BindParameter(
             CommandParameterInternal parameter,
             CompiledCommandParameter parameterMetadata,
@@ -354,12 +337,12 @@ namespace System.Management.Automation
 
             if (parameter == null)
             {
-                throw PSTraceSource.NewArgumentNullException("parameter");
+                throw PSTraceSource.NewArgumentNullException(nameof(parameter));
             }
 
             if (parameterMetadata == null)
             {
-                throw PSTraceSource.NewArgumentNullException("parameterMetadata");
+                throw PSTraceSource.NewArgumentNullException(nameof(parameterMetadata));
             }
 
             using (bindingTracer.TraceScope(
@@ -434,7 +417,7 @@ namespace System.Management.Automation
                                                              parameterMetadata.CannotBeNull ||
                                                              dma.TransformNullOptionalParameters)))
                                     {
-                                        parameterValue = dma.Transform(_engine, parameterValue);
+                                        parameterValue = dma.TransformInternal(_engine, parameterValue);
                                     }
                                 }
 
@@ -456,7 +439,7 @@ namespace System.Management.Automation
                                             GetErrorExtent(parameter),
                                             parameterMetadata.Name,
                                             parameterMetadata.Type,
-                                            (parameterValue == null) ? null : parameterValue.GetType(),
+                                            parameterValue?.GetType(),
                                             ParameterBinderStrings.ParameterArgumentTransformationError,
                                             "ParameterArgumentTransformationError",
                                             e.Message);
@@ -539,12 +522,13 @@ namespace System.Management.Automation
                                             GetErrorExtent(parameter),
                                             parameterMetadata.Name,
                                             parameterMetadata.Type,
-                                            (parameterValue == null) ? null : parameterValue.GetType(),
+                                            parameterValue?.GetType(),
                                             ParameterBinderStrings.ParameterArgumentValidationError,
                                             "ParameterArgumentValidationError",
                                             e.Message);
                                     throw bindingException;
                                 }
+
                                 s_tracer.WriteLine("Validation attribute on {0} returned {1}.", parameterMetadata.Name, result);
                             }
                         }
@@ -568,22 +552,20 @@ namespace System.Management.Automation
                         (!isDefaultValue) &&
                         spb != null && !usesCmdletBinding)
                     {
-                        string obsoleteWarning = String.Format(
+                        string obsoleteWarning = string.Format(
                             CultureInfo.InvariantCulture,
                             ParameterBinderStrings.UseOfDeprecatedParameterWarning,
                             parameterMetadata.Name,
                             parameterMetadata.ObsoleteAttribute.Message);
 
                         var mshCommandRuntime = this.Command.commandRuntime as MshCommandRuntime;
-                        if (mshCommandRuntime != null)
-                        {
-                            // Write out warning only if we are in the context of MshCommandRuntime.
-                            // This is because
-                            //  1. The overload method WriteWarning(WarningRecord) is only available in MshCommandRuntime;
-                            //  2. We write out warnings for obsolete commands and obsolete cmdlet parameters only when in
-                            //     the context of MshCommandRuntime. So we do it here to keep consistency.
-                            mshCommandRuntime.WriteWarning(new WarningRecord(FQIDParameterObsolete, obsoleteWarning));
-                        }
+
+                        // Write out warning only if we are in the context of MshCommandRuntime.
+                        // This is because
+                        //  1. The overload method WriteWarning(WarningRecord) is only available in MshCommandRuntime;
+                        //  2. We write out warnings for obsolete commands and obsolete cmdlet parameters only when in
+                        //     the context of MshCommandRuntime. So we do it here to keep consistency.
+                        mshCommandRuntime?.WriteWarning(new WarningRecord(FQIDParameterObsolete, obsoleteWarning));
                     }
 
                     // Finally bind the argument to the parameter
@@ -602,7 +584,7 @@ namespace System.Management.Automation
 
                     if (bindError != null)
                     {
-                        Type specifiedType = (parameterValue == null) ? null : parameterValue.GetType();
+                        Type specifiedType = parameterValue?.GetType();
                         ParameterBindingException bindingException =
                             new ParameterBindingException(
                                 bindError,
@@ -661,6 +643,7 @@ namespace System.Management.Automation
                                         break;
                                     }
                                 }
+
                                 stringToPrint = sb.ToString();
                             }
                             else if (parameterValue != null)
@@ -671,6 +654,7 @@ namespace System.Management.Automation
                         catch (Exception) // Catch-all OK, 3rd party callout
                         {
                         }
+
                         if (stringToPrint != null)
                         {
                             cmdRuntime.PipelineProcessor.LogExecutionParameterBinding(this.InvocationInfo, parameter.ParameterName, stringToPrint);
@@ -680,33 +664,27 @@ namespace System.Management.Automation
 
                 return result;
             }
-        } // BindParameter
+        }
 
         /// <summary>
         /// This method ensures that if the parameter is mandatory, and AllowNull, AllowEmptyString,
         /// and/or AllowEmptyCollection is not specified, then argument is not null or empty.
         /// </summary>
-        ///
         /// <param name="parameter">
         /// The argument token.
         /// </param>
-        ///
         /// <param name="parameterMetadata">
         /// The metadata for the parameter.
         /// </param>
-        ///
         /// <param name="argumentType">
         /// The type of the argument to validate against.
         /// </param>
-        ///
         /// <param name="parameterValue">
         /// The value that will be bound to the parameter.
         /// </param>
-        ///
         /// <param name="recurseIntoCollections">
         /// If true, then elements of collections will be validated against the metadata.
         /// </param>
-        ///
         private void ValidateNullOrEmptyArgument(
             CommandParameterInternal parameter,
             CompiledCommandParameter parameterMetadata,
@@ -732,6 +710,7 @@ namespace System.Management.Automation
                             "ParameterArgumentValidationErrorNullNotAllowed");
                     throw bindingException;
                 }
+
                 return;
             }
 
@@ -755,11 +734,12 @@ namespace System.Management.Automation
                             GetErrorExtent(parameter),
                             parameterMetadata.Name,
                             parameterMetadata.Type,
-                            (parameterValue == null) ? null : parameterValue.GetType(),
+                            parameterValue?.GetType(),
                             ParameterBinderStrings.ParameterArgumentValidationErrorEmptyStringNotAllowed,
                             "ParameterArgumentValidationErrorEmptyStringNotAllowed");
                     throw bindingException;
                 }
+
                 return;
             }
 
@@ -790,13 +770,17 @@ namespace System.Management.Automation
 
             // Note - we explicitly don't pass the context here because we don't want
             // the overhead of the calls that check for stopping.
-            if (ParserOps.MoveNext(null, null, ienum)) { isEmpty = false; }
+            if (ParserOps.MoveNext(null, null, ienum))
+            {
+                isEmpty = false;
+            }
 
             // If the element of the collection is of value type, then no need to check for null
             // because a value-type value cannot be null.
             if (!isEmpty && !isElementValueType)
             {
-                do {
+                do
+                {
                     object element = ParserOps.Current(null, ienum);
                     ValidateNullOrEmptyArgument(
                         parameter,
@@ -830,7 +814,7 @@ namespace System.Management.Automation
                         GetErrorExtent(parameter),
                         parameterMetadata.Name,
                         parameterMetadata.Type,
-                        (parameterValue == null) ? null : parameterValue.GetType(),
+                        parameterValue?.GetType(),
                         resourceString,
                         errorId);
                 throw bindingException;
@@ -869,7 +853,7 @@ namespace System.Management.Automation
             }
 
             var psobj = parameterValue as PSObject;
-            if (psobj != null && !psobj.immediateBaseObjectIsEmpty)
+            if (psobj != null && !psobj.ImmediateBaseObjectIsEmpty)
             {
                 // See if the base object is of the same type or
                 // as subclass of the parameter
@@ -907,6 +891,7 @@ namespace System.Management.Automation
                     // type for the parameter.
                     return false;
                 }
+
                 parameterValue = encodedValue;
                 return true;
             }
@@ -917,9 +902,10 @@ namespace System.Management.Automation
         #endregion Parameter binding
 
         /// <summary>
-        /// The invocation information for the code that is being bound
+        /// The invocation information for the code that is being bound.
         /// </summary>
-        private InvocationInfo _invocationInfo;
+        private readonly InvocationInfo _invocationInfo;
+
         internal InvocationInfo InvocationInfo
         {
             get
@@ -929,9 +915,10 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// The context of the currently running engine
+        /// The context of the currently running engine.
         /// </summary>
-        private ExecutionContext _context;
+        private readonly ExecutionContext _context;
+
         internal ExecutionContext Context
         {
             get
@@ -943,7 +930,8 @@ namespace System.Management.Automation
         /// <summary>
         /// An instance of InternalCommand that the binder is binding to.
         /// </summary>
-        private InternalCommand _command;
+        private readonly InternalCommand _command;
+
         internal InternalCommand Command
         {
             get
@@ -955,9 +943,9 @@ namespace System.Management.Automation
         /// <summary>
         /// The engine APIs that need to be passed the attributes when evaluated.
         /// </summary>
-        private EngineIntrinsics _engine;
+        private readonly EngineIntrinsics _engine;
 
-        private bool _isTranscribing;
+        private readonly bool _isTranscribing;
 
         #endregion internal members
 
@@ -966,42 +954,33 @@ namespace System.Management.Automation
         /// <summary>
         /// Coerces the argument type to the parameter value type as needed.
         /// </summary>
-        ///
         /// <param name="argument">
         /// The argument as was specified by the command line.
         /// </param>
-        ///
         /// <param name="parameterName">
         /// The name of the parameter that the coercion is taking place to bind to. It is
         /// used only for error reporting.
         /// </param>
-        ///
         /// <param name="toType">
         /// The type to coerce the value to.
         /// </param>
-        ///
         /// <param name="collectionTypeInfo">
         /// The information about the collection type, like element type, etc.
         /// </param>
-        ///
         /// <param name="currentValue">
         /// The current value of the argument.
         /// </param>
-        ///
         /// <returns>
         /// The value of the argument in the type of the parameter.
         /// </returns>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If <paramref name="argument"/> or <paramref name="toType"/> is null.
         /// </exception>
-        ///
         /// <exception cref="ParameterBindingException">
         /// If the argument value is missing and the parameter is not a bool or SwitchParameter.
         /// or
         /// If the argument value could not be converted to the parameter type.
         /// </exception>
-        ///
         private object CoerceTypeAsNeeded(
             CommandParameterInternal argument,
             string parameterName,
@@ -1011,21 +990,19 @@ namespace System.Management.Automation
         {
             if (argument == null)
             {
-                throw PSTraceSource.NewArgumentNullException("argument");
+                throw PSTraceSource.NewArgumentNullException(nameof(argument));
             }
 
             if (toType == null)
             {
-                throw PSTraceSource.NewArgumentNullException("toType");
+                throw PSTraceSource.NewArgumentNullException(nameof(toType));
             }
 
             // Construct the collection type information if it wasn't passed in.
 
-            if (collectionTypeInfo == null)
-            {
-                collectionTypeInfo = new ParameterCollectionTypeInformation(toType);
-            }
+            collectionTypeInfo ??= new ParameterCollectionTypeInformation(toType);
 
+            object originalValue = currentValue;
             object result = currentValue;
 
             using (bindingTracer.TraceScope(
@@ -1083,7 +1060,7 @@ namespace System.Management.Automation
                         // If we have an PSObject with null base and we are trying to
                         // convert to a string, then we need to use null instead of
                         // calling LanguagePrimitives.ConvertTo as that will return
-                        // String.Empty.
+                        // string.Empty.
 
                         if (toType == typeof(string) &&
                             argumentType == typeof(PSObject))
@@ -1106,7 +1083,7 @@ namespace System.Management.Automation
                         // Anything else passed should be reported as an error
 
                         if (toType == typeof(bool) || toType == typeof(SwitchParameter) ||
-                            toType == typeof(Nullable<bool>))
+                            toType == typeof(bool?))
                         {
                             Type boType = null;
                             if (argumentType == typeof(PSObject))
@@ -1134,10 +1111,10 @@ namespace System.Management.Automation
                                 else
                                     result = new SwitchParameter((bool)currentValue);
                             }
-                            else if (boType == typeof(Int32))
+                            else if (boType == typeof(int))
                             {
-                                if ((Int32)LanguagePrimitives.ConvertTo(currentValue,
-                                            typeof(Int32), CultureInfo.InvariantCulture) != 0)
+                                if ((int)LanguagePrimitives.ConvertTo(currentValue,
+                                            typeof(int), CultureInfo.InvariantCulture) != 0)
                                 {
                                     if (LanguagePrimitives.IsBooleanType(toType))
                                         result = ParserOps.BoolToObject(true);
@@ -1154,8 +1131,8 @@ namespace System.Management.Automation
                             }
                             else if (LanguagePrimitives.IsNumeric(boType.GetTypeCode()))
                             {
-                                Double currentValueAsDouble = (Double)LanguagePrimitives.ConvertTo(
-                                                                        currentValue, typeof(Double), CultureInfo.InvariantCulture);
+                                double currentValueAsDouble = (double)LanguagePrimitives.ConvertTo(
+                                                                        currentValue, typeof(double), CultureInfo.InvariantCulture);
 
                                 if (currentValueAsDouble != 0)
                                 {
@@ -1177,7 +1154,7 @@ namespace System.Management.Automation
                                 // Invalid types which cannot be associated with a bool
                                 // Since there is a catch block which appropriately
                                 // handles this situation we just throw an exception here
-                                //throw new PSInvalidCastException();
+                                // throw new PSInvalidCastException();
                                 ParameterBindingException pbe =
                                     new ParameterBindingException(
                                         ErrorCategory.InvalidArgument,
@@ -1193,6 +1170,7 @@ namespace System.Management.Automation
 
                                 throw pbe;
                             }
+
                             break;
                         }
 
@@ -1246,7 +1224,7 @@ namespace System.Management.Automation
                             // the parameter type is Object or PSObject or enum.
 
                             if (GetIList(currentValue) != null &&
-                                toType != typeof(Object) &&
+                                toType != typeof(object) &&
                                 toType != typeof(PSObject) &&
                                 toType != typeof(PSListModifier) &&
                                 (!toType.IsGenericType || toType.GetGenericTypeDefinition() != typeof(PSListModifier<>)) &&
@@ -1260,29 +1238,24 @@ namespace System.Management.Automation
                         bindingTracer.WriteLine(
                             "CONVERT arg type to param type using LanguagePrimitives.ConvertTo");
 
-                        // If we are in constrained language mode and the target command is trusted,
-                        // allow type conversion to the target command's parameter type.
-                        // Don't allow Hashtable-to-Object conversion (PSObject and IDictionary), though,
-                        // as those can lead to property setters that probably aren't expected.
-                        bool changeLanguageModeForTrustedCommand = false;
-                        if (_context.LanguageMode == PSLanguageMode.ConstrainedLanguage)
-                        {
-                            var basedObject = PSObject.Base(currentValue);
-                            var supportsPropertyConversion = basedObject is PSObject;
-                            var supportsIDictionaryConversion = (basedObject != null) &&
-                                (typeof(IDictionary).IsAssignableFrom(basedObject.GetType()));
-
-                            changeLanguageModeForTrustedCommand =
-                                (this.Command.CommandInfo.DefiningLanguageMode == PSLanguageMode.FullLanguage) &&
-                                (!supportsPropertyConversion) &&
-                                (!supportsIDictionaryConversion);
-                        }
+                        // If we are in constrained language mode and the target command is trusted, which is often
+                        // the case for C# cmdlets, then we allow type conversion to the target parameter type.
+                        //
+                        // However, we don't allow Hashtable-to-Object conversion (PSObject and IDictionary) because
+                        // those can lead to property setters that probably aren't expected. This is enforced by
+                        // setting 'Context.LanguageModeTransitionInParameterBinding' to true before the conversion.
+                        var currentLanguageMode = Context.LanguageMode;
+                        bool changeLanguageModeForTrustedCommand =
+                            currentLanguageMode == PSLanguageMode.ConstrainedLanguage &&
+                            this.Command.CommandInfo.DefiningLanguageMode == PSLanguageMode.FullLanguage;
+                        bool oldLangModeTransitionStatus = Context.LanguageModeTransitionInParameterBinding;
 
                         try
                         {
                             if (changeLanguageModeForTrustedCommand)
                             {
-                                _context.LanguageMode = PSLanguageMode.FullLanguage;
+                                Context.LanguageMode = PSLanguageMode.FullLanguage;
+                                Context.LanguageModeTransitionInParameterBinding = true;
                             }
 
                             result = LanguagePrimitives.ConvertTo(currentValue, toType, CultureInfo.CurrentCulture);
@@ -1291,7 +1264,8 @@ namespace System.Management.Automation
                         {
                             if (changeLanguageModeForTrustedCommand)
                             {
-                                _context.LanguageMode = PSLanguageMode.ConstrainedLanguage;
+                                Context.LanguageMode = currentLanguageMode;
+                                Context.LanguageModeTransitionInParameterBinding = oldLangModeTransitionStatus;
                             }
                         }
 
@@ -1345,9 +1319,16 @@ namespace System.Management.Automation
 
                     throw pbe;
                 }
-            } // TraceScope
+            }
+
+            if (result != null)
+            {
+                // Set the converted result object untrusted if necessary
+                ExecutionContext.PropagateInputSource(originalValue, result, Context.LanguageMode);
+            }
+
             return result;
-        } // CoerceTypeAsNeeded
+        }
 
         private static bool IsNullParameterValue(object currentValue)
         {
@@ -1359,6 +1340,7 @@ namespace System.Management.Automation
             {
                 result = true;
             }
+
             return result;
         }
 
@@ -1431,45 +1413,36 @@ namespace System.Management.Automation
         /// Takes the current value specified and converts or adds it to
         /// a collection of the appropriate type.
         /// </summary>
-        ///
         /// <param name="argument">
         /// The argument the current value comes from. Used for error reporting.
         /// </param>
-        ///
         /// <param name="parameterName">
         /// The name of the parameter.
         /// </param>
-        ///
         /// <param name="collectionTypeInformation">
         /// The collection type information to which the current value will be
         /// encoded.
         /// </param>
-        ///
         /// <param name="toType">
         /// The type the current value will be converted to.
         /// </param>
-        ///
         /// <param name="currentValue">
         /// The value to be encoded.
         /// </param>
-        ///
         /// <param name="coerceElementTypeIfNeeded">
         /// If true, the element will be coerced into the appropriate type
         /// for the collection. If false, and the element isn't of the appropriate
         /// type then the <paramref name="coercionRequired"/> out parameter will
         /// be true.
         /// </param>
-        ///
         /// <param name="coercionRequired">
         /// This out parameter will be true if <paramref name="coerceElementTypeIfNeeded"/>
         /// is true and the value could not be encoded into the collection because it
         /// requires coercion to the element type.
         /// </param>
-        ///
         /// <returns>
         /// A collection of the appropriate type containing the specified value.
         /// </returns>
-        ///
         /// <exception cref="ParameterBindingException">
         /// If <paramref name="currentValue"/> is a collection and one of its values
         /// cannot be coerced into the appropriate type.
@@ -1477,9 +1450,8 @@ namespace System.Management.Automation
         /// A collection of the appropriate <paramref name="collectionTypeInformation"/>
         /// could not be created.
         /// </exception>
-        ///
         [SuppressMessage("Microsoft.Maintainability", "CA1505:AvoidUnmaintainableCode")]
-        [SuppressMessage("Microsoft.Maintainability", "CA1506:AvoidExcessiveClassCoupling", Justification = "Consider Simplyfing it")]
+        [SuppressMessage("Microsoft.Maintainability", "CA1506:AvoidExcessiveClassCoupling", Justification = "Consider Simplifying it")]
         private object EncodeCollection(
             CommandParameterInternal argument,
             string parameterName,
@@ -1489,6 +1461,7 @@ namespace System.Management.Automation
             bool coerceElementTypeIfNeeded,
             out bool coercionRequired)
         {
+            object originalValue = currentValue;
             object result = null;
             coercionRequired = false;
 
@@ -1542,7 +1515,7 @@ namespace System.Management.Automation
                         // If System.Array is the type we are encoding to, then
                         // the element type should be System.Object.
 
-                        collectionElementType = typeof(System.Object);
+                        collectionElementType = typeof(object);
                     }
 
                     bindingTracer.WriteLine(
@@ -1585,7 +1558,7 @@ namespace System.Management.Automation
                                 toType,
                                 0,
                                 null,
-                                new object[] { },
+                                Array.Empty<object>(),
                                 System.Globalization.CultureInfo.InvariantCulture);
                         if (collectionTypeInformation.ParameterCollectionType == ParameterCollectionType.IList)
                             resultAsIList = (IList)resultCollection;
@@ -1615,6 +1588,7 @@ namespace System.Management.Automation
                                     "ArgumentException matching Add(T) for type {0}: {1}", toType.FullName, e.Message);
                                 getMethodError = e;
                             }
+
                             if (addMethod == null)
                             {
                                 ParameterBindingException bindingException =
@@ -1806,7 +1780,7 @@ namespace System.Management.Automation
                                     GetErrorExtent(argument),
                                     parameterName,
                                     toType,
-                                    (currentValueElement == null) ? null : currentValueElement.GetType(),
+                                    currentValueElement?.GetType(),
                                     ParameterBinderStrings.CannotConvertArgument,
                                     "CannotConvertArgument",
                                     currentValueElement ?? "null",
@@ -1826,7 +1800,7 @@ namespace System.Management.Automation
                         if (coerceElementTypeIfNeeded)
                         {
                             bindingTracer.WriteLine(
-                                "Coercing scalar arg value to type {1}",
+                                "Coercing scalar arg value to type {0}",
                                 collectionElementType);
 
                             // Coerce the scalar type into the collection
@@ -1903,23 +1877,26 @@ namespace System.Management.Automation
                                 GetErrorExtent(argument),
                                 parameterName,
                                 toType,
-                                (currentValue == null) ? null : currentValue.GetType(),
+                                currentValue?.GetType(),
                                 ParameterBinderStrings.CannotConvertArgument,
                                 "CannotConvertArgument",
                                 currentValue ?? "null",
                                 error.Message);
                         throw bindingException;
                     }
-                } // (currentValueAsIList == null)
+                }
 
                 if (!coercionRequired)
                 {
                     result = resultCollection;
+
+                    // Set the converted result object untrusted if necessary
+                    ExecutionContext.PropagateInputSource(originalValue, result, Context.LanguageMode);
                 }
             } while (false);
 
             return result;
-        } // EncodeCollection
+        }
 
         internal static IList GetIList(object value)
         {
@@ -1934,7 +1911,7 @@ namespace System.Management.Automation
             }
 
             return result;
-        } // GetIList
+        }
 
         protected IScriptExtent GetErrorExtent(CommandParameterInternal cpi)
         {
@@ -1942,7 +1919,7 @@ namespace System.Management.Automation
             if (result == PositionUtilities.EmptyExtent)
                 result = InvocationInfo.ScriptPosition;
             // Can't use this assertion - we don't have useful positions when invoked via PowerShell API
-            //Diagnostics.Assert(result != PositionUtilities.EmptyExtent, "We are missing a valid position somewhere");
+            // Diagnostics.Assert(result != PositionUtilities.EmptyExtent, "We are missing a valid position somewhere");
             return result;
         }
 
@@ -1952,12 +1929,12 @@ namespace System.Management.Automation
             if (result == PositionUtilities.EmptyExtent)
                 result = InvocationInfo.ScriptPosition;
             // Can't use this assertion - we don't have useful positions when invoked via PowerShell API
-            //Diagnostics.Assert(result != PositionUtilities.EmptyExtent, "We are missing a valid position somewhere");
+            // Diagnostics.Assert(result != PositionUtilities.EmptyExtent, "We are missing a valid position somewhere");
             return result;
         }
 
         #endregion private helpers
-    } // ParameterBinderBase
+    }
 
     /// <summary>
     /// Represents an unbound parameter object in the engine. It's similar to
@@ -2007,7 +1984,8 @@ namespace System.Management.Automation
 
         private static readonly IDictionary s_emptyUsingParameters = new ReadOnlyDictionary<object, object>(new Dictionary<object, object>());
 
-        public List<string> BoundPositionally { get; private set; }
+        public List<string> BoundPositionally { get; }
+
         internal IDictionary ImplicitUsingParameters { get; set; }
     }
 
@@ -2086,5 +2064,4 @@ namespace System.Management.Automation
             return result;
         }
     }
-} // namespace System.Management.Automation
-
+}

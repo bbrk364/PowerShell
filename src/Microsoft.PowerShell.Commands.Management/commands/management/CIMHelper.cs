@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
@@ -79,14 +79,13 @@ namespace Microsoft.PowerShell.Commands
         /// </remarks>
         internal static T GetFirst<T>(CimSession session, string nameSpace, string wmiClassName) where T : class, new()
         {
-            if (string.IsNullOrEmpty(wmiClassName))
-                throw new ArgumentException("String argument may not be null or empty", "wmiClassName");
+            ArgumentException.ThrowIfNullOrEmpty(wmiClassName);
 
             try
             {
                 var type = typeof(T);
-                var binding = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
-                T rv = new T();
+                const BindingFlags binding = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
+                T rv = new();
 
                 using (var instance = session.QueryFirstInstance(nameSpace, CIMHelper.WqlQueryAll(wmiClassName)))
                 {
@@ -132,8 +131,7 @@ namespace Microsoft.PowerShell.Commands
         /// </remarks>
         internal static T[] GetAll<T>(CimSession session, string nameSpace, string wmiClassName) where T : class, new()
         {
-            if (string.IsNullOrEmpty(wmiClassName))
-                throw new ArgumentException("String argument may not be null or empty", "wmiClassName");
+            ArgumentException.ThrowIfNullOrEmpty(wmiClassName);
 
             var rv = new List<T>();
 
@@ -144,11 +142,11 @@ namespace Microsoft.PowerShell.Commands
                 if (instances != null)
                 {
                     var type = typeof(T);
-                    var binding = BindingFlags.Public | BindingFlags.Instance;
+                    const BindingFlags binding = BindingFlags.Public | BindingFlags.Instance;
 
                     foreach (var instance in instances)
                     {
-                        T objT = new T();
+                        T objT = new();
 
                         using (instance)
                         {
@@ -250,11 +248,11 @@ namespace Extensions
         /// <summary>
         /// An "overload" of the
         /// <see cref="Microsoft.Management.Infrastructure.CimSession"/>.QueryInstances
-        /// method that takes only the namespace and query string as a parameters
+        /// method that takes only the namespace and query string as a parameters.
         /// </summary>
-        /// <param name="session">The CimSession to be queried</param>
-        /// <param name="nameSpace">A string containing the namespace to run the query against</param>
-        /// <param name="query">A string containing the query to be run</param>
+        /// <param name="session">The CimSession to be queried.</param>
+        /// <param name="nameSpace">A string containing the namespace to run the query against.</param>
+        /// <param name="query">A string containing the query to be run.</param>
         /// <returns>
         /// An IEnumerable interface that can be used to enumerate the instances
         /// </returns>
@@ -266,9 +264,9 @@ namespace Extensions
         /// <summary>
         /// Execute a CIM query and return only the first instance in the result.
         /// </summary>
-        /// <param name="session">The CimSession to be queried</param>
-        /// <param name="nameSpace">A string containing the namespace to run the query against</param>
-        /// <param name="query">A string containing the query to be run</param>
+        /// <param name="session">The CimSession to be queried.</param>
+        /// <param name="nameSpace">A string containing the namespace to run the query against.</param>
+        /// <param name="query">A string containing the query to be run.</param>
         /// <returns>
         /// A <see cref="Microsoft.Management.Infrastructure.CimInstance"/> object
         /// representing the first instance in a query result if successful, null
@@ -295,8 +293,8 @@ namespace Extensions
         /// <summary>
         /// Execute a CIM query and return only the first instance in the result.
         /// </summary>
-        /// <param name="session">The CimSession to be queried</param>
-        /// <param name="query">A string containing the query to be run</param>
+        /// <param name="session">The CimSession to be queried.</param>
+        /// <param name="query">A string containing the query to be run.</param>
         /// <returns>
         /// A <see cref="Microsoft.Management.Infrastructure.CimInstance"/> object
         /// representing the first instance in a query result if successful, null

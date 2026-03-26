@@ -1,25 +1,26 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 Describe "PSVersionTable" -Tags "CI" {
 
     BeforeAll {
-        $sma = Get-Item (Join-Path $PSHome "System.Management.Automation.dll")
+        Set-StrictMode -Version 3
+        $sma = Get-Item (Join-Path $PSHOME "System.Management.Automation.dll")
         $formattedVersion = $sma.VersionInfo.ProductVersion
 
         $mainVersionPattern = "(\d+\.\d+\.\d+)(-.+)?"
-        $fullVersionPattern = "^v(\d+\.\d+\.\d+)(-.+)?-(\d+)-g(.+)$"
+        $fullVersionPattern = "^(\d+\.\d+\.\d+)(-.+)?-(\d+)-g(.+)$"
 
         $expectedPSVersion = ($formattedVersion -split " ")[0]
         $expectedVersionPattern = "^$mainVersionPattern$"
 
         if ($formattedVersion.Contains(" Commits: "))
         {
-            $rawGitCommitId = "v" + $formattedVersion.Replace(" Commits: ", "-").Replace(" SHA: ", "-g")
+            $rawGitCommitId = $formattedVersion.Replace(" Commits: ", "-").Replace(" SHA: ", "-g")
             $expectedGitCommitIdPattern = $fullVersionPattern
             $unexpectectGitCommitIdPattern = "qwerty"
         } else {
-            $rawGitCommitId = "v" + ($formattedVersion -split " SHA: ")[0]
-            $expectedGitCommitIdPattern = "^v$mainVersionPattern$"
+            $rawGitCommitId = ($formattedVersion -split " SHA: ")[0]
+            $expectedGitCommitIdPattern = "^$mainVersionPattern$"
             $unexpectectGitCommitIdPattern = $fullVersionPattern
         }
     }
@@ -42,14 +43,14 @@ Describe "PSVersionTable" -Tags "CI" {
     }
 
     It "PSVersion property" {
-       $PSVersionTable.PSVersion | Should -BeOfType "System.Management.Automation.SemanticVersion"
+       $PSVersionTable.PSVersion | Should -BeOfType System.Management.Automation.SemanticVersion
        $PSVersionTable.PSVersion | Should -BeExactly $expectedPSVersion
        $PSVersionTable.PSVersion | Should -Match $expectedVersionPattern
-       $PSVersionTable.PSVersion.Major | Should -Be 6
+       $PSVersionTable.PSVersion.Major | Should -Be 7
     }
 
     It "GitCommitId property" {
-       $PSVersionTable.GitCommitId | Should -BeOfType "System.String"
+       $PSVersionTable.GitCommitId | Should -BeOfType System.String
        $PSVersionTable.GitCommitId | Should -Match $expectedGitCommitIdPattern
        $PSVersionTable.GitCommitId | Should -Not -Match $unexpectectGitCommitIdPattern
        $PSVersionTable.GitCommitId | Should -BeExactly $rawGitCommitId
@@ -74,7 +75,7 @@ Describe "PSVersionTable" -Tags "CI" {
     }
 
     It "Verify `$PSVersionTable.PSEdition" {
-        if ($isCoreCLR) {
+        if ($IsCoreCLR) {
             $edition = "Core"
         }
         else
@@ -156,6 +157,34 @@ Describe "PSVersionTable" -Tags "CI" {
         } finally {
             $PSVersionTable.Add("PSVersion", $VersionValue)
             $PSVersionTable.Add("PSEdition", $EditionValue)
+        }
+    }
+
+    Context "PSCompatibleVersions property" {
+        It "Is of type System.Version[]" {
+            Should -ActualValue $PSVersionTable.PSCompatibleVersions -BeOfType System.Version[]
+        }
+
+        It "Is sorted in ascending order" {
+            $array = $PSVersionTable.PSCompatibleVersions
+            [array]::Sort($array)
+
+            $PSVersionTable.PSCompatibleVersions | Should -Be $array
+        }
+
+        It "Has no unexpected items present" {
+            $expectedItems = @(
+                [version]::new(1, 0)
+                [version]::new(2, 0)
+                [version]::new(3, 0)
+                [version]::new(4, 0)
+                [version]::new(5, 0)
+                [version]::new(5, 1)
+                [version]::new(6, 0)
+                [version]::new(7, 0)
+            )
+
+            Compare-Object $expectedItems $PSVersionTable.PSCompatibleVersions | Should -Be $null
         }
     }
 }

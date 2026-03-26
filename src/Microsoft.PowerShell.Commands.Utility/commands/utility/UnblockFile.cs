@@ -1,18 +1,20 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
-
-#if !UNIX
 
 #region Using directives
 
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
-using System.IO;
+#if UNIX
+using System.Globalization;
+using System.Management.Automation;
+using System.Runtime.InteropServices;
+#else
 using System.Management.Automation;
 using System.Management.Automation.Internal;
+#endif
 
 #endregion
 
@@ -20,11 +22,16 @@ namespace Microsoft.PowerShell.Commands
 {
     /// <summary>Removes the Zone.Identifier stream from a file.</summary>
     [Cmdlet(VerbsSecurity.Unblock, "File", DefaultParameterSetName = "ByPath", SupportsShouldProcess = true,
-        HelpUri = "https://go.microsoft.com/fwlink/?LinkID=217450")]
+        HelpUri = "https://go.microsoft.com/fwlink/?LinkID=2097033")]
     public sealed class UnblockFileCommand : PSCmdlet
     {
+#if UNIX
+        private const string MacBlockAttribute = "com.apple.quarantine";
+        private const int RemovexattrFollowSymLink = 0;
+#endif
+
         /// <summary>
-        /// The path of the file to unblock
+        /// The path of the file to unblock.
         /// </summary>
         [Parameter(Mandatory = true, Position = 0, ParameterSetName = "ByPath")]
         [SuppressMessage("Microsoft.Performance", "CA1819:PropertiesShouldNotReturnArrays")]
@@ -34,6 +41,7 @@ namespace Microsoft.PowerShell.Commands
             {
                 return _paths;
             }
+
             set
             {
                 _paths = value;
@@ -41,10 +49,10 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        /// The literal path of the file to unblock
+        /// The literal path of the file to unblock.
         /// </summary>
         [Parameter(Mandatory = true, ParameterSetName = "ByLiteralPath", ValueFromPipelineByPropertyName = true)]
-        [Alias("PSPath","LP")]
+        [Alias("PSPath", "LP")]
         [SuppressMessage("Microsoft.Performance", "CA1819:PropertiesShouldNotReturnArrays")]
         public string[] LiteralPath
         {
@@ -52,6 +60,7 @@ namespace Microsoft.PowerShell.Commands
             {
                 return _paths;
             }
+
             set
             {
                 _paths = value;
@@ -65,10 +74,10 @@ namespace Microsoft.PowerShell.Commands
         /// </summary>
         protected override void ProcessRecord()
         {
-            List<string> pathsToProcess = new List<string>();
+            List<string> pathsToProcess = new();
             ProviderInfo provider = null;
 
-            if (String.Equals(this.ParameterSetName, "ByLiteralPath", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(this.ParameterSetName, "ByLiteralPath", StringComparison.OrdinalIgnoreCase))
             {
                 foreach (string path in _paths)
                 {
@@ -101,7 +110,7 @@ namespace Microsoft.PowerShell.Commands
                     {
                         if (!WildcardPattern.ContainsWildcardCharacters(path))
                         {
-                            ErrorRecord errorRecord = new ErrorRecord(e,
+                            ErrorRecord errorRecord = new(e,
                                 "FileNotFound",
                                 ErrorCategory.ObjectNotFound,
                                 path);
@@ -110,6 +119,7 @@ namespace Microsoft.PowerShell.Commands
                     }
                 }
             }
+#if !UNIX
 
             // Unblock files
             foreach (string path in pathsToProcess)
@@ -122,10 +132,34 @@ namespace Microsoft.PowerShell.Commands
                     }
                     catch (Exception e)
                     {
-                        WriteError(new ErrorRecord(e, "RemoveItemUnableToAccessFile", ErrorCategory.ResourceUnavailable, path));
+                        WriteError(new ErrorRecord(exception: e, errorId: "RemoveItemUnableToAccessFile", ErrorCategory.ResourceUnavailable, targetObject: path));
                     }
                 }
             }
+#else
+            if (Platform.IsLinux)
+            {
+                string errorMessage = UnblockFileStrings.LinuxNotSupported;
+                Exception e = new PlatformNotSupportedException(errorMessage);
+                ThrowTerminatingError(new ErrorRecord(exception: e, errorId: "LinuxNotSupported", ErrorCategory.NotImplemented, targetObject: null));
+                return;
+            }
+
+            foreach (string path in pathsToProcess)
+            {
+                if (IsBlocked(path))
+                {
+                    UInt32 result = RemoveXattr(path, MacBlockAttribute, RemovexattrFollowSymLink);
+                    if (result != 0)
+                    {
+                        string errorMessage = string.Format(CultureInfo.CurrentUICulture, UnblockFileStrings.UnblockError, path);
+                        Exception e = new InvalidOperationException(errorMessage);
+                        WriteError(new ErrorRecord(exception: e, errorId: "UnblockError", ErrorCategory.InvalidResult, targetObject: path));
+                    }
+                }
+            }
+
+#endif
         }
 
         /// <summary>
@@ -146,7 +180,7 @@ namespace Microsoft.PowerShell.Commands
             {
                 if (!System.IO.File.Exists(resolvedpath))
                 {
-                    ErrorRecord errorRecord = new ErrorRecord(
+                    ErrorRecord errorRecord = new(
                         new System.IO.FileNotFoundException(resolvedpath),
                         "FileNotFound",
                         ErrorCategory.ObjectNotFound,
@@ -155,12 +189,42 @@ namespace Microsoft.PowerShell.Commands
                 }
                 else
                 {
-                    isValidUnblockableFile = true; ;
+                    isValidUnblockableFile = true;
                 }
             }
 
             return isValidUnblockableFile;
         }
+
+#if UNIX
+        private static bool IsBlocked(string path)
+        {
+            const uint valueSize = 1024;
+            IntPtr value = Marshal.AllocHGlobal((int)valueSize);
+            try
+            {
+                var resultSize = GetXattr(path, MacBlockAttribute, value, valueSize, 0, RemovexattrFollowSymLink);
+                return resultSize != -1;
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(value);
+            }
+        }
+
+        // Ansi means UTF8 on Unix
+        // https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man2/RemoveXattr.2.html
+        [DllImport("libc", SetLastError = true, EntryPoint = "removexattr", CharSet = CharSet.Ansi)]
+        private static extern UInt32 RemoveXattr(string path, string name, int options);
+
+        [DllImport("libc", EntryPoint = "getxattr", CharSet = CharSet.Ansi)]
+        private static extern long GetXattr(
+            [MarshalAs(UnmanagedType.LPStr)] string path,
+            [MarshalAs(UnmanagedType.LPStr)] string name,
+            IntPtr value,
+            ulong size,
+            uint position,
+            int options);
+#endif
     }
 }
-#endif

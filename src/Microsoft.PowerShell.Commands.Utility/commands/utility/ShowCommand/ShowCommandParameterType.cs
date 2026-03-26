@@ -1,30 +1,27 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
+
+using System;
+using System.Collections;
+using System.Management.Automation;
 
 namespace Microsoft.PowerShell.Commands.ShowCommandExtension
 {
-    using System;
-    using System.Collections;
-    using System.Management.Automation;
-
     /// <summary>
-    /// Implements a facade around ShowCommandParameterInfo and its deserialized counterpart
+    /// Implements a facade around ShowCommandParameterInfo and its deserialized counterpart.
     /// </summary>
     public class ShowCommandParameterType
     {
         /// <summary>
-        /// Creates an instance of the ShowCommandParameterType class based on a Type object
+        /// Initializes a new instance of the <see cref="ShowCommandParameterType"/> class
+        /// with the specified <see cref="Type"/>.
         /// </summary>
-        ///
         /// <param name="other">
         /// The object to wrap.
         /// </param>
         public ShowCommandParameterType(Type other)
         {
-            if (other == null)
-            {
-                throw new ArgumentNullException("other");
-            }
+            ArgumentNullException.ThrowIfNull(other);
 
             this.FullName = other.FullName;
             if (other.IsEnum)
@@ -43,18 +40,15 @@ namespace Microsoft.PowerShell.Commands.ShowCommandExtension
         }
 
         /// <summary>
-        /// Creates an instance of the ShowCommandParameterType class based on a Type object
+        /// Initializes a new instance of the <see cref="ShowCommandParameterType"/> class
+        /// with the specified <see cref="Type"/>.
         /// </summary>
-        ///
         /// <param name="other">
         /// The object to wrap.
         /// </param>
         public ShowCommandParameterType(PSObject other)
         {
-            if (other == null)
-            {
-                throw new ArgumentNullException("other");
-            }
+            ArgumentNullException.ThrowIfNull(other);
 
             this.IsEnum = (bool)(other.Members["IsEnum"].Value);
             this.FullName = other.Members["FullName"].Value as string;
@@ -74,82 +68,82 @@ namespace Microsoft.PowerShell.Commands.ShowCommandExtension
         }
 
         /// <summary>
-        /// The full name of the outermost type
+        /// The full name of the outermost type.
         /// </summary>
-        public string FullName { get; private set; }
+        public string FullName { get; }
 
         /// <summary>
-        /// Whether or not this type is an enum
+        /// Whether or not this type is an enum.
         /// </summary>
-        public bool IsEnum { get; private set; }
+        public bool IsEnum { get; }
 
         /// <summary>
-        /// Whether or not this type is an dictionary
+        /// Whether or not this type is an dictionary.
         /// </summary>
-        public bool ImplementsDictionary { get; private set; }
+        public bool ImplementsDictionary { get; }
 
         /// <summary>
-        /// Whether or not this enum has a flag attribute
+        /// Whether or not this enum has a flag attribute.
         /// </summary>
-        public bool HasFlagAttribute { get; private set; }
+        public bool HasFlagAttribute { get; }
 
         /// <summary>
-        /// Whether or not this type is an array type
+        /// Whether or not this type is an array type.
         /// </summary>
-        public bool IsArray { get; private set; }
+        public bool IsArray { get; }
 
         /// <summary>
-        /// Gets the inner type, if this corresponds to an array type
+        /// Gets the inner type, if this corresponds to an array type.
         /// </summary>
-        public ShowCommandParameterType ElementType { get; private set; }
+        public ShowCommandParameterType ElementType { get; }
 
         /// <summary>
-        /// Whether or not this type is a string
+        /// Whether or not this type is a string.
         /// </summary>
         public bool IsString
         {
             get
             {
-                return String.Equals(this.FullName, "System.String", StringComparison.OrdinalIgnoreCase);
+                return string.Equals(this.FullName, "System.String", StringComparison.OrdinalIgnoreCase);
             }
         }
 
         /// <summary>
-        /// Whether or not this type is an script block
+        /// Whether or not this type is an script block.
         /// </summary>
         public bool IsScriptBlock
         {
             get
             {
-                return String.Equals(this.FullName, "System.Management.Automation.ScriptBlock", StringComparison.OrdinalIgnoreCase);
+                return string.Equals(this.FullName, "System.Management.Automation.ScriptBlock", StringComparison.OrdinalIgnoreCase);
             }
         }
 
         /// <summary>
-        /// Whether or not this type is a bool
+        /// Whether or not this type is a bool.
         /// </summary>
         public bool IsBoolean
         {
             get
             {
-                return String.Equals(this.FullName, "System.Management.Automation.ScriptBlock", StringComparison.OrdinalIgnoreCase);
+                return string.Equals(this.FullName, "System.Management.Automation.ScriptBlock", StringComparison.OrdinalIgnoreCase);
             }
         }
 
         /// <summary>
-        /// Whether or not this type is a switch parameter
+        /// Whether or not this type is a switch parameter.
         /// </summary>
         public bool IsSwitch
         {
             get
             {
-                return String.Equals(this.FullName, "System.Management.Automation.SwitchParameter", StringComparison.OrdinalIgnoreCase);
+                return string.Equals(this.FullName, "System.Management.Automation.SwitchParameter", StringComparison.OrdinalIgnoreCase);
             }
         }
 
         /// <summary>
-        /// If this is an enum value, return the list of potential values
+        /// If this is an enum value, return the list of potential values.
         /// </summary>
-        public ArrayList EnumValues { get; private set; }
+        public ArrayList EnumValues { get; }
     }
 }

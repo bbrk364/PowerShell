@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 /*
@@ -15,7 +15,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Threading;
 using System.Management.Automation.Internal;
-#if !CORECLR
+#if !UNIX
 using System.Security.Principal;
 #endif
 
@@ -33,38 +33,93 @@ namespace System.Management.Automation.Remoting
 {
     #region TransportErrorOccuredEventArgs
 
-    internal enum TransportMethodEnum
+    /// <summary>
+    /// Transport method for error reporting.
+    /// </summary>
+    public enum TransportMethodEnum
     {
+        /// <summary>
+        /// CreateShellEx
+        /// </summary>
         CreateShellEx = 0,
+
+        /// <summary>
+        /// RunShellCommandEx
+        /// </summary>
         RunShellCommandEx = 1,
+
+        /// <summary>
+        /// SendShellInputEx
+        /// </summary>
         SendShellInputEx = 2,
+
+        /// <summary>
+        /// ReceiveShellOutputEx
+        /// </summary>
         ReceiveShellOutputEx = 3,
+
+        /// <summary>
+        /// CloseShellOperationEx
+        /// </summary>
         CloseShellOperationEx = 4,
+
+        /// <summary>
+        /// CommandInputEx
+        /// </summary>
         CommandInputEx = 5,
+
+        /// <summary>
+        /// ReceiveCommandOutputEx
+        /// </summary>
         ReceiveCommandOutputEx = 6,
+
+        /// <summary>
+        /// DisconnectShellEx
+        /// </summary>
         DisconnectShellEx = 7,
+
+        /// <summary>
+        /// ReconnectShellEx
+        /// </summary>
         ReconnectShellEx = 8,
+        
+        /// <summary>
+        /// ConnectShellEx
+        /// </summary>
         ConnectShellEx = 9,
+
+        /// <summary>
+        /// ReconnectShellCommandEx
+        /// </summary>
         ReconnectShellCommandEx = 10,
+
+        /// <summary>
+        /// ConnectShellCommandEx
+        /// </summary>
         ConnectShellCommandEx = 11,
+
+        /// <summary>
+        /// Unknown
+        /// </summary>
         Unknown = 12,
     }
 
     /// <summary>
-    /// Event arguments passed to TransportErrorOccured handlers.
+    /// Event arguments passed to TransportErrorOccurred handlers.
     /// </summary>
-    internal class TransportErrorOccuredEventArgs : EventArgs
+    public sealed class TransportErrorOccuredEventArgs : EventArgs
     {
         /// <summary>
-        /// Constructor
+        /// Constructor.
         /// </summary>
         /// <param name="e">
         /// Error occurred.
         /// </param>
         /// <param name="m">
-        /// The transport method that raised the error
+        /// The transport method that raised the error.
         /// </param>
-        internal TransportErrorOccuredEventArgs(PSRemotingTransportException e,
+        public TransportErrorOccuredEventArgs(
+            PSRemotingTransportException e,
             TransportMethodEnum m)
         {
             Exception = e;
@@ -97,10 +152,10 @@ namespace System.Management.Automation.Remoting
         AutoDisconnectStarting = 4,
         AutoDisconnectSucceeded = 5,
         InternalErrorAbort = 6
-    };
+    }
 
     /// <summary>
-    /// ConnectionStatusEventArgs
+    /// ConnectionStatusEventArgs.
     /// </summary>
     internal class ConnectionStatusEventArgs : EventArgs
     {
@@ -117,7 +172,7 @@ namespace System.Management.Automation.Remoting
     #region CreateCompleteEventArgs
 
     /// <summary>
-    /// CreateCompleteEventArgs
+    /// CreateCompleteEventArgs.
     /// </summary>
     internal class CreateCompleteEventArgs : EventArgs
     {
@@ -134,14 +189,14 @@ namespace System.Management.Automation.Remoting
 
     /// <summary>
     /// Contains implementation that is common to both client and server
-    /// transport managers
+    /// transport managers.
     /// </summary>
-    internal abstract class BaseTransportManager : IDisposable
+    public abstract class BaseTransportManager : IDisposable
     {
         #region tracer
 
-        [TraceSourceAttribute("Transport", "Traces BaseWSManTransportManager")]
-        private static PSTraceSource s_baseTracer = PSTraceSource.GetTracer("Transport", "Traces BaseWSManTransportManager");
+        [TraceSource("Transport", "Traces BaseWSManTransportManager")]
+        private static readonly PSTraceSource s_baseTracer = PSTraceSource.GetTracer("Transport", "Traces BaseWSManTransportManager");
 
         #endregion
 
@@ -178,7 +233,7 @@ namespace System.Management.Automation.Remoting
         #region Private Data
 
         // fragmentor used to fragment & defragment objects added to this collection.
-        private ReceiveDataCollection.OnDataAvailableCallback _onDataAvailableCallback;
+        private readonly ReceiveDataCollection.OnDataAvailableCallback _onDataAvailableCallback;
 
         // crypto helper used for encrypting/decrypting
         // secure string
@@ -206,7 +261,7 @@ namespace System.Management.Automation.Remoting
 
         #region Constructor
 
-        protected BaseTransportManager(PSRemotingCryptoHelper cryptoHelper)
+        internal BaseTransportManager(PSRemotingCryptoHelper cryptoHelper)
         {
             CryptoHelper = cryptoHelper;
             // create a common fragmentor used by this transport manager to send and receive data.
@@ -234,11 +289,12 @@ namespace System.Management.Automation.Remoting
         internal TypeTable TypeTable
         {
             get { return Fragmentor.TypeTable; }
+
             set { Fragmentor.TypeTable = value; }
         }
 
         /// <summary>
-        /// Uses the "OnDataAvailableCallback" to handle Deserialized objects
+        /// Uses the "OnDataAvailableCallback" to handle Deserialized objects.
         /// </summary>
         /// <param name="data">
         /// data to process
@@ -268,7 +324,6 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="data">
         /// data to process
@@ -308,8 +363,9 @@ namespace System.Management.Automation.Remoting
             if (!shouldProcess)
             {
                 // we dont support this stream..so ignore the data
-                Dbg.Assert(false,
-                    string.Format(CultureInfo.InvariantCulture, "Data should be from one of the streams : {0} or {1} or {2}",
+                Dbg.Assert(false, string.Format(
+                    CultureInfo.InvariantCulture,
+                    "Data should be from one of the streams : {0} or {1} or {2}",
                     WSManNativeApi.WSMAN_STREAM_ID_STDIN,
                     WSManNativeApi.WSMAN_STREAM_ID_STDOUT,
                     WSManNativeApi.WSMAN_STREAM_ID_PROMPTRESPONSE));
@@ -320,7 +376,6 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="remoteObject"></param>
         /// <exception cref="Exception">
@@ -347,7 +402,7 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        /// copy the DataReceived event handlers to the supplied transport Manager
+        /// Copy the DataReceived event handlers to the supplied transport Manager.
         /// </summary>
         /// <param name="transportManager"></param>
         public void MigrateDataReadyEventHandlers(BaseTransportManager transportManager)
@@ -359,17 +414,17 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        /// Raise the error handlers
+        /// Raise the error handlers.
         /// </summary>
         /// <param name="eventArgs"></param>
-        internal virtual void RaiseErrorHandler(TransportErrorOccuredEventArgs eventArgs)
+        public virtual void RaiseErrorHandler(TransportErrorOccuredEventArgs eventArgs)
         {
             WSManTransportErrorOccured.SafeInvoke(this, eventArgs);
         }
 
         /// <summary>
         /// Crypto handler to be used for encrypting/decrypting
-        /// secure strings
+        /// secure strings.
         /// </summary>
         internal PSRemotingCryptoHelper CryptoHelper { get; set; }
 
@@ -394,7 +449,10 @@ namespace System.Management.Automation.Remoting
             System.GC.SuppressFinalize(this);
         }
 
-        internal virtual void Dispose(bool isDisposing)
+        /// <summary>
+        /// Dispose resources.
+        /// </summary>
+        protected virtual void Dispose(bool isDisposing)
         {
             if (isDisposing)
             {
@@ -408,35 +466,38 @@ namespace System.Management.Automation.Remoting
 
 namespace System.Management.Automation.Remoting.Client
 {
-    internal abstract class BaseClientTransportManager : BaseTransportManager, IDisposable
+    /// <summary>
+    /// Remoting base client transport manager.
+    /// </summary>
+    public abstract class BaseClientTransportManager : BaseTransportManager, IDisposable
     {
         #region Tracer
-        [TraceSourceAttribute("ClientTransport", "Traces ClientTransportManager")]
-        protected static PSTraceSource tracer = PSTraceSource.GetTracer("ClientTransport", "Traces ClientTransportManager");
+        [TraceSource("ClientTransport", "Traces ClientTransportManager")]
+        internal static PSTraceSource tracer = PSTraceSource.GetTracer("ClientTransport", "Traces ClientTransportManager");
         #endregion
 
         #region Data
 
-        protected bool isClosed;
-        protected object syncObject = new object();
-        protected PrioritySendDataCollection dataToBeSent;
+        internal bool isClosed;
+        internal object syncObject = new object();
+        internal PrioritySendDataCollection dataToBeSent;
         // used to handle callbacks from the server..these are used to synchronize received callbacks
-        private Queue<CallbackNotificationInformation> _callbackNotificationQueue;
-        private ReceiveDataCollection.OnDataAvailableCallback _onDataAvailableCallback;
+        private readonly Queue<CallbackNotificationInformation> _callbackNotificationQueue;
+        private readonly ReceiveDataCollection.OnDataAvailableCallback _onDataAvailableCallback;
         private bool _isServicingCallbacks;
         private bool _suspendQueueServicing;
         private bool _isDebuggerSuspend;
 
         // this is used log crimson messages.
 
-        //keeps track of whether a receive request has been placed on transport
-        protected bool receiveDataInitiated;
+        // keeps track of whether a receive request has been placed on transport
+        internal bool receiveDataInitiated;
 
         #endregion
 
         #region Constructors
 
-        protected BaseClientTransportManager(Guid runspaceId, PSRemotingCryptoHelper cryptoHelper)
+        internal BaseClientTransportManager(Guid runspaceId, PSRemotingCryptoHelper cryptoHelper)
             : base(cryptoHelper)
         {
             RunspacePoolInstanceId = runspaceId;
@@ -514,7 +575,7 @@ namespace System.Management.Automation.Remoting.Client
         /// <summary>
         /// Indicates successful processing of a delay stream request on a receive operation
         ///
-        /// this event is useful when PS wants to invoke a pipeline in disconnected mode
+        /// this event is useful when PS wants to invoke a pipeline in disconnected mode.
         /// </summary>
         internal event EventHandler<EventArgs> DelayStreamRequestProcessed;
 
@@ -532,12 +593,12 @@ namespace System.Management.Automation.Remoting.Client
         }
 
         /// <summary>
-        /// Used to log crimson messages
+        /// Used to log crimson messages.
         /// </summary>
         internal Guid RunspacePoolInstanceId { get; }
 
         /// <summary>
-        /// Raise the Connect completed handler
+        /// Raise the Connect completed handler.
         /// </summary>
         internal void RaiseCreateCompleted(CreateCompleteEventArgs eventArgs)
         {
@@ -560,7 +621,7 @@ namespace System.Management.Automation.Remoting.Client
         }
 
         /// <summary>
-        /// Raise the close completed handler
+        /// Raise the close completed handler.
         /// </summary>
         internal void RaiseCloseCompleted()
         {
@@ -578,7 +639,7 @@ namespace System.Management.Automation.Remoting.Client
         /// <summary>
         /// Queue the robust connection notification event.
         /// </summary>
-        /// <param name="flags">Determines what kind of notification</param>
+        /// <param name="flags">Determines what kind of notification.</param>
         internal void QueueRobustConnectionNotification(int flags)
         {
             ConnectionStatusEventArgs args = null;
@@ -617,7 +678,7 @@ namespace System.Management.Automation.Remoting.Client
         /// <summary>
         /// Raise the Robust Connection notification event.
         /// </summary>
-        /// <param name="args">ConnectionStatusEventArgs</param>
+        /// <param name="args">ConnectionStatusEventArgs.</param>
         internal void RaiseRobustConnectionNotification(ConnectionStatusEventArgs args)
         {
             RobustConnectionNotification.SafeInvoke(this, args);
@@ -737,11 +798,9 @@ namespace System.Management.Automation.Remoting.Client
                     _isServicingCallbacks = true;
 
                     // Start a thread pool thread to process callbacks.
-#if !CORECLR
-                    // Flow thread impersonation as needed.
-                    WindowsIdentity identityToImpersonate = WindowsIdentity.GetCurrent();
-                    identityToImpersonate = (identityToImpersonate.ImpersonationLevel == TokenImpersonationLevel.Impersonation) ?
-                        identityToImpersonate : null;
+#if !UNIX
+                    WindowsIdentity identityToImpersonate;
+                    Utils.TryGetWindowsImpersonatedIdentity(out identityToImpersonate);
 
                     Utils.QueueWorkItemWithImpersonation(
                         identityToImpersonate,
@@ -758,9 +817,9 @@ namespace System.Management.Automation.Remoting.Client
         /// Helper method to check RemoteDataObject for a host call requiring user
         /// interaction.
         /// </summary>
-        /// <param name="remoteObject">Remote data object</param>
-        /// <returns>True if remote data object requires a user response</returns>
-        private bool CheckForInteractiveHostCall(RemoteDataObject<PSObject> remoteObject)
+        /// <param name="remoteObject">Remote data object.</param>
+        /// <returns>True if remote data object requires a user response.</returns>
+        private static bool CheckForInteractiveHostCall(RemoteDataObject<PSObject> remoteObject)
         {
             bool interactiveHostCall = false;
 
@@ -808,7 +867,7 @@ namespace System.Management.Automation.Remoting.Client
 
             try
             {
-                do
+                while (true)
                 {
                     // if the transport manager is closed return.
                     if (isClosed)
@@ -821,7 +880,7 @@ namespace System.Management.Automation.Remoting.Client
                     {
                         // If queue is empty or if queue servicing is suspended
                         // then break out of loop.
-                        if (_callbackNotificationQueue.Count <= 0 || _suspendQueueServicing)
+                        if (_callbackNotificationQueue.Count == 0 || _suspendQueueServicing)
                         {
                             break;
                         }
@@ -846,7 +905,7 @@ namespace System.Management.Automation.Remoting.Client
                             base.OnDataAvailableCallback(rcvdDataInfo.remoteObject);
                         }
                     }
-                } while (true);
+                }
             }
             catch (Exception exception)
             {
@@ -936,14 +995,17 @@ namespace System.Management.Automation.Remoting.Client
 
         #region Abstract / Virtual methods
 
-        internal abstract void CreateAsync();
+        /// <summary>
+        /// Create the transport manager and initiate connection.
+        /// </summary>
+        public abstract void CreateAsync();
 
         internal abstract void ConnectAsync();
 
         /// <summary>
         /// The caller should make sure the call is synchronized.
         /// </summary>
-        internal virtual void CloseAsync()
+        public virtual void CloseAsync()
         {
             // Clear the send collection
             dataToBeSent.Clear();
@@ -975,7 +1037,7 @@ namespace System.Management.Automation.Remoting.Client
         #region Clean up
 
         /// <summary>
-        /// Finalizer
+        /// Finalizes an instance of the <see cref="BaseClientTransportManager"/> class.
         /// </summary>
         ~BaseClientTransportManager()
         {
@@ -986,10 +1048,7 @@ namespace System.Management.Automation.Remoting.Client
             else
             {
                 // wait for the close to be completed and then release the resources.
-                this.CloseCompleted += delegate (object source, EventArgs args)
-                {
-                    Dispose(false);
-                };
+                this.CloseCompleted += (object source, EventArgs args) => Dispose(false);
 
                 try
                 {
@@ -1004,7 +1063,10 @@ namespace System.Management.Automation.Remoting.Client
             }
         }
 
-        internal override void Dispose(bool isDisposing)
+        /// <summary>
+        /// Dispose resources.
+        /// </summary>
+        protected override void Dispose(bool isDisposing)
         {
             // clear event handlers
             this.CreateCompleted = null;
@@ -1020,11 +1082,14 @@ namespace System.Management.Automation.Remoting.Client
         #endregion
     }
 
-    internal abstract class BaseClientSessionTransportManager : BaseClientTransportManager, IDisposable
+    /// <summary>
+    /// Remoting base client session transport manager.
+    /// </summary>
+    public abstract class BaseClientSessionTransportManager : BaseClientTransportManager, IDisposable
     {
         #region Constructors
 
-        protected BaseClientSessionTransportManager(Guid runspaceId, PSRemotingCryptoHelper cryptoHelper)
+        internal BaseClientSessionTransportManager(Guid runspaceId, PSRemotingCryptoHelper cryptoHelper)
             : base(runspaceId, cryptoHelper)
         {
         }
@@ -1063,7 +1128,7 @@ namespace System.Management.Automation.Remoting.Client
         }
 
         /// <summary>
-        /// Temporarily disconnect an active session
+        /// Temporarily disconnect an active session.
         /// </summary>
         internal virtual void DisconnectAsync()
         {
@@ -1141,6 +1206,7 @@ namespace System.Management.Automation.Remoting.Client
                 cmdText.Append(cmd.CommandText);
                 cmdText.Append(" | ");
             }
+
             cmdText.Remove(cmdText.Length - 3, 3); // remove ending " | "
 
             RemoteDataObject message;
@@ -1172,7 +1238,7 @@ namespace System.Management.Automation.Remoting.Client
 
         #region Overrides
 
-        internal override void Dispose(bool isDisposing)
+        protected override void Dispose(bool isDisposing)
         {
             base.Dispose(isDisposing);
 
@@ -1199,7 +1265,7 @@ namespace System.Management.Automation.Remoting.Client
         }
 
         /// <summary>
-        /// Used by powershell/pipeline to send a stop message to the server command
+        /// Used by powershell/pipeline to send a stop message to the server command.
         /// </summary>
         internal virtual void SendStopSignal()
         {
@@ -1219,9 +1285,9 @@ namespace System.Management.Automation.Remoting.Server
     {
         #region Private Data
 
-        private object _syncObject = new object();
+        private readonly object _syncObject = new object();
         // used to listen to data available events from serialized datastream.
-        private SerializedDataStream.OnDataAvailableCallback _onDataAvailable;
+        private readonly SerializedDataStream.OnDataAvailableCallback _onDataAvailable;
         // the following variable are used by onDataAvailableCallback.
         private bool _shouldFlushData;
         private bool _reportAsPending;
@@ -1294,10 +1360,7 @@ namespace System.Management.Automation.Remoting.Server
                                                                             data.Data);
                 if (_isSerializing)
                 {
-                    if (_dataToBeSentQueue == null)
-                    {
-                        _dataToBeSentQueue = new Queue<Tuple<RemoteDataObject, bool, bool>>();
-                    }
+                    _dataToBeSentQueue ??= new Queue<Tuple<RemoteDataObject, bool, bool>>();
 
                     _dataToBeSentQueue.Enqueue(new Tuple<RemoteDataObject, bool, bool>(dataToBeSent, flush, reportPending));
                     return;
@@ -1354,7 +1417,7 @@ namespace System.Management.Automation.Remoting.Server
                 (UInt32)_dataType,
                 (UInt32)_targetInterface);
 
-            SendDataToClient(dataToSend, (isEndFragment & _shouldFlushData) ? true : false, _reportAsPending, isEndFragment);
+            SendDataToClient(dataToSend, isEndFragment && _shouldFlushData, _reportAsPending, isEndFragment);
         }
 
         /// <summary>
@@ -1393,7 +1456,7 @@ namespace System.Management.Automation.Remoting.Server
             // Use thread-pool thread to raise the error handler..see explanation
             // in the method summary
             ThreadPool.QueueUserWorkItem(new WaitCallback(
-                delegate (object state)
+                (object state) =>
                 {
                     TransportErrorOccuredEventArgs eventArgs = new TransportErrorOccuredEventArgs(e,
                         TransportMethodEnum.Unknown);
@@ -1423,7 +1486,6 @@ namespace System.Management.Automation.Remoting.Server
         #region Abstract interfaces
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="data"></param>
         /// <param name="flush">
@@ -1438,12 +1500,10 @@ namespace System.Management.Automation.Remoting.Server
         protected abstract void SendDataToClient(byte[] data, bool flush, bool reportAsPending, bool reportAsDataBoundary);
 
         /// <summary>
-        ///
         /// </summary>
         internal abstract void ReportExecutionStatusAsRunning();
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="reasonForClose">
         /// message describing why the transport manager must be closed
@@ -1514,10 +1574,10 @@ namespace System.Management.Automation.Remoting.Server
         /// <param name="xmlBuffer">The input buffer to search. It must be base-64 encoded XML.</param>
         /// <param name="xmlTag">The XML tag used to identify the value to extract.</param>
         /// <returns>The extracted tag converted from a base-64 string.</returns>
-        internal static System.Byte[] ExtractEncodedXmlElement(String xmlBuffer, String xmlTag)
+        internal static byte[] ExtractEncodedXmlElement(string xmlBuffer, string xmlTag)
         {
             if (xmlBuffer == null || xmlTag == null)
-                return new System.Byte[1];
+                return new byte[1];
 
             // the inboundShellInformation is in Xml format as per the SOAP WSMan spec.
             // Retrieve the string (Base64 encoded) we are interested in.
@@ -1525,22 +1585,20 @@ namespace System.Management.Automation.Remoting.Server
             readerSettings.CheckCharacters = false;
             readerSettings.IgnoreComments = true;
             readerSettings.IgnoreProcessingInstructions = true;
-#if !CORECLR // No XmlReaderSettings.XmlResolver in CoreCLR
             readerSettings.XmlResolver = null;
-#endif
             readerSettings.ConformanceLevel = ConformanceLevel.Fragment;
             readerSettings.MaxCharactersFromEntities = 1024;
             readerSettings.DtdProcessing = System.Xml.DtdProcessing.Prohibit;
             XmlReader reader = XmlReader.Create(new StringReader(xmlBuffer), readerSettings);
 
-            String additionalData;
-            if (XmlNodeType.Element == reader.MoveToContent())
+            string additionalData;
+            if (reader.MoveToContent() == XmlNodeType.Element)
             {
                 additionalData = reader.ReadElementContentAsString(xmlTag, reader.NamespaceURI);
             }
             else // No element found, so return a default value
             {
-                return new System.Byte[1];
+                return new byte[1];
             }
 
             return Convert.FromBase64String(additionalData);

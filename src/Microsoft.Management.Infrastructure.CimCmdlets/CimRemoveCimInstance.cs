@@ -1,10 +1,8 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 #region Using directives
 
-using System.Collections;
-using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 
@@ -19,9 +17,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
     internal class CimRemoveCimInstanceContext : XOperationContextBase
     {
         /// <summary>
-        /// <para>
-        /// Constructor
-        /// </para>
+        /// Initializes a new instance of the <see cref="CimRemoveCimInstanceContext"/> class.
         /// </summary>
         /// <param name="theNamespace"></param>
         /// <param name="theProxy"></param>
@@ -41,9 +37,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
     internal sealed class CimRemoveCimInstance : CimGetInstance
     {
         /// <summary>
-        /// <para>
-        /// Constructor
-        /// </para>
+        /// Initializes a new instance of the <see cref="CimRemoveCimInstance"/> class.
         /// </summary>
         public CimRemoveCimInstance()
             : base()
@@ -55,14 +49,14 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         /// Base on parametersetName to retrieve ciminstances
         /// </para>
         /// </summary>
-        /// <param name="cmdlet"><see cref="GetCimInstanceCommand"/> object</param>
+        /// <param name="cmdlet"><see cref="GetCimInstanceCommand"/> object.</param>
         public void RemoveCimInstance(RemoveCimInstanceCommand cmdlet)
         {
             DebugHelper.WriteLogEx();
 
             IEnumerable<string> computerNames = ConstValue.GetComputerNames(
                 GetComputerName(cmdlet));
-            List<CimSessionProxy> proxys = new List<CimSessionProxy>();
+            List<CimSessionProxy> proxys = new();
             switch (cmdlet.ParameterSetName)
             {
                 case CimBaseCommand.CimInstanceComputerSet:
@@ -70,22 +64,25 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                     {
                         proxys.Add(CreateSessionProxy(computerName, cmdlet.CimInstance, cmdlet));
                     }
+
                     break;
                 case CimBaseCommand.CimInstanceSessionSet:
                     foreach (CimSession session in GetCimSession(cmdlet))
                     {
                         proxys.Add(CreateSessionProxy(session, cmdlet));
                     }
+
                     break;
                 default:
                     break;
             }
+
             switch (cmdlet.ParameterSetName)
             {
                 case CimBaseCommand.CimInstanceComputerSet:
                 case CimBaseCommand.CimInstanceSessionSet:
                     string nameSpace = null;
-                    if(cmdlet.ResourceUri != null )
+                    if (cmdlet.ResourceUri != null)
                     {
                         nameSpace = GetCimInstanceParameter(cmdlet).CimSystemProperties.Namespace;
                     }
@@ -93,6 +90,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                     {
                         nameSpace = ConstValue.GetNamespace(GetCimInstanceParameter(cmdlet).CimSystemProperties.Namespace);
                     }
+
                     string target = cmdlet.CimInstance.ToString();
                     foreach (CimSessionProxy proxy in proxys)
                     {
@@ -100,8 +98,10 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                         {
                             return;
                         }
+
                         proxy.DeleteInstanceAsync(nameSpace, cmdlet.CimInstance);
                     }
+
                     break;
                 case CimBaseCommand.QueryComputerSet:
                 case CimBaseCommand.QuerySessionSet:
@@ -137,9 +137,9 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
 
         #region const strings
         /// <summary>
-        /// action
+        /// Action.
         /// </summary>
         private const string action = @"Remove-CimInstance";
         #endregion
-    }//End Class
-}//End namespace
+    }
+}

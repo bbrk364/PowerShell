@@ -1,6 +1,6 @@
 # WebListener App
 
-ASP.NET Core 2.0 app for testing HTTP and HTTPS Requests.
+ASP.NET Core app for testing HTTP and HTTPS Requests.
 
 ## Run with `dotnet`
 
@@ -10,6 +10,10 @@ dotnet publish --output bin --configuration Release
 cd bin
 dotnet WebListener.dll ServerCert.pfx password 8083 8084 8085 8086
 ```
+
+**NOTE**: `ServerCert.pfx` is no longer a static asset
+and you will need to create your own certificate for this purpose.
+The `SelfSignedCertificate` module in the PowerShell Gallery provides this functionality.
 
 The test site can then be accessed via `http://localhost:8083/`, `https://localhost:8084/`, `https://localhost:8085/`, or `https://localhost:8086/`.
 
@@ -139,6 +143,27 @@ Response when certificate is not provided in request:
 }
 ```
 
+### /Compression/Brotli/
+
+Returns the same results as the Get test with brotli compression.
+
+```powershell
+$uri = Get-WebListenerUrl -Test 'Compression' -TestValue 'Brotli'
+Invoke-RestMethod -Uri $uri
+```
+
+```json
+{
+  "args": {},
+  "origin": "127.0.0.1",
+  "headers": {
+    "User-Agent": "Mozilla/5.0 (Windows NT; Microsoft Windows 10.0.15063 ; en-US) PowerShell/6.0.0",
+    "Host": "localhost:8083"
+  },
+  "url": "http://localhost:8083/Compression/Brotli"
+}
+```
+
 ### /Compression/Deflate/
 
 Returns the same results as the Get test with deflate compression.
@@ -231,6 +256,42 @@ Invoke-RestMethod -Uri $uri -Body $body -Method 'Delete'
 }
 ```
 
+### /Dos/
+
+Returns HTML designed to create denial of service against specific RegEx Expressions
+
+#### Image Parsing RegEx
+
+```powershell
+$uri = Get-WebListenerUrl -Test 'Dos' -query @{
+                dosType='img'
+                dosLength='5000'
+            }
+Invoke-RestMethod -Uri $uri -Body $body -Method 'Delete'
+```
+
+Return the following followed by 5,000 spaces.
+
+```html
+<img
+```
+
+#### Charset Parsing RegEx
+
+```powershell
+$uri = Get-WebListenerUrl -Test 'Dos' -query @{
+                dosType='charset'
+                dosLength='5000'
+            }
+Invoke-RestMethod -Uri $uri -Body $body -Method 'Delete'
+```
+
+Return the following followed by 5,000 spaces.
+
+```html
+<meta
+```
+
 ### /Encoding/Utf8/
 
 Returns page containing UTF-8 data.
@@ -277,6 +338,8 @@ Returns Link response headers to test paginated results. The endpoint accepts 3 
   * `nourl` - Returns a Link header that does not include the URI portion. Suppresses `next` link.
   * `malformed` - Returns a malformed Link header. Suppresses `next` link.
   * `multiple` - Returns multiple Link headers instead of a single Link header and returns `next` link if one is available.
+  * `nowhitespace` - Returns `default` links without any whitespace between the semicolon and `rel`
+  * `extrawhitespace` - Returns `default` links with double whitespace between the semicolon and `rel`
 
 The body will contain the same results as `/Get/` with the addition of the `type`, `linknumber`, and `maxlinks` for the current page.
 

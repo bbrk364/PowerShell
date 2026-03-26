@@ -1,5 +1,6 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
+
 /********************************************************************++
 
     Project:     PowerShell
@@ -19,7 +20,7 @@ using Dbg = System.Management.Automation.Diagnostics;
 namespace System.Management.Automation
 {
     /// <summary>
-    /// PSParser class
+    /// PSParser class.
     /// </summary>
     /// <remarks>
     /// This is a class providing the interface for parsing a script into a collection of
@@ -33,7 +34,6 @@ namespace System.Management.Automation
     ///
     /// These three classes are provided for exposing interfaces only. They
     /// should not be used in PowerShell engine code.
-    ///
     /// </remarks>
     //
     //  1. Design
@@ -64,7 +64,7 @@ namespace System.Management.Automation
     public sealed class PSParser
     {
         /// <summary>
-        /// Constructor
+        /// Constructor.
         /// </summary>
         /// <remarks>
         /// This constructor is made private intentionally. The only way to create an instance
@@ -134,9 +134,9 @@ namespace System.Management.Automation
         /// <summary>
         /// Parse a script into a collection of tokens.
         /// </summary>
-        /// <param name="script">script to parse</param>
-        /// <param name="errors">errors happened during parsing</param>
-        /// <returns>collection of tokens generated during parsing</returns>
+        /// <param name="script">Script to parse.</param>
+        /// <param name="errors">Errors happened during parsing.</param>
+        /// <returns>Collection of tokens generated during parsing.</returns>
         /// <exception cref="System.Management.Automation.RuntimeException">
         /// Although this API returns most parse-time exceptions in the errors
         /// collection, there are some scenarios where resource limits will result
@@ -148,7 +148,7 @@ namespace System.Management.Automation
         public static Collection<PSToken> Tokenize(string script, out Collection<PSParseError> errors)
         {
             if (script == null)
-                throw PSTraceSource.NewArgumentNullException("script");
+                throw PSTraceSource.NewArgumentNullException(nameof(script));
 
             PSParser psParser = new PSParser();
 
@@ -161,9 +161,9 @@ namespace System.Management.Automation
         /// <summary>
         /// Parse a script into a collection of tokens.
         /// </summary>
-        /// <param name="script">script to parse, as an array of lines</param>
-        /// <param name="errors">errors happened during parsing</param>
-        /// <returns>collection of tokens generated during parsing</returns>
+        /// <param name="script">Script to parse, as an array of lines.</param>
+        /// <param name="errors">Errors happened during parsing.</param>
+        /// <returns>Collection of tokens generated during parsing.</returns>
         /// <exception cref="System.Management.Automation.RuntimeException">
         /// Although this API returns most parse-time exceptions in the errors
         /// collection, there are some scenarios where resource limits will result
@@ -175,7 +175,7 @@ namespace System.Management.Automation
         public static Collection<PSToken> Tokenize(object[] script, out Collection<PSParseError> errors)
         {
             if (script == null)
-                throw PSTraceSource.NewArgumentNullException("script");
+                throw PSTraceSource.NewArgumentNullException(nameof(script));
 
             StringBuilder sb = new StringBuilder();
             foreach (object obj in script)
@@ -185,6 +185,7 @@ namespace System.Management.Automation
                     sb.AppendLine(obj.ToString());
                 }
             }
+
             return Tokenize(sb.ToString(), out errors);
         }
 

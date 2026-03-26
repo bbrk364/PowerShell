@@ -1,13 +1,14 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
-using System.Management.Automation.Tracing;
-using System.Xml;
-using System.Text;
 using System.Management.Automation.Internal;
+using System.Management.Automation.Tracing;
+using System.Text;
+using System.Xml;
+
 using Dbg = System.Management.Automation.Diagnostics;
 using TypeTable = System.Management.Automation.Runspaces.TypeTable;
 
@@ -73,7 +74,7 @@ namespace System.Management.Automation.Remoting
         #region Constructors
 
         /// <summary>
-        /// Default Constructor
+        /// Default Constructor.
         /// </summary>
         internal FragmentedRemoteObject()
         {
@@ -97,14 +98,14 @@ namespace System.Management.Automation.Remoting
         internal FragmentedRemoteObject(byte[] blob, long objectId, long fragmentId,
             bool isEndFragment)
         {
-            Dbg.Assert((blob != null) || (blob.Length == 0), "Cannot create a fragment for null or empty data.");
+            Dbg.Assert((blob != null) && (blob.Length != 0), "Cannot create a fragment for null or empty data.");
             Dbg.Assert(objectId >= 0, "Object Id cannot be < 0");
             Dbg.Assert(fragmentId >= 0, "Fragment Id cannot be < 0");
 
             ObjectId = objectId;
             FragmentId = fragmentId;
 
-            IsStartFragment = (fragmentId == 0) ? true : false;
+            IsStartFragment = fragmentId == 0;
             IsEndFragment = isEndFragment;
 
             _blob = blob;
@@ -116,7 +117,7 @@ namespace System.Management.Automation.Remoting
         #region Data Fields being sent
 
         /// <summary>
-        /// All fragments of the same PSObject have the same ObjectId
+        /// All fragments of the same PSObject have the same ObjectId.
         /// </summary>
         internal long ObjectId { get; set; }
 
@@ -141,7 +142,11 @@ namespace System.Management.Automation.Remoting
         /// </summary>
         internal int BlobLength
         {
-            get { return _blobLength; }
+            get
+            {
+                return _blobLength;
+            }
+
             set
             {
                 Dbg.Assert(value >= 0, "BlobLength cannot be less than 0.");
@@ -154,7 +159,11 @@ namespace System.Management.Automation.Remoting
         /// </summary>
         internal byte[] Blob
         {
-            get { return _blob; }
+            get
+            {
+                return _blob;
+            }
+
             set
             {
                 Dbg.Assert(value != null, "Blob cannot be null");
@@ -196,17 +205,16 @@ namespace System.Management.Automation.Remoting
         ///     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
         ///     |     Blob ...
         ///     +-+-+-+-+-+-+-+-
-        ///
         /// </summary>
         /// <returns>
         /// The binary encoded FragmentedRemoteObject to be ready to pass to WinRS Send API.
         /// </returns>
         internal byte[] GetBytes()
         {
-            int objectIdSize = 8; // number of bytes of long
-            int fragmentIdSize = 8; // number of bytes of long
-            int flagsSize = 1; // 1 byte for IsEndOfFrag and IsControl
-            int blobLengthSize = 4; // number of bytes of int
+            const int objectIdSize = 8; // number of bytes of long
+            const int fragmentIdSize = 8; // number of bytes of long
+            const int flagsSize = 1; // 1 byte for IsEndOfFrag and IsControl
+            const int blobLengthSize = 4; // number of bytes of int
 
             int totalLength = objectIdSize + fragmentIdSize + flagsSize + blobLengthSize + BlobLength;
 
@@ -362,7 +370,7 @@ namespace System.Management.Automation.Remoting
         /// <param name="fragmentBytes"></param>
         /// <param name="startIndex"></param>
         /// <returns>
-        /// True if the the E-flag is set in the encoding. Otherwise false.
+        /// True if the E-flag is set in the encoding. Otherwise false.
         /// </returns>
         /// <exception cref="ArgumentNullException">
         /// If fragmentBytes is null.
@@ -424,8 +432,8 @@ namespace System.Management.Automation.Remoting
     /// </summary>
     internal class SerializedDataStream : Stream, IDisposable
     {
-        [TraceSourceAttribute("SerializedDataStream", "SerializedDataStream")]
-        private static PSTraceSource s_trace = PSTraceSource.GetTracer("SerializedDataStream", "SerializedDataStream");
+        [TraceSource("SerializedDataStream", "SerializedDataStream")]
+        private static readonly PSTraceSource s_trace = PSTraceSource.GetTracer("SerializedDataStream", "SerializedDataStream");
         #region Global Constants
 
         private static long s_objectIdSequenceNumber = 0;
@@ -435,20 +443,20 @@ namespace System.Management.Automation.Remoting
         #region Private Data
 
         private bool _isEntered;
-        private FragmentedRemoteObject _currentFragment;
+        private readonly FragmentedRemoteObject _currentFragment;
         private long _fragmentId;
 
-        private int _fragmentSize;
-        private object _syncObject;
+        private readonly int _fragmentSize;
+        private readonly object _syncObject;
         private bool _isDisposed;
-        private bool _notifyOnWriteFragmentImmediately;
+        private readonly bool _notifyOnWriteFragmentImmediately;
 
         // MemoryStream does not dynamically resize as data is read. This will waste
         // lot of memory as data sent on the network will still be there in memory.
         // To avoid this a queue of memory streams (each stream is of fragmentsize)
         // is created..so after data is sent the MemoryStream is disposed there by
         // clearing resources.
-        private Queue<MemoryStream> _queuedStreams;
+        private readonly Queue<MemoryStream> _queuedStreams;
         private MemoryStream _writeStream;
         private MemoryStream _readStream;
         private int _writeOffset;
@@ -465,6 +473,7 @@ namespace System.Management.Automation.Remoting
         /// true if data represents EndFragment of an object.
         /// </param>
         internal delegate void OnDataAvailableCallback(byte[] data, bool isEndFragment);
+
         private OnDataAvailableCallback _onDataAvailableCallback;
 
         #endregion
@@ -575,7 +584,7 @@ namespace System.Management.Automation.Remoting
                 if (dataLeftInTheFragment > 0)
                 {
                     int amountToWriteIntoFragment = (amountLeft > dataLeftInTheFragment) ? dataLeftInTheFragment : amountLeft;
-                    amountLeft = amountLeft - amountToWriteIntoFragment;
+                    amountLeft -= amountToWriteIntoFragment;
 
                     // Write data into fragment
                     Array.Copy(buffer, offsetToReadFrom, _currentFragment.Blob, _currentFragment.BlobLength, amountToWriteIntoFragment);
@@ -637,7 +646,7 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        /// Read the currently accumulated data in queued memory streams
+        /// Read the currently accumulated data in queued memory streams.
         /// </summary>
         /// <returns></returns>
         internal byte[] Read()
@@ -664,7 +673,6 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="buffer"></param>
         /// <param name="offset"></param>
@@ -797,7 +805,7 @@ namespace System.Management.Automation.Remoting
                         }
 
                         int amountToWriteIntoStream = (amountLeft > dataLeftInWriteStream) ? dataLeftInWriteStream : amountLeft;
-                        amountLeft = amountLeft - amountToWriteIntoStream;
+                        amountLeft -= amountToWriteIntoStream;
                         // write data
                         _writeStream.Position = _writeOffset;
                         _writeStream.Write(data, offSetToReadFrom, amountToWriteIntoStream);
@@ -809,10 +817,7 @@ namespace System.Management.Automation.Remoting
             }
 
             // call the callback since we have data available
-            if (_onDataAvailableCallback != null)
-            {
-                _onDataAvailableCallback(data, _currentFragment.IsEndFragment);
-            }
+            _onDataAvailableCallback?.Invoke(data, _currentFragment.IsEndFragment);
 
             // prepare a new fragment
             _currentFragment.FragmentId = ++_fragmentId;
@@ -882,27 +887,27 @@ namespace System.Management.Automation.Remoting
         #region Stream Overrides
 
         /// <summary>
-        ///
         /// </summary>
         public override bool CanRead { get { return true; } }
+
         /// <summary>
-        ///
         /// </summary>
         public override bool CanSeek { get { return false; } }
+
         /// <summary>
-        ///
         /// </summary>
         public override bool CanWrite { get { return true; } }
         /// <summary>
         /// Gets the length of the stream in bytes.
         /// </summary>
         public override long Length { get { return _length; } }
+
         /// <summary>
-        ///
         /// </summary>
         public override long Position
         {
             get { throw new NotSupportedException(); }
+
             set { throw new NotSupportedException(); }
         }
         /// <summary>
@@ -912,8 +917,8 @@ namespace System.Management.Automation.Remoting
         public override void Flush()
         {
         }
+
         /// <summary>
-        ///
         /// </summary>
         /// <param name="offset"></param>
         /// <param name="origin"></param>
@@ -922,8 +927,8 @@ namespace System.Management.Automation.Remoting
         {
             throw new NotSupportedException();
         }
+
         /// <summary>
-        ///
         /// </summary>
         /// <param name="value"></param>
         public override void SetLength(long value)
@@ -944,6 +949,7 @@ namespace System.Management.Automation.Remoting
                 GC.SuppressFinalize(this);
                 _disposed = true;
             }
+
             base.Dispose();
         }
 
@@ -959,13 +965,13 @@ namespace System.Management.Automation.Remoting
     internal class Fragmentor
     {
         #region Global Constants
-        private static UTF8Encoding s_utf8Encoding = new UTF8Encoding();
+        private static readonly UTF8Encoding s_utf8Encoding = new UTF8Encoding();
         // This const defines the default depth to be used for serializing objects for remoting.
         private const int SerializationDepthForRemoting = 1;
         #endregion
 
         private int _fragmentSize;
-        private SerializationContext _serializationContext;
+        private readonly SerializationContext _serializationContext;
 
         #region Constructor
 
@@ -1037,6 +1043,7 @@ namespace System.Management.Automation.Remoting
             {
                 return _fragmentSize;
             }
+
             set
             {
                 Dbg.Assert(value > 0, "FragmentSize cannot be less than 0.");

@@ -1,14 +1,16 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Reflection;
-using System.Management.Automation.Host;
 using System.Globalization;
-using System.Security;
+using System.Management.Automation.Host;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
+using System.Security;
+
 using Dbg = System.Management.Automation.Diagnostics;
 
 namespace System.Management.Automation.Remoting
@@ -23,7 +25,7 @@ namespace System.Management.Automation.Remoting
     /// guarantees that transmitting on the wire will not change the encoded
     /// object's type.
     /// </summary>
-    internal class RemoteHostEncoder
+    internal static class RemoteHostEncoder
     {
         /// <summary>
         /// Is known type.
@@ -86,13 +88,14 @@ namespace System.Management.Automation.Remoting
         /// </summary>
         private static object DecodeClassOrStruct(PSObject psObject, Type type)
         {
-            object obj = FormatterServices.GetUninitializedObject(type);
+            object obj = RuntimeHelpers.GetUninitializedObject(type);
 
             // Field values cannot be null - because for null fields we simply don't transport them.
             foreach (PSPropertyInfo propertyInfo in psObject.Properties)
             {
                 FieldInfo fieldInfo = type.GetField(propertyInfo.Name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
                 if (propertyInfo.Value == null) { throw RemoteHostExceptions.NewDecodingFailedException(); }
+
                 object fieldValue = DecodeObject(propertyInfo.Value, fieldInfo.FieldType);
                 if (fieldValue == null) { throw RemoteHostExceptions.NewDecodingFailedException(); }
 
@@ -440,13 +443,14 @@ namespace System.Management.Automation.Remoting
                 PSCredential cred = null;
                 try
                 {
-                    cred = new PSCredential((String)objAsPSObject.Properties["UserName"].Value,
+                    cred = new PSCredential((string)objAsPSObject.Properties["UserName"].Value,
                                             (SecureString)objAsPSObject.Properties["Password"].Value);
                 }
                 catch (GetValueException)
                 {
                     cred = null;
                 }
+
                 return cred;
             }
             else if (obj is int && type.IsEnum)
@@ -684,8 +688,10 @@ namespace System.Management.Automation.Remoting
         {
             // True if the value-type of the dictionary is object; false otherwise.
             if (!IsDictionary(dictionaryType)) { return false; }
+
             Type[] elementTypes = dictionaryType.GetGenericArguments();
             if (elementTypes.Length != 2) { return false; }
+
             Type valueType = elementTypes[1];
             return valueType == typeof(object);
         }
@@ -739,7 +745,7 @@ namespace System.Management.Automation.Remoting
         /// </summary>
         private static T SafelyGetBaseObject<T>(PSObject psObject)
         {
-            if (psObject == null || psObject.BaseObject == null || !(psObject.BaseObject is T))
+            if (psObject == null || psObject.BaseObject == null || psObject.BaseObject is not T)
             {
                 throw RemoteHostExceptions.NewDecodingFailedException();
             }
@@ -766,7 +772,7 @@ namespace System.Management.Automation.Remoting
         private static T SafelyGetPropertyValue<T>(PSObject psObject, string key)
         {
             PSPropertyInfo propertyInfo = psObject.Properties[key];
-            if (propertyInfo == null || propertyInfo.Value == null || !(propertyInfo.Value is T))
+            if (propertyInfo == null || propertyInfo.Value == null || propertyInfo.Value is not T)
             {
                 throw RemoteHostExceptions.NewDecodingFailedException();
             }

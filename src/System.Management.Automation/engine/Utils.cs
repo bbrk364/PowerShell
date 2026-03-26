@@ -1,38 +1,262 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Security;
-using System.Runtime.InteropServices;
+using System.Collections;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
-using System.Management.Automation.Configuration;
-using System.Management.Automation.Internal;
-using System.Management.Automation.Security;
-using System.Reflection;
-using Microsoft.PowerShell.Commands;
-using Microsoft.Win32;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Collections.ObjectModel;
-using System.Collections.Generic;
-using System.Collections.Concurrent;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
-using System.Threading;
+using System.Management.Automation.Configuration;
+using System.Management.Automation.Internal;
+using System.Management.Automation.Remoting;
+using System.Management.Automation.Security;
+using System.Numerics;
+using System.Reflection;
+using System.Runtime.InteropServices;
+using System.Security;
+#if !UNIX
+using System.Security.Principal;
+#endif
 using System.Text;
+using System.Threading;
+using Microsoft.PowerShell.Commands;
+using Microsoft.Win32;
 
 using TypeTable = System.Management.Automation.Runspaces.TypeTable;
-
-using System.Diagnostics;
-using Microsoft.Win32.SafeHandles;
 
 namespace System.Management.Automation
 {
     /// <summary>
-    /// helper fns
+    /// Helper fns.
     /// </summary>
     internal static class Utils
     {
+        /// <summary>
+        /// Converts a given double value to BigInteger via Math.Round().
+        /// </summary>
+        /// <param name="d">The value to convert.</param>
+        /// <returns>Returns a BigInteger value equivalent to the input value rounded to nearest integer.</returns>
+        internal static BigInteger AsBigInt(this double d) => new BigInteger(Math.Round(d));
+
+        internal static bool TryCast(BigInteger value, out byte b)
+        {
+            if (value < byte.MinValue || value > byte.MaxValue)
+            {
+                b = 0;
+                return false;
+            }
+
+            b = (byte)value;
+            return true;
+        }
+
+        internal static bool TryCast(BigInteger value, out sbyte sb)
+        {
+            if (value < sbyte.MinValue || value > sbyte.MaxValue)
+            {
+                sb = 0;
+                return false;
+            }
+
+            sb = (sbyte)value;
+            return true;
+        }
+
+        internal static bool TryCast(BigInteger value, out short s)
+        {
+            if (value < short.MinValue || value > short.MaxValue)
+            {
+                s = 0;
+                return false;
+            }
+
+            s = (short)value;
+            return true;
+        }
+
+        internal static bool TryCast(BigInteger value, out ushort us)
+        {
+            if (value < ushort.MinValue || value > ushort.MaxValue)
+            {
+                us = 0;
+                return false;
+            }
+
+            us = (ushort)value;
+            return true;
+        }
+
+        internal static bool TryCast(BigInteger value, out int i)
+        {
+            if (value < int.MinValue || value > int.MaxValue)
+            {
+                i = 0;
+                return false;
+            }
+
+            i = (int)value;
+            return true;
+        }
+
+        internal static bool TryCast(BigInteger value, out uint u)
+        {
+            if (value < uint.MinValue || value > uint.MaxValue)
+            {
+                u = 0;
+                return false;
+            }
+
+            u = (uint)value;
+            return true;
+        }
+
+        internal static bool TryCast(BigInteger value, out long l)
+        {
+            if (value < long.MinValue || value > long.MaxValue)
+            {
+                l = 0;
+                return false;
+            }
+
+            l = (long)value;
+            return true;
+        }
+
+        internal static bool TryCast(BigInteger value, out ulong ul)
+        {
+            if (value < ulong.MinValue || value > ulong.MaxValue)
+            {
+                ul = 0;
+                return false;
+            }
+
+            ul = (ulong)value;
+            return true;
+        }
+
+        internal static bool TryCast(BigInteger value, out decimal dm)
+        {
+            if (value < (BigInteger)decimal.MinValue || (BigInteger)decimal.MaxValue < value)
+            {
+                dm = 0;
+                return false;
+            }
+
+            dm = (decimal)value;
+            return true;
+        }
+
+        internal static bool TryCast(BigInteger value, out double db)
+        {
+            if (value < (BigInteger)double.MinValue || (BigInteger)double.MaxValue < value)
+            {
+                db = 0;
+                return false;
+            }
+
+            db = (double)value;
+            return true;
+        }
+
+        /// <summary>
+        /// Parses a given string or ReadOnlySpan&lt;char&gt; to calculate its value as a binary number.
+        /// Assumes input has already been sanitized and only contains zeroes (0) or ones (1).
+        /// </summary>
+        /// <param name="digits">Span or string of binary digits. Assumes all digits are either 1 or 0.</param>
+        /// <param name="unsigned">
+        /// Whether to treat the number as unsigned. When false, respects established conventions
+        /// with sign bits for certain input string lengths.
+        /// </param>
+        /// <returns>Returns the value of the binary string as a BigInteger.</returns>
+        internal static BigInteger ParseBinary(ReadOnlySpan<char> digits, bool unsigned)
+        {
+            if (!unsigned)
+            {
+                if (digits[0] == '0')
+                {
+                    unsigned = true;
+                }
+                else
+                {
+                    switch (digits.Length)
+                    {
+                        // Only accept sign bits at these lengths:
+                        case 8: // byte
+                        case 16: // short
+                        case 32: // int
+                        case 64: // long
+                        case 96: // decimal
+                        case int n when n >= 128: // BigInteger
+                            break;
+                        default:
+                            // If we do not flag these as unsigned, bigint assumes a sign bit for any (8 * n) string length
+                            unsigned = true;
+                            break;
+                    }
+                }
+            }
+
+            // Only use heap allocation for very large numbers
+            const int MaxStackAllocation = 512;
+
+            // Calculate number of 8-bit bytes needed to hold the input,  rounded up to next whole number.
+            int outputByteCount = (digits.Length + 7) / 8;
+            Span<byte> outputBytes = outputByteCount <= MaxStackAllocation ? stackalloc byte[outputByteCount] : new byte[outputByteCount];
+            int outputByteIndex = outputBytes.Length - 1;
+
+            // We need to be prepared for any partial leading bytes, (e.g., 010|00000011|00101100), or cases
+            // where we only have less than 8 bits to work with from the beginning.
+            //
+            // Walk bytes right to left, stepping one whole byte at a time (if there are any whole bytes).
+            int byteWalker;
+            for (byteWalker = digits.Length - 1; byteWalker >= 7; byteWalker -= 8)
+            {
+                // Use bit shifts and binary-or to sum the values in each byte.  These calculations will
+                // create values higher than a single byte, but the higher bits will be stripped out when cast
+                // to byte.
+                //
+                // The low bits are added in separately to allow us to strip the higher 'noise' bits before we
+                // sum the values using binary-or.
+                //
+                // Simplified representation of logic:     (byte)( (7)|(6)|(5)|(4) ) | ( ( (3)|(2)|(1)|(0) ) & 0b1111 )
+                //
+                // N.B.: This code has been tested against a straight for loop iterating through the byte, and in no
+                // circumstance was it faster or more effective than this unrolled version.
+                outputBytes[outputByteIndex--] =
+                    (byte)(
+                        ((digits[byteWalker - 7] << 7)
+                        | (digits[byteWalker - 6] << 6)
+                        | (digits[byteWalker - 5] << 5)
+                        | (digits[byteWalker - 4] << 4)
+                        )
+                    | (
+                        ((digits[byteWalker - 3] << 3)
+                        | (digits[byteWalker - 2] << 2)
+                        | (digits[byteWalker - 1] << 1)
+                        | (digits[byteWalker])
+                        ) & 0b1111
+                      )
+                    );
+            }
+
+            // With complete bytes parsed, byteWalker is either at the partial byte start index, or at -1
+            if (byteWalker >= 0)
+            {
+                int currentByteValue = 0;
+                for (int i = 0; i <= byteWalker; i++)
+                {
+                    currentByteValue = (currentByteValue << 1) | (digits[i] - '0');
+                }
+
+                outputBytes[outputByteIndex] = (byte)currentByteValue;
+            }
+
+            return new BigInteger(outputBytes, isUnsigned: unsigned, isBigEndian: true);
+        }
+
         // From System.Web.Util.HashCodeCombiner
         internal static int CombineHashCodes(int h1, int h2)
         {
@@ -70,18 +294,16 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Allowed PowerShell Editions
+        /// Allowed PowerShell Editions.
         /// </summary>
-        internal static string[] AllowedEditionValues = { "Desktop", "Core" };
+        internal static readonly string[] AllowedEditionValues = { "Desktop", "Core" };
 
         /// <summary>
-        /// helper fn to check byte[] arg for null.
+        /// Helper fn to check byte[] arg for null.
         /// </summary>
-        ///
-        ///<param name="arg"> arg to check </param>
-        ///<param name="argName"> name of the arg </param>
-        ///
-        ///<returns> Does not return a value </returns>
+        /// <param name="arg"> arg to check </param>
+        /// <param name="argName"> name of the arg </param>
+        /// <returns> Does not return a value.</returns>
         internal static void CheckKeyArg(byte[] arg, string argName)
         {
             if (arg == null)
@@ -103,14 +325,12 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// helper fn to check arg for empty or null.
+        /// Helper fn to check arg for empty or null.
         /// Throws ArgumentNullException on either condition.
         /// </summary>
-        ///
-        ///<param name="arg"> arg to check </param>
-        ///<param name="argName"> name of the arg </param>
-        ///
-        ///<returns> Does not return a value </returns>
+        /// <param name="arg"> arg to check </param>
+        /// <param name="argName"> name of the arg </param>
+        /// <returns> Does not return a value.</returns>
         internal static void CheckArgForNullOrEmpty(string arg, string argName)
         {
             if (arg == null)
@@ -124,14 +344,12 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// helper fn to check arg for null.
+        /// Helper fn to check arg for null.
         /// Throws ArgumentNullException on either condition.
         /// </summary>
-        ///
-        ///<param name="arg"> arg to check </param>
-        ///<param name="argName"> name of the arg </param>
-        ///
-        ///<returns> Does not return a value </returns>
+        /// <param name="arg"> arg to check </param>
+        /// <param name="argName"> name of the arg </param>
+        /// <returns> Does not return a value.</returns>
         internal static void CheckArgForNull(object arg, string argName)
         {
             if (arg == null)
@@ -141,13 +359,11 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// helper fn to check arg for null.
+        /// Helper fn to check arg for null.
         /// </summary>
-        ///
-        ///<param name="arg"> arg to check </param>
-        ///<param name="argName"> name of the arg </param>
-        ///
-        ///<returns> Does not return a value </returns>
+        /// <param name="arg"> arg to check </param>
+        /// <param name="argName"> name of the arg </param>
+        /// <returns> Does not return a value.</returns>
         internal static void CheckSecureStringArg(SecureString arg, string argName)
         {
             if (arg == null)
@@ -156,7 +372,6 @@ namespace System.Management.Automation
             }
         }
 
-        [ArchitectureSensitive]
         internal static string GetStringFromSecureString(SecureString ss)
         {
             IntPtr p = IntPtr.Zero;
@@ -199,7 +414,7 @@ namespace System.Management.Automation
         private static string s_pshome = null;
 
         /// <summary>
-        /// Get the application base path of the shell from registry
+        /// Get the application base path of the shell from registry.
         /// </summary>
         internal static string GetApplicationBaseFromRegistry(string shellId)
         {
@@ -225,31 +440,60 @@ namespace System.Management.Automation
 
             return null;
         }
+
+        private static string s_windowsPowerShellVersion = null;
+
+        /// <summary>
+        /// Get the Windows PowerShell version from registry.
+        /// </summary>
+        /// <returns>
+        /// String of Windows PowerShell version from registry.
+        /// </returns>
+        internal static string GetWindowsPowerShellVersionFromRegistry()
+        {
+            if (!string.IsNullOrEmpty(InternalTestHooks.TestWindowsPowerShellVersionString))
+            {
+                return InternalTestHooks.TestWindowsPowerShellVersionString;
+            }
+
+            if (s_windowsPowerShellVersion != null)
+            {
+                return s_windowsPowerShellVersion;
+            }
+
+            string engineKeyPath = RegistryStrings.MonadRootKeyPath + "\\" +
+                PSVersionInfo.RegistryVersionKey + "\\" + RegistryStrings.MonadEngineKey;
+
+            using (RegistryKey engineKey = Registry.LocalMachine.OpenSubKey(engineKeyPath))
+            {
+                if (engineKey != null)
+                {
+                    s_windowsPowerShellVersion = engineKey.GetValue(RegistryStrings.MonadEngine_MonadVersion) as string;
+                    return s_windowsPowerShellVersion;
+                }
+            }
+
+            return string.Empty;
+        }
 #endif
 
         internal static string DefaultPowerShellAppBase => GetApplicationBase(DefaultPowerShellShellID);
+
         internal static string GetApplicationBase(string shellId)
         {
-            // Use the location of SMA.dll as the application base.
-            Assembly assembly = typeof(PSObject).Assembly;
-            return Path.GetDirectoryName(assembly.Location);
+            // Use the location of SMA.dll as the application base if it exists,
+            // otherwise, use the base directory from `AppContext`.
+            var baseDirectory = Path.GetDirectoryName(typeof(PSObject).Assembly.Location);
+            if (string.IsNullOrEmpty(baseDirectory))
+            {
+                // Need to remove any trailing directory separator characters
+                baseDirectory = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
+            }
+
+            return baseDirectory;
         }
 
         private static string[] s_productFolderDirectories;
-
-        /// <summary>
-        /// Specifies the per-user configuration settings directory in a platform agnostic manner.
-        /// </summary>
-        /// <returns>The current user's configuration settings directory</returns>
-        internal static string GetUserConfigurationDirectory()
-        {
-#if UNIX
-            return Platform.SelectProductNameForDirectory(Platform.XDG_Type.CONFIG);
-#else
-            string basePath = Environment.GetFolderPath(Environment.SpecialFolder.Personal);
-            return IO.Path.Combine(basePath, Utils.ProductNameForDirectory);
-#endif
-        }
 
         private static string[] GetProductFolderDirectories()
         {
@@ -264,7 +508,6 @@ namespace System.Management.Automation
                     baseDirectories.Add(appBase);
                 }
 #if !UNIX
-                // Win8: 454976
                 // Now add the two variations of System32
                 baseDirectories.Add(Environment.GetFolderPath(Environment.SpecialFolder.System));
                 string systemX86 = Environment.GetFolderPath(Environment.SpecialFolder.SystemX86);
@@ -273,20 +516,6 @@ namespace System.Management.Automation
                     baseDirectories.Add(systemX86);
                 }
 #endif
-                // And built-in modules
-                string progFileDir;
-                // TODO: #1184 will resolve this work-around
-                // Side-by-side versions of PowerShell use modules from their application base, not
-                // the system installation path.
-                progFileDir = Path.Combine(appBase, "Modules");
-
-                if (!string.IsNullOrEmpty(progFileDir))
-                {
-                    baseDirectories.Add(Path.Combine(progFileDir, "PackageManagement"));
-                    baseDirectories.Add(Path.Combine(progFileDir, "PowerShellGet"));
-                    baseDirectories.Add(Path.Combine(progFileDir, "Pester"));
-                    baseDirectories.Add(Path.Combine(progFileDir, "PSReadLine"));
-                }
                 Interlocked.CompareExchange(ref s_productFolderDirectories, baseDirectories.ToArray(), null);
             }
 
@@ -319,7 +548,7 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Checks if the current process is using WOW
+        /// Checks if the current process is using WOW.
         /// </summary>
         internal static bool IsRunningFromSysWOW64()
         {
@@ -327,7 +556,7 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Checks if host machine is WinPE
+        /// Checks if host machine is WinPE.
         /// </summary>
         internal static bool IsWinPEHost()
         {
@@ -347,10 +576,7 @@ namespace System.Management.Automation
             catch (ObjectDisposedException) { }
             finally
             {
-                if (winPEKey != null)
-                {
-                    winPEKey.Dispose();
-                }
+                winPEKey?.Dispose();
             }
 #endif
             return false;
@@ -359,10 +585,10 @@ namespace System.Management.Automation
         #region Versioning related methods
 
         /// <summary>
-        /// returns current major version of monad ( that is running ) in a string
+        /// Returns current major version of monad ( that is running ) in a string
         /// format.
         /// </summary>
-        /// <returns>string</returns>
+        /// <returns>String.</returns>
         /// <remarks>
         /// Cannot return a Version object as minor number is a requirement for
         /// version object.
@@ -379,7 +605,7 @@ namespace System.Management.Automation
         /// Version.TryParse will be used to convert the string to a Version
         /// object.
         /// </summary>
-        /// <param name="versionString">string representing version</param>
+        /// <param name="versionString">String representing version.</param>
         /// <returns>A Version Object.</returns>
         internal static Version StringToVersion(string versionString)
         {
@@ -412,60 +638,45 @@ namespace System.Management.Automation
             {
                 return result;
             }
+
             return null;
         }
 
         /// <summary>
-        /// Checks whether current monad session supports version specified
-        /// by ver.
+        /// Checks whether current PowerShell session supports edition specified
+        /// by checkEdition.
         /// </summary>
-        /// <param name="ver">Version to check</param>
-        /// <returns>true if supported, false otherwise</returns>
-        internal static bool IsPSVersionSupported(string ver)
+        /// <param name="checkEdition">Edition to check.</param>
+        /// <returns>True if supported, false otherwise.</returns>
+        internal static bool IsPSEditionSupported(string checkEdition)
         {
-            // Convert version to supported format ie., x.x
-            Version inputVersion = StringToVersion(ver);
-            return IsPSVersionSupported(inputVersion);
+            return PSVersionInfo.PSEditionValue.Equals(checkEdition, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
-        /// Checks whether current monad session supports version specified
-        /// by checkVersion.
+        /// Check whether the current PowerShell session supports any of the specified editions.
         /// </summary>
-        /// <param name="checkVersion">Version to check</param>
-        /// <returns>true if supported, false otherwise</returns>
-        internal static bool IsPSVersionSupported(Version checkVersion)
+        /// <param name="editions">The PowerShell editions to check compatibility with.</param>
+        /// <returns>True if the edition is supported by this runtime, false otherwise.</returns>
+        internal static bool IsPSEditionSupported(IEnumerable<string> editions)
         {
-            if (checkVersion == null)
+            string currentPSEdition = PSVersionInfo.PSEditionValue;
+            foreach (string edition in editions)
             {
-                return false;
-            }
-
-            foreach (Version compatibleVersion in PSVersionInfo.PSCompatibleVersions)
-            {
-                if (checkVersion.Major == compatibleVersion.Major && checkVersion.Minor <= compatibleVersion.Minor)
+                if (currentPSEdition.Equals(edition, StringComparison.OrdinalIgnoreCase))
+                {
                     return true;
+                }
             }
 
             return false;
         }
 
         /// <summary>
-        /// Checks whether current monad session supports edition specified
-        /// by checkEdition.
+        /// Checks whether the specified edition value is allowed.
         /// </summary>
-        /// <param name="checkEdition">Edition to check</param>
-        /// <returns>true if supported, false otherwise</returns>
-        internal static bool IsPSEditionSupported(string checkEdition)
-        {
-            return PSVersionInfo.PSEdition.Equals(checkEdition, StringComparison.OrdinalIgnoreCase);
-        }
-
-        /// <summary>
-        /// Checks whether the specified edition values is allowed.
-        /// </summary>
-        /// <param name="editionValue">Edition value to check</param>
-        /// <returns>true if allowed, false otherwise</returns>
+        /// <param name="editionValue">Edition value to check.</param>
+        /// <returns>True if allowed, false otherwise.</returns>
         internal static bool IsValidPSEditionValue(string editionValue)
         {
             return AllowedEditionValues.Contains(editionValue, StringComparer.OrdinalIgnoreCase);
@@ -481,18 +692,23 @@ namespace System.Management.Automation
         /// <summary>
         /// This is used to construct the profile path.
         /// </summary>
-        internal static string ProductNameForDirectory = Platform.IsInbox ? "WindowsPowerShell" : "PowerShell";
+        internal const string ProductNameForDirectory = "PowerShell";
+
+        /// <summary>
+        /// WSL introduces a new filesystem path to access the Linux filesystem from Windows, like '\\wsl$\ubuntu'.
+        /// </summary>
+        internal const string WslRootPath = @"\\wsl$";
 
         /// <summary>
         /// The subdirectory of module paths
-        /// e.g. ~\Documents\WindowsPowerShell\Modules and %ProgramFiles%\WindowsPowerShell\Modules
+        /// e.g. ~\Documents\WindowsPowerShell\Modules and %ProgramFiles%\WindowsPowerShell\Modules.
         /// </summary>
-        internal static string ModuleDirectory = Path.Combine(ProductNameForDirectory, "Modules");
+        internal static readonly string ModuleDirectory = Path.Combine(ProductNameForDirectory, "Modules");
 
-        internal readonly static ConfigScope[] SystemWideOnlyConfig = new[] { ConfigScope.SystemWide };
-        internal readonly static ConfigScope[] CurrentUserOnlyConfig = new[] { ConfigScope.CurrentUser };
-        internal readonly static ConfigScope[] SystemWideThenCurrentUserConfig = new[] { ConfigScope.SystemWide, ConfigScope.CurrentUser };
-        internal readonly static ConfigScope[] CurrentUserThenSystemWideConfig = new[] { ConfigScope.CurrentUser, ConfigScope.SystemWide };
+        internal static readonly ConfigScope[] SystemWideOnlyConfig = new[] { ConfigScope.AllUsers };
+        internal static readonly ConfigScope[] CurrentUserOnlyConfig = new[] { ConfigScope.CurrentUser };
+        internal static readonly ConfigScope[] SystemWideThenCurrentUserConfig = new[] { ConfigScope.AllUsers, ConfigScope.CurrentUser };
+        internal static readonly ConfigScope[] CurrentUserThenSystemWideConfig = new[] { ConfigScope.CurrentUser, ConfigScope.AllUsers };
 
         internal static T GetPolicySetting<T>(ConfigScope[] preferenceOrder) where T : PolicyBase, new()
         {
@@ -507,7 +723,7 @@ namespace System.Management.Automation
             return policy;
         }
 
-        private readonly static ConcurrentDictionary<ConfigScope, PowerShellPolicies> s_cachedPoliciesFromConfigFile =
+        private static readonly ConcurrentDictionary<ConfigScope, PowerShellPolicies> s_cachedPoliciesFromConfigFile =
             new ConcurrentDictionary<ConfigScope, PowerShellPolicies>();
 
         /// <summary>
@@ -536,16 +752,33 @@ namespace System.Management.Automation
                     PolicyBase result = null;
                     switch (typeof(T).Name)
                     {
-                        case nameof(ScriptExecution):             result = policies.ScriptExecution; break;
-                        case nameof(ScriptBlockLogging):          result = policies.ScriptBlockLogging; break;
-                        case nameof(ModuleLogging):               result = policies.ModuleLogging; break;
-                        case nameof(ProtectedEventLogging):       result = policies.ProtectedEventLogging; break;
-                        case nameof(Transcription):               result = policies.Transcription; break;
-                        case nameof(UpdatableHelp):               result = policies.UpdatableHelp; break;
-                        case nameof(ConsoleSessionConfiguration): result = policies.ConsoleSessionConfiguration; break;
-                        default: Diagnostics.Assert(false, "Should be unreachable code. Update this switch block when new PowerShell policy types are added."); break;
+                        case nameof(ScriptExecution):
+                            result = policies.ScriptExecution;
+                            break;
+                        case nameof(ScriptBlockLogging):
+                            result = policies.ScriptBlockLogging;
+                            break;
+                        case nameof(ModuleLogging):
+                            result = policies.ModuleLogging;
+                            break;
+                        case nameof(ProtectedEventLogging):
+                            result = policies.ProtectedEventLogging;
+                            break;
+                        case nameof(Transcription):
+                            result = policies.Transcription;
+                            break;
+                        case nameof(UpdatableHelp):
+                            result = policies.UpdatableHelp;
+                            break;
+                        case nameof(ConsoleSessionConfiguration):
+                            result = policies.ConsoleSessionConfiguration;
+                            break;
+                        default:
+                            Diagnostics.Assert(false, "Should be unreachable code. Update this switch block when new PowerShell policy types are added.");
+                            break;
                     }
-                    if (result != null) { return (T) result; }
+
+                    if (result != null) { return (T)result; }
                 }
             }
 
@@ -563,37 +796,44 @@ namespace System.Management.Automation
             {nameof(UpdatableHelp), @"Software\Policies\Microsoft\PowerShellCore\UpdatableHelp"},
             {nameof(ConsoleSessionConfiguration), @"Software\Policies\Microsoft\PowerShellCore\ConsoleSessionConfiguration"}
         };
-        private readonly static ConcurrentDictionary<Tuple<ConfigScope, string>, PolicyBase> s_cachedPoliciesFromRegistry =
-            new ConcurrentDictionary<Tuple<ConfigScope, string>, PolicyBase>();
+
+        private static readonly Dictionary<string, string> WindowsPowershellGroupPolicyKeys = new Dictionary<string, string>
+        {
+            { nameof(ScriptExecution), @"Software\Policies\Microsoft\Windows\PowerShell" },
+            { nameof(ScriptBlockLogging), @"Software\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" },
+            { nameof(ModuleLogging), @"Software\Policies\Microsoft\Windows\PowerShell\ModuleLogging" },
+            { nameof(Transcription), @"Software\Policies\Microsoft\Windows\PowerShell\Transcription" },
+            { nameof(UpdatableHelp), @"Software\Policies\Microsoft\Windows\PowerShell\UpdatableHelp" },
+        };
+
+        private const string PolicySettingFallbackKey = "UseWindowsPowerShellPolicySetting";
+
+        private static readonly ConcurrentDictionary<ConfigScope, ConcurrentDictionary<string, PolicyBase>> s_cachedPoliciesFromRegistry =
+            new ConcurrentDictionary<ConfigScope, ConcurrentDictionary<string, PolicyBase>>();
+
+        private static readonly Func<ConfigScope, ConcurrentDictionary<string, PolicyBase>> s_subCacheCreationDelegate =
+            key => new ConcurrentDictionary<string, PolicyBase>(StringComparer.Ordinal);
 
         /// <summary>
-        /// The implementation of fetching a specific kind of policy setting from the given configuration scope.
+        /// Read policy settings from a registry key into a policy object.
         /// </summary>
-        private static T GetPolicySettingFromGPOImpl<T>(ConfigScope scope) where T : PolicyBase, new()
+        /// <param name="instance">Policy object that will be filled with values from registry.</param>
+        /// <param name="instanceType">Type of policy object used.</param>
+        /// <param name="gpoKey">Registry key that has policy settings.</param>
+        /// <returns>True if any property was successfully set on the policy object.</returns>
+        private static bool TrySetPolicySettingsFromRegistryKey(object instance, Type instanceType, RegistryKey gpoKey)
         {
-            Type tType = typeof(T);
-            // SystemWide scope means 'LocalMachine' root key when query from registry
-            RegistryKey rootKey = (scope == ConfigScope.SystemWide) ? Registry.LocalMachine : Registry.CurrentUser;
+            var properties = instanceType.GetProperties(BindingFlags.Instance | BindingFlags.Public);
+            bool isAnyPropertySet = false;
 
-            GroupPolicyKeys.TryGetValue(tType.Name, out string gpoKeyPath);
-            Diagnostics.Assert(gpoKeyPath != null, StringUtil.Format("The GPO registry key path should be pre-defined for {0}", tType.Name));
+            string[] valueNames = gpoKey.GetValueNames();
+            string[] subKeyNames = gpoKey.GetSubKeyNames();
+            var valueNameSet = valueNames.Length > 0 ? new HashSet<string>(valueNames, StringComparer.OrdinalIgnoreCase) : null;
+            var subKeyNameSet = subKeyNames.Length > 0 ? new HashSet<string>(subKeyNames, StringComparer.OrdinalIgnoreCase) : null;
 
-            using (RegistryKey gpoKey = rootKey.OpenSubKey(gpoKeyPath))
+            // If there are any values or subkeys in the registry key - read them into the policy instance object
+            if ((valueNameSet != null) || (subKeyNameSet != null))
             {
-                // If the corresponding GPO key doesn't exist, return null
-                if (gpoKey == null) { return null; }
-
-                // The corresponding GPO key exists, then create an instance of T
-                // and populate its properties with the settings
-                object tInstance = Activator.CreateInstance(tType, nonPublic: true);
-                var properties = tType.GetProperties(BindingFlags.Instance | BindingFlags.Public);
-                bool isAnyPropertySet = false;
-
-                string[] valueNames = gpoKey.GetValueNames();
-                string[] subKeyNames = gpoKey.GetSubKeyNames();
-                var valueNameSet = valueNames.Length > 0 ? new HashSet<string>(valueNames, StringComparer.OrdinalIgnoreCase) : null;
-                var subKeyNameSet = subKeyNames.Length > 0 ? new HashSet<string>(subKeyNames, StringComparer.OrdinalIgnoreCase) : null;
-
                 foreach (var property in properties)
                 {
                     string settingName = property.Name;
@@ -608,7 +848,10 @@ namespace System.Management.Automation
                     {
                         using (RegistryKey subKey = gpoKey.OpenSubKey(settingName))
                         {
-                            if (subKey != null) { rawRegistryValue = subKey.GetValueNames(); }
+                            if (subKey != null)
+                            {
+                                rawRegistryValue = subKey.GetValueNames();
+                            }
                         }
                     }
 
@@ -624,15 +867,23 @@ namespace System.Management.Automation
                             case var _ when propertyType == typeof(bool?):
                                 if (rawRegistryValue is int rawIntValue)
                                 {
-                                    if (rawIntValue == 1) { propertyValue = true; }
-                                    else if (rawIntValue == 0) { propertyValue = false; }
+                                    if (rawIntValue == 1)
+                                    {
+                                        propertyValue = true;
+                                    }
+                                    else if (rawIntValue == 0)
+                                    {
+                                        propertyValue = false;
+                                    }
                                 }
+
                                 break;
                             case var _ when propertyType == typeof(string):
                                 if (rawRegistryValue is string rawStringValue)
                                 {
                                     propertyValue = rawStringValue;
                                 }
+
                                 break;
                             case var _ when propertyType == typeof(string[]):
                                 if (rawRegistryValue is string[] rawStringArrayValue)
@@ -643,23 +894,67 @@ namespace System.Management.Automation
                                 {
                                     propertyValue = new string[] { stringValue };
                                 }
+
                                 break;
                             default:
-                                Diagnostics.Assert(false, "Should be unreachable code. Update this switch block when properties of new types are added to PowerShell policy types.");
-                                break;
+                                throw System.Management.Automation.Interpreter.Assert.Unreachable;
                         }
 
                         // Set the property if the value is not null
                         if (propertyValue != null)
                         {
-                            property.SetValue(tInstance, propertyValue);
+                            property.SetValue(instance, propertyValue);
                             isAnyPropertySet = true;
                         }
                     }
                 }
+            }
+
+            return isAnyPropertySet;
+        }
+
+        /// <summary>
+        /// The implementation of fetching a specific kind of policy setting from the given configuration scope.
+        /// </summary>
+        private static T GetPolicySettingFromGPOImpl<T>(ConfigScope scope) where T : PolicyBase, new()
+        {
+            Type tType = typeof(T);
+            // SystemWide scope means 'LocalMachine' root key when query from registry
+            RegistryKey rootKey = (scope == ConfigScope.AllUsers) ? Registry.LocalMachine : Registry.CurrentUser;
+
+            GroupPolicyKeys.TryGetValue(tType.Name, out string gpoKeyPath);
+            Diagnostics.Assert(gpoKeyPath != null, StringUtil.Format("The GPO registry key path should be pre-defined for {0}", tType.Name));
+
+            using (RegistryKey gpoKey = rootKey.OpenSubKey(gpoKeyPath))
+            {
+                // If the corresponding GPO key doesn't exist, return null
+                if (gpoKey == null) { return null; }
+
+                // The corresponding GPO key exists, then create an instance of T
+                // and populate its properties with the settings
+                object tInstance = Activator.CreateInstance(tType, nonPublic: true);
+                bool isAnyPropertySet = false;
+
+                // if PolicySettingFallbackKey is Not set - use PowerShell Core policy reg key
+                if ((int)gpoKey.GetValue(PolicySettingFallbackKey, 0) == 0)
+                {
+                    isAnyPropertySet = TrySetPolicySettingsFromRegistryKey(tInstance, tType, gpoKey);
+                }
+                else
+                {
+                    // when PolicySettingFallbackKey flag is set (REG_DWORD "1") use Windows PS policy reg key
+                    WindowsPowershellGroupPolicyKeys.TryGetValue(tType.Name, out string winPowershellGpoKeyPath);
+                    Diagnostics.Assert(winPowershellGpoKeyPath != null, StringUtil.Format("The Windows PS GPO registry key path should be pre-defined for {0}", tType.Name));
+                    using (RegistryKey winPowershellGpoKey = rootKey.OpenSubKey(winPowershellGpoKeyPath))
+                    {
+                        // If the corresponding Windows PS GPO key doesn't exist, return null
+                        if (winPowershellGpoKey == null) { return null; }
+                        isAnyPropertySet = TrySetPolicySettingsFromRegistryKey(tInstance, tType, winPowershellGpoKey);
+                    }
+                }
 
                 // If no property is set, then we consider this policy as undefined
-                return isAnyPropertySet ? (T) tInstance : null;
+                return isAnyPropertySet ? (T)tInstance : null;
             }
         }
 
@@ -669,6 +964,8 @@ namespace System.Management.Automation
         private static T GetPolicySettingFromGPO<T>(ConfigScope[] preferenceOrder) where T : PolicyBase, new()
         {
             PolicyBase policy = null;
+            string policyName = typeof(T).Name;
+
             foreach (ConfigScope scope in preferenceOrder)
             {
                 if (InternalTestHooks.BypassGroupPolicyCaching)
@@ -677,17 +974,14 @@ namespace System.Management.Automation
                 }
                 else
                 {
-                    var key = Tuple.Create(scope, typeof(T).Name);
-                    if (!s_cachedPoliciesFromRegistry.TryGetValue(key, out policy))
+                    var subordinateCache = s_cachedPoliciesFromRegistry.GetOrAdd(scope, s_subCacheCreationDelegate);
+                    if (!subordinateCache.TryGetValue(policyName, out policy))
                     {
-                        lock (s_cachedPoliciesFromRegistry)
-                        {
-                            policy = s_cachedPoliciesFromRegistry.GetOrAdd(key, tuple => GetPolicySettingFromGPOImpl<T>(tuple.Item1));
-                        }
+                        policy = subordinateCache.GetOrAdd(policyName, key => GetPolicySettingFromGPOImpl<T>(scope));
                     }
                 }
 
-                if (policy != null) { return (T) policy; }
+                if (policy != null) { return (T)policy; }
             }
 
             return null;
@@ -737,10 +1031,7 @@ namespace System.Management.Automation
                     finally
                     {
                         context.AutoLoadingModuleInProgress.Remove(module);
-                        if (ps != null)
-                        {
-                            ps.Dispose();
-                        }
+                        ps?.Dispose();
                     }
                 }
             }
@@ -787,11 +1078,7 @@ namespace System.Management.Automation
                     }
                     else
                     {
-                        // append to result
-                        foreach (PSModuleInfo temp in gmoOutPut)
-                        {
-                            result.Add(temp);
-                        }
+                        result.AddRange(gmoOutPut);
                     }
                 }
             }
@@ -801,10 +1088,7 @@ namespace System.Management.Automation
             }
             finally
             {
-                if (ps != null)
-                {
-                    ps.Dispose();
-                }
+                ps?.Dispose();
             }
 
             return result;
@@ -862,14 +1146,45 @@ namespace System.Management.Automation
             }
             finally
             {
-                if (ps != null)
-                {
-                    ps.Dispose();
-                }
+                ps?.Dispose();
             }
 
             return result;
         }
+
+#if !UNIX
+        private static bool TryGetWindowsCurrentIdentity(out WindowsIdentity currentIdentity)
+        {
+            try
+            {
+                currentIdentity = WindowsIdentity.GetCurrent();
+            }
+            catch (SecurityException)
+            {
+                currentIdentity = null;
+            }
+
+            return (currentIdentity != null);
+        }
+
+        /// <summary>
+        /// Gets the current impersonating Windows identity, if any.
+        /// </summary>
+        /// <param name="impersonatedIdentity">Current impersonated Windows identity or null.</param>
+        /// <returns>True if current identity is impersonated.</returns>
+        internal static bool TryGetWindowsImpersonatedIdentity(out WindowsIdentity impersonatedIdentity)
+        {
+            WindowsIdentity currentIdentity;
+            if (TryGetWindowsCurrentIdentity(out currentIdentity) && (currentIdentity.ImpersonationLevel == TokenImpersonationLevel.Impersonation))
+            {
+                impersonatedIdentity = currentIdentity;
+                return true;
+            }
+
+            impersonatedIdentity = null;
+            return false;
+        }
+#endif
 
         internal static bool IsAdministrator()
         {
@@ -882,114 +1197,28 @@ namespace System.Management.Automation
 #if UNIX
             return true;
 #else
-            System.Security.Principal.WindowsIdentity currentIdentity = System.Security.Principal.WindowsIdentity.GetCurrent();
-            System.Security.Principal.WindowsPrincipal principal = new System.Security.Principal.WindowsPrincipal(currentIdentity);
-
-            return principal.IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
-#endif
-        }
-
-        internal static bool ItemExists(string path)
-        {
-            try
+            WindowsIdentity currentIdentity;
+            if (TryGetWindowsCurrentIdentity(out currentIdentity))
             {
-                return ItemExists(path, out bool _);
-            }
-            catch
-            {
+                var principal = new WindowsPrincipal(currentIdentity);
+                return principal.IsInRole(WindowsBuiltInRole.Administrator);
             }
 
             return false;
-        }
-
-        internal static bool ItemExists(string path, out bool isDirectory)
-        {
-            isDirectory = false;
-
-            if (String.IsNullOrEmpty(path))
-            {
-                return false;
-            }
-
-            if (IsReservedDeviceName(path))
-            {
-                return false;
-            }
-
-            try
-            {
-                // Use 'File.GetAttributes()' because we want to get access exceptions.
-                FileAttributes attributes = File.GetAttributes(path);
-                isDirectory = attributes.HasFlag(FileAttributes.Directory);
-
-                return (int)attributes != -1;
-            }
-            catch (IOException)
-            {
-                return false;
-            }
-        }
-
-        internal static bool FileExists(string path)
-        {
-            bool itemExists = ItemExists(path, out bool isDirectory);
-
-            return (itemExists && (!isDirectory));
-        }
-
-        internal static bool DirectoryExists(string path)
-        {
-            bool itemExists = ItemExists(path, out bool isDirectory);
-
-            return (itemExists && isDirectory);
-        }
-
-        internal static void NativeEnumerateDirectory(string directory, out List<string> directories, out List<string> files)
-        {
-            IntPtr INVALID_HANDLE_VALUE = new IntPtr(-1);
-            NativeMethods.WIN32_FIND_DATA findData;
-
-            files = new List<string>();
-            directories = new List<string>();
-
-            IntPtr findHandle;
-
-            findHandle = NativeMethods.FindFirstFile(directory + "\\*", out findData);
-            if (findHandle != INVALID_HANDLE_VALUE)
-            {
-                do
-                {
-                    if ((findData.dwFileAttributes & NativeMethods.FileAttributes.Directory) != 0)
-                    {
-                        if ((!String.Equals(".", findData.cFileName, StringComparison.OrdinalIgnoreCase)) &&
-                            (!String.Equals("..", findData.cFileName, StringComparison.OrdinalIgnoreCase)))
-                        {
-                            directories.Add(directory + "\\" + findData.cFileName);
-                        }
-                    }
-                    else
-                    {
-                        files.Add(directory + "\\" + findData.cFileName);
-                    }
-                }
-                while (NativeMethods.FindNextFile(findHandle, out findData));
-                NativeMethods.FindClose(findHandle);
-            }
+#endif
         }
 
         internal static bool IsReservedDeviceName(string destinationPath)
         {
 #if !UNIX
-            string[] reservedDeviceNames = { "CON", "PRN", "AUX", "CLOCK$", "NUL",
+            string[] reservedDeviceNames = { "CON", "PRN", "AUX", "CLOCK$", "NUL", "CONIN$", "CONOUT$",
                                              "COM0", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
                                              "LPT0", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9" };
             string compareName = Path.GetFileName(destinationPath);
             string noExtensionCompareName = Path.GetFileNameWithoutExtension(destinationPath);
 
-            // See if it's the correct length. If it's shorter than CON, AUX, etc, it can't be a device name.
-            // Likewise, if it's longer than 'CLOCK$', it can't be a device name.
-            if (((compareName.Length < 3) || (compareName.Length > 6)) &&
-                ((noExtensionCompareName.Length < 3) || (noExtensionCompareName.Length > 6)))
+            if (((compareName.Length < 3) || (compareName.Length > 7)) &&
+                ((noExtensionCompareName.Length < 3) || (noExtensionCompareName.Length > 7)))
             {
                 return false;
             }
@@ -997,8 +1226,8 @@ namespace System.Management.Automation
             foreach (string deviceName in reservedDeviceNames)
             {
                 if (
-                    String.Equals(deviceName, compareName, StringComparison.OrdinalIgnoreCase) ||
-                    String.Equals(deviceName, noExtensionCompareName, StringComparison.OrdinalIgnoreCase))
+                    string.Equals(deviceName, compareName, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(deviceName, noExtensionCompareName, StringComparison.OrdinalIgnoreCase))
                 {
                     return true;
                 }
@@ -1007,77 +1236,35 @@ namespace System.Management.Automation
             return false;
         }
 
-        internal static bool PathIsUnc(string path)
+        internal static bool PathIsUnc(string path, bool networkOnly = false)
         {
 #if UNIX
             return false;
 #else
+            if (string.IsNullOrEmpty(path) || !path.StartsWith('\\'))
+            {
+                return false;
+            }
+
+            // handle special cases like '\\wsl$\ubuntu', '\\?\', and '\\.\pipe\' which aren't a UNC path, but we can say it is so the filesystemprovider can use it
+            if (!networkOnly && (path.StartsWith(WslRootPath, StringComparison.OrdinalIgnoreCase) || PathIsDevicePath(path)))
+            {
+                return true;
+            }
+
             Uri uri;
-            return !string.IsNullOrEmpty(path) && Uri.TryCreate(path, UriKind.Absolute, out uri) && uri.IsUnc;
+            return Uri.TryCreate(path, UriKind.Absolute, out uri) && uri.IsUnc;
 #endif
         }
 
-        internal class NativeMethods
+        internal static bool PathIsDevicePath(string path)
         {
-            private static string EnsureLongPathPrefixIfNeeded(string path)
-            {
-                if (path.Length >= MAX_PATH && !path.StartsWith(@"\\?\", StringComparison.Ordinal))
-                    return @"\\?\" + path;
-
-                return path;
-            }
-
-            [DllImport(PinvokeDllNames.GetFileAttributesDllName, EntryPoint = "GetFileAttributesW", CharSet = CharSet.Unicode, SetLastError = true)]
-            private static extern int GetFileAttributesPrivate(string lpFileName);
-
-            internal static int GetFileAttributes(string fileName)
-            {
-                fileName = EnsureLongPathPrefixIfNeeded(fileName);
-                return GetFileAttributesPrivate(fileName);
-            }
-
-            [Flags]
-            internal enum FileAttributes
-            {
-                Hidden = 0x0002,
-                Directory = 0x0010
-            }
-
-            public const int MAX_PATH = 260;
-            public const int MAX_ALTERNATE = 14;
-
-            [StructLayout(LayoutKind.Sequential)]
-            public struct FILETIME
-            {
-                public uint dwLowDateTime;
-                public uint dwHighDateTime;
-            };
-
-            [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-            public struct WIN32_FIND_DATA
-            {
-                public FileAttributes dwFileAttributes;
-                public FILETIME ftCreationTime;
-                public FILETIME ftLastAccessTime;
-                public FILETIME ftLastWriteTime;
-                public uint nFileSizeHigh; //changed all to uint, otherwise you run into unexpected overflow
-                public uint nFileSizeLow;  //|
-                public uint dwReserved0;   //|
-                public uint dwReserved1;   //v
-                [MarshalAs(UnmanagedType.ByValTStr, SizeConst = MAX_PATH)]
-                public string cFileName;
-                [MarshalAs(UnmanagedType.ByValTStr, SizeConst = MAX_ALTERNATE)]
-                public string cAlternate;
-            }
-
-            [DllImport(PinvokeDllNames.FindFirstFileDllName, CharSet = CharSet.Unicode)]
-            public static extern IntPtr FindFirstFile(string lpFileName, out WIN32_FIND_DATA lpFindFileData);
-
-            [DllImport(PinvokeDllNames.FindNextFileDllName, CharSet = CharSet.Unicode)]
-            public static extern bool FindNextFile(IntPtr hFindFile, out WIN32_FIND_DATA lpFindFileData);
-
-            [DllImport(PinvokeDllNames.FindCloseDllName, CharSet = CharSet.Unicode)]
-            public static extern bool FindClose(IntPtr hFindFile);
+#if UNIX
+            return false;
+#else
+            // device paths can be network paths, we would need windows to parse it.
+            return path.StartsWith(@"\\.\") || path.StartsWith(@"\\?\") || path.StartsWith(@"\\;");
+#endif
         }
 
         internal static readonly string PowerShellAssemblyStrongNameFormat =
@@ -1099,10 +1286,10 @@ namespace System.Management.Automation
 
         internal static bool IsPowerShellAssembly(string assemblyName)
         {
-            if (!String.IsNullOrWhiteSpace(assemblyName))
+            if (!string.IsNullOrWhiteSpace(assemblyName))
             {
                 // Remove the '.dll' if it's there...
-                var fixedName = assemblyName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)
+                var fixedName = assemblyName.EndsWith(StringLiterals.PowerShellILAssemblyExtension, StringComparison.OrdinalIgnoreCase)
                                 ? Path.GetFileNameWithoutExtension(assemblyName)
                                 : assemblyName;
 
@@ -1117,7 +1304,7 @@ namespace System.Management.Automation
 
         internal static string GetPowerShellAssemblyStrongName(string assemblyName)
         {
-            if (!String.IsNullOrWhiteSpace(assemblyName))
+            if (!string.IsNullOrWhiteSpace(assemblyName))
             {
                 // Remove the '.dll' if it's there...
                 string fixedName = assemblyName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)
@@ -1134,11 +1321,11 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// If a mutex is abandoned, in our case, it is ok to proceed
+        /// If a mutex is abandoned, in our case, it is ok to proceed.
         /// </summary>
-        /// <param name="mutex">The mutex to wait on. If it is null, a new one will be created</param>
+        /// <param name="mutex">The mutex to wait on. If it is null, a new one will be created.</param>
         /// <param name="initializer">The initializer to use to recreate the mutex.</param>
-        /// <returns>A working mutex. If the mutex was abandoned, a new one is created to replace it</returns>
+        /// <returns>A working mutex. If the mutex was abandoned, a new one is created to replace it.</returns>
         internal static Mutex SafeWaitMutex(Mutex mutex, MutexInitializer initializer)
         {
             try
@@ -1159,6 +1346,7 @@ namespace System.Management.Automation
 
             return mutex;
         }
+
         internal delegate Mutex MutexInitializer();
 
         internal static bool Succeeded(int hresult)
@@ -1166,101 +1354,13 @@ namespace System.Management.Automation
             return hresult >= 0;
         }
 
-        // Attempt to determine the existing encoding
-        internal static Encoding GetEncoding(string path)
-        {
-            if (!File.Exists(path))
-            {
-                return ClrFacade.GetDefaultEncoding();
-            }
-
-            byte[] initialBytes = new byte[100];
-            int bytesRead = 0;
-
-            try
-            {
-                using (FileStream stream = System.IO.File.OpenRead(path))
-                {
-                    using (BinaryReader reader = new BinaryReader(stream))
-                    {
-                        bytesRead = reader.Read(initialBytes, 0, 100);
-                    }
-                }
-            }
-            catch (IOException)
-            {
-                return ClrFacade.GetDefaultEncoding();
-            }
-
-            // Test for four-byte preambles
-            string preamble = null;
-            Encoding foundEncoding = ClrFacade.GetDefaultEncoding();
-
-            if (bytesRead > 3)
-            {
-                preamble = String.Join("-", initialBytes[0], initialBytes[1], initialBytes[2], initialBytes[3]);
-
-                if (encodingMap.TryGetValue(preamble, out foundEncoding))
-                {
-                    return foundEncoding;
-                }
-            }
-
-            // Test for three-byte preambles
-            if (bytesRead > 2)
-            {
-                preamble = String.Join("-", initialBytes[0], initialBytes[1], initialBytes[2]);
-                if (encodingMap.TryGetValue(preamble, out foundEncoding))
-                {
-                    return foundEncoding;
-                }
-            }
-
-            // Test for two-byte preambles
-            if (bytesRead > 1)
-            {
-                preamble = String.Join("-", initialBytes[0], initialBytes[1]);
-                if (encodingMap.TryGetValue(preamble, out foundEncoding))
-                {
-                    return foundEncoding;
-                }
-            }
-
-            // Check for binary
-            string initialBytesAsAscii = System.Text.Encoding.ASCII.GetString(initialBytes, 0, bytesRead);
-            if (initialBytesAsAscii.IndexOfAny(nonPrintableCharacters) >= 0)
-            {
-                return Encoding.Unicode;
-            }
-
-            return Encoding.ASCII;
-        }
-
         // BigEndianUTF32 encoding is possible, but requires creation
-        internal static Encoding BigEndianUTF32Encoding = new UTF32Encoding(bigEndian: true, byteOrderMark: true);
+        internal static readonly Encoding BigEndianUTF32Encoding = new UTF32Encoding(bigEndian: true, byteOrderMark: true);
         // [System.Text.Encoding]::GetEncodings() | Where-Object { $_.GetEncoding().GetPreamble() } |
         //     Add-Member ScriptProperty Preamble { $this.GetEncoding().GetPreamble() -join "-" } -PassThru |
         //     Format-Table -Auto
-        internal static Dictionary<String, Encoding> encodingMap =
-            new Dictionary<string, Encoding>()
-            {
-                { "255-254", Encoding.Unicode },
-                { "254-255", Encoding.BigEndianUnicode },
-                { "255-254-0-0", Encoding.UTF32 },
-                { "0-0-254-255", BigEndianUTF32Encoding },
-                { "239-187-191", Encoding.UTF8 },
-            };
 
-        internal static char[] nonPrintableCharacters = {
-            (char) 0, (char) 1, (char) 2, (char) 3, (char) 4, (char) 5, (char) 6, (char) 7, (char) 8,
-            (char) 11, (char) 12, (char) 14, (char) 15, (char) 16, (char) 17, (char) 18, (char) 19, (char) 20,
-            (char) 21, (char) 22, (char) 23, (char) 24, (char) 25, (char) 26, (char) 28, (char) 29, (char) 30,
-            (char) 31, (char) 127, (char) 129, (char) 141, (char) 143, (char) 144, (char) 157 };
-
-        internal static readonly UTF8Encoding utf8NoBom =
-            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
-
-#if !CORECLR // TODO:CORECLR - WindowsIdentity.Impersonate() is not available. Use WindowsIdentity.RunImpersonated to replace it.
+#if !UNIX
         /// <summary>
         /// Queues a CLR worker thread with impersonation of provided Windows identity.
         /// </summary>
@@ -1286,41 +1386,28 @@ namespace System.Management.Automation
             WaitCallback callback = args[1] as WaitCallback;
             object state = args[2];
 
-            WindowsImpersonationContext impersonationContext = null;
-            if ((identityToImpersonate != null) &&
-                (identityToImpersonate.ImpersonationLevel == TokenImpersonationLevel.Impersonation))
+            if (identityToImpersonate != null)
             {
-                impersonationContext = identityToImpersonate.Impersonate();
+                WindowsIdentity.RunImpersonated(
+                    identityToImpersonate.AccessToken,
+                    () => callback(state));
+                return;
             }
-            try
-            {
-                callback(state);
-            }
-            finally
-            {
-                if (impersonationContext != null)
-                {
-                    try
-                    {
-                        impersonationContext.Undo();
-                        impersonationContext.Dispose();
-                    }
-                    catch (System.Security.SecurityException) { }
-                }
-            }
+
+            callback(state);
         }
 #endif
 
         /// <summary>
         /// If the command name is fully qualified then it is split into its component parts
-        /// E.g., moduleName\commandName
+        /// E.g., moduleName\commandName.
         /// </summary>
         /// <param name="commandName"></param>
         /// <param name="moduleName"></param>
-        /// <returns>Command name and as appropriate Module name in out parameter</returns>
+        /// <returns>Command name and as appropriate Module name in out parameter.</returns>
         internal static string ParseCommandName(string commandName, out string moduleName)
         {
-            var names = commandName.Split(Separators.Backslash, 2);
+            var names = commandName.Split('\\', 2);
             if (names.Length == 2)
             {
                 moduleName = names[0];
@@ -1331,26 +1418,15 @@ namespace System.Management.Automation
             return commandName;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static T[] EmptyArray<T>()
-        {
-            return EmptyArrayHolder<T>._instance;
-        }
-
         internal static ReadOnlyCollection<T> EmptyReadOnlyCollection<T>()
         {
             return EmptyReadOnlyCollectionHolder<T>._instance;
         }
 
-        private static class EmptyArrayHolder<T>
-        {
-            internal static readonly T[] _instance = new T[0];
-        }
-
         private static class EmptyReadOnlyCollectionHolder<T>
         {
             internal static readonly ReadOnlyCollection<T> _instance =
-                new ReadOnlyCollection<T>(EmptyArray<T>());
+                new ReadOnlyCollection<T>(Array.Empty<T>());
         }
 
         internal static class Separators
@@ -1358,22 +1434,8 @@ namespace System.Management.Automation
             internal static readonly char[] Backslash = new char[] { '\\' };
             internal static readonly char[] Directory = new char[] { '\\', '/' };
             internal static readonly char[] DirectoryOrDrive = new char[] { '\\', '/', ':' };
-
-            internal static readonly char[] Colon = new char[] { ':' };
-            internal static readonly char[] Dot = new char[] { '.' };
-            internal static readonly char[] Pipe = new char[] { '|' };
-            internal static readonly char[] Comma = new char[] { ',' };
-            internal static readonly char[] Semicolon = new char[] { ';' };
-            internal static readonly char[] StarOrQuestion = new char[] { '*', '?' };
-            internal static readonly char[] ColonOrBackslash = new char[] { '\\', ':' };
-            internal static readonly char[] PathSeparator = new char[] { Path.PathSeparator };
-
-            internal static readonly char[] QuoteChars = new char[] { '\'', '"' };
-            internal static readonly char[] Space = new char[] { ' ' };
-            internal static readonly char[] QuotesSpaceOrTab = new char[] { ' ', '\t', '\'', '"' };
             internal static readonly char[] SpaceOrTab = new char[] { ' ', '\t' };
-            internal static readonly char[] Newline = new char[] { '\n' };
-            internal static readonly char[] CrLf = new char[] { '\r', '\n' };
+            internal static readonly char[] StarOrQuestion = new char[] { '*', '?' };
 
             // (Copied from System.IO.Path so we can call TrimEnd in the same way that Directory.EnumerateFiles would on the search patterns).
             // Trim trailing white spaces, tabs etc but don't be aggressive in removing everything that has UnicodeCategory of trailing space.
@@ -1381,44 +1443,175 @@ namespace System.Management.Automation
             internal static readonly char[] PathSearchTrimEnd = { (char)0x9, (char)0xA, (char)0xB, (char)0xC, (char)0xD, (char)0x20, (char)0x85, (char)0xA0 };
         }
 
-#if !UNIX
-        // This is to reduce the runtime overhead of the feature query
-        private static readonly Type ComObjectType = typeof(object).Assembly.GetType("System.__ComObject");
-#endif
-
-        internal static bool IsComObject(PSObject psObject)
-        {
-#if UNIX
-            return false;
-#else
-            if (psObject == null) { return false; }
-
-            object obj = PSObject.Base(psObject);
-            return IsComObject(obj);
-#endif
-        }
-
+        /// <summary>
+        /// A COM object could be directly of the type 'System.__ComObject', or it could be a strongly typed RWC,
+        /// whose specific type derives from 'System.__ComObject'.
+        /// A strongly typed RWC can be created via the 'new' operation with a Primary Interop Assembly (PIA).
+        /// For example, with the PIA 'Microsoft.Office.Interop.Excel', you can write the following code:
+        ///    var excelApp = new Microsoft.Office.Interop.Excel.Application();
+        ///    Type type = excelApp.GetType();
+        ///    Type comObjectType = typeof(object).Assembly.GetType("System.__ComObject");
+        ///    Console.WriteLine("excelApp type: {0}", type.FullName);
+        ///    Console.WriteLine("Is __ComObject assignable from? {0}", comObjectType.IsAssignableFrom(type));
+        /// and the results are:
+        ///    excelApp type: Microsoft.Office.Interop.Excel.ApplicationClass
+        ///    Is __ComObject assignable from? True.
+        /// </summary>
         internal static bool IsComObject(object obj)
         {
 #if UNIX
             return false;
 #else
-            // We can't use System.Runtime.InteropServices.Marshal.IsComObject(obj) since it doesn't work in partial trust.
-            //
-            // There could be strongly typed RWCs whose type is not 'System.__ComObject', but the more specific type should
-            // derive from 'System.__ComObject'. The strongly typed RWCs can be created with 'new' operation via the Primay
-            // Interop Assembly (PIA).
-            // For example, with the PIA 'Microsoft.Office.Interop.Excel', you can write the following code:
-            //    var excelApp = new Microsoft.Office.Interop.Excel.Application();
-            //    Type type = excelApp.GetType();
-            //    Type comObjectType = typeof(object).Assembly.GetType("System.__ComObject");
-            //    Console.WriteLine("excelApp type: {0}", type.FullName);
-            //    Console.WriteLine("Is __ComObject assignable from? {0}", comObjectType.IsAssignableFrom(type));
-            // and the results are:
-            //    excelApp type: Microsoft.Office.Interop.Excel.ApplicationClass
-            //    Is __ComObject assignable from? True
-            return obj != null && ComObjectType.IsAssignableFrom(obj.GetType());
+            return obj != null && Marshal.IsComObject(obj);
 #endif
+        }
+
+        /// <summary>
+        /// EnforceSystemLockDownLanguageMode
+        ///     FullLangauge        ->  ConstrainedLanguage
+        ///     RestrictedLanguage  ->  NoLanguage
+        ///     ConstrainedLanguage ->  ConstrainedLanguage
+        ///     NoLanguage          ->  NoLanguage.
+        /// </summary>
+        /// <param name="context">ExecutionContext.</param>
+        /// <returns>The current ExecutionContext language mode.</returns>
+        internal static PSLanguageMode EnforceSystemLockDownLanguageMode(ExecutionContext context)
+        {
+            switch (SystemPolicy.GetSystemLockdownPolicy())
+            {
+                case SystemEnforcementMode.Enforce:
+                    switch (context.LanguageMode)
+                    {
+                        case PSLanguageMode.FullLanguage:
+                            context.LanguageMode = PSLanguageMode.ConstrainedLanguage;
+                            break;
+
+                        case PSLanguageMode.RestrictedLanguage:
+                            context.LanguageMode = PSLanguageMode.NoLanguage;
+                            break;
+
+                        case PSLanguageMode.ConstrainedLanguage:
+                        case PSLanguageMode.NoLanguage:
+                            break;
+
+                        default:
+                            Diagnostics.Assert(false, "Unexpected PSLanguageMode");
+                            context.LanguageMode = PSLanguageMode.NoLanguage;
+                            break;
+                    }
+                    break;
+
+                case SystemEnforcementMode.Audit:
+                    switch (context.LanguageMode)
+                    {
+                        case PSLanguageMode.FullLanguage:
+                            // Set to ConstrainedLanguage mode.  But no restrictions are applied in audit mode
+                            // and only audit messages will be emitted to logs.
+                            context.LanguageMode = PSLanguageMode.ConstrainedLanguage;
+                            break;
+                    }
+                    break;
+            }
+
+            return context.LanguageMode;
+        }
+
+        internal static string DisplayHumanReadableFileSize(long bytes)
+        {
+            return bytes switch
+            {
+                < 1024 and >= 0 => $"{bytes} Bytes",
+                < 1048576 and >= 1024 => $"{(bytes / 1024.0).ToString("0.0")} KB",
+                < 1073741824 and >= 1048576 => $"{(bytes / 1048576.0).ToString("0.0")} MB",
+                < 1099511627776 and >= 1073741824 => $"{(bytes / 1073741824.0).ToString("0.000")} GB",
+                < 1125899906842624 and >= 1099511627776 => $"{(bytes / 1099511627776.0).ToString("0.00000")} TB",
+                < 1152921504606847000 and >= 1125899906842624 => $"{(bytes / 1125899906842624.0).ToString("0.0000000")} PB",
+                >= 1152921504606847000 => $"{(bytes / 1152921504606847000.0).ToString("0.000000000")} EB",
+                _ => $"0 Bytes",
+            };
+        }
+
+        /// <summary>
+        /// Returns true if the current session is restricted (JEA or similar sessions)
+        /// </summary>
+        /// <param name="context">ExecutionContext.</param>
+        /// <returns>True if the session is restricted.</returns>
+        internal static bool IsSessionRestricted(ExecutionContext context)
+        {
+            CmdletInfo cmdletInfo = context.SessionState.InvokeCommand.GetCmdlet("Microsoft.PowerShell.Core\\Import-Module");
+            // if import-module is visible, then the session is not restricted,
+            // because the user can load arbitrary code.
+            if (cmdletInfo != null && cmdletInfo.Visibility == SessionStateEntryVisibility.Public)
+            {
+                return false;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Determine whether the environment variable is set and how.
+        /// </summary>
+        /// <param name="name">The name of the environment variable.</param>
+        /// <param name="defaultValue">If the environment variable is not set, use this as the default value.</param>
+        /// <returns>A boolean representing the value of the environment variable.</returns>
+        internal static bool GetEnvironmentVariableAsBool(string name, bool defaultValue)
+        {
+            var str = Environment.GetEnvironmentVariable(name);
+            if (string.IsNullOrEmpty(str))
+            {
+                return defaultValue;
+            }
+
+            var boolStr = str.AsSpan();
+
+            if (boolStr.Length == 1)
+            {
+                if (boolStr[0] == '1')
+                {
+                    return true;
+                }
+
+                if (boolStr[0] == '0')
+                {
+                    return false;
+                }
+            }
+
+            if (boolStr.Length == 3 &&
+                (boolStr[0] == 'y' || boolStr[0] == 'Y') &&
+                (boolStr[1] == 'e' || boolStr[1] == 'E') &&
+                (boolStr[2] == 's' || boolStr[2] == 'S'))
+            {
+                return true;
+            }
+
+            if (boolStr.Length == 2 &&
+                (boolStr[0] == 'n' || boolStr[0] == 'N') &&
+                (boolStr[1] == 'o' || boolStr[1] == 'O'))
+            {
+                return false;
+            }
+
+            if (boolStr.Length == 4 &&
+                (boolStr[0] == 't' || boolStr[0] == 'T') &&
+                (boolStr[1] == 'r' || boolStr[1] == 'R') &&
+                (boolStr[2] == 'u' || boolStr[2] == 'U') &&
+                (boolStr[3] == 'e' || boolStr[3] == 'E'))
+            {
+                return true;
+            }
+
+            if (boolStr.Length == 5 &&
+                (boolStr[0] == 'f' || boolStr[0] == 'F') &&
+                (boolStr[1] == 'a' || boolStr[1] == 'A') &&
+                (boolStr[2] == 'l' || boolStr[2] == 'L') &&
+                (boolStr[3] == 's' || boolStr[3] == 'S') &&
+                (boolStr[4] == 'e' || boolStr[4] == 'E'))
+            {
+                return false;
+            }
+
+            return defaultValue;
         }
     }
 }
@@ -1435,33 +1628,132 @@ namespace System.Management.Automation.Internal
         internal static bool BypassAppLockerPolicyCaching;
         internal static bool BypassOnlineHelpRetrieval;
         internal static bool ForcePromptForChoiceDefaultOption;
+        internal static bool NoPromptForPassword;
+        internal static bool ForceFormatListFixedLabelWidth;
+
+        // Update-Help tests
+        internal static bool ThrowHelpCultureNotSupported;
+        internal static CultureInfo CurrentUICulture;
 
         // Stop/Restart/Rename Computer tests
         internal static bool TestStopComputer;
         internal static bool TestWaitStopComputer;
         internal static bool TestRenameComputer;
-        internal static int  TestStopComputerResults;
-        internal static int  TestRenameComputerResults;
+        internal static int TestStopComputerResults;
+        internal static int TestRenameComputerResults;
 
         // It's useful to test that we don't depend on the ScriptBlock and AST objects and can use a re-parsed version.
         internal static bool IgnoreScriptBlockCache;
         // Simulate 'System.Diagnostics.Stopwatch.IsHighResolution is false' to test Get-Uptime throw
         internal static bool StopwatchIsNotHighResolution;
         internal static bool DisableGACLoading;
+        internal static bool SetConsoleWidthToZero;
+        internal static bool SetConsoleHeightToZero;
+
+        // Simulate 'MyDocuments' returning empty string
+        internal static bool SetMyDocumentsSpecialFolderToBlank;
+
+        internal static bool SetDate;
+
+        // A location to test PSEdition compatibility functionality for Windows PowerShell modules with
+        // since we can't manipulate the System32 directory in a test
+        internal static string TestWindowsPowerShellPSHomeLocation;
+
+        // A version of Windows PS that is installed on the system; normally this is retrieved from a reg key that is write-protected.
+        internal static string TestWindowsPowerShellVersionString;
+
+        internal static bool ShowMarkdownOutputBypass;
+
+        internal static bool ThrowExdevErrorOnMoveDirectory;
+
+        // To emulate OneDrive behavior we use the hard-coded symlink.
+        // If OneDriveTestRecurseOn is false then the symlink works as regular symlink.
+        // If OneDriveTestRecurseOn is true then we recurse into the symlink as OneDrive should work.
+        // OneDriveTestSymlinkName defines the symlink name used in tests.
+        internal static bool OneDriveTestOn;
+        internal static bool OneDriveTestRecurseOn;
+        internal static string OneDriveTestSymlinkName = "link-Beta";
+
+        // Test out smaller connection buffer size when calling WNetGetConnection.
+        internal static int WNetGetConnectionBufferSize = -1;
 
         /// <summary>This member is used for internal test purposes.</summary>
         public static void SetTestHook(string property, object value)
         {
             var fieldInfo = typeof(InternalTestHooks).GetField(property, BindingFlags.Static | BindingFlags.NonPublic);
-            if (fieldInfo != null)
-            {
-                fieldInfo.SetValue(null, value);
-            }
+            fieldInfo?.SetValue(null, value);
+        }
+
+        /// <summary>
+        /// Constructs a custom PSSenderInfo instance that can be assigned to $PSSenderInfo
+        /// in order to simulate a remoting session with respect to the $PSSenderInfo.ConnectionString (connection URL)
+        /// and $PSSenderInfo.ApplicationArguments.PSVersionTable.PSVersion (the remoting client's PowerShell version).
+        /// See Get-FormatDataTest.ps1.
+        /// </summary>
+        /// <param name="url">The connection URL to reflect in the returned instance's ConnectionString property.</param>
+        /// <param name="clientVersion">The version number to report as the remoting client's PowerShell version.</param>
+        /// <returns>The newly constructed custom PSSenderInfo instance.</returns>
+        public static PSSenderInfo GetCustomPSSenderInfo(string url, Version clientVersion)
+        {
+            var dummyPrincipal = new PSPrincipal(new PSIdentity("none", true, "someuser", null), null);
+            var pssi = new PSSenderInfo(dummyPrincipal, url);
+            pssi.ApplicationArguments = new PSPrimitiveDictionary();
+            pssi.ApplicationArguments.Add("PSVersionTable", new PSObject(new PSPrimitiveDictionary()));
+            ((PSPrimitiveDictionary)PSObject.Base(pssi.ApplicationArguments["PSVersionTable"])).Add("PSVersion", new PSObject(clientVersion));
+            return pssi;
         }
     }
 
     /// <summary>
-    /// An bounded stack based on a linked list.
+    /// Provides undo/redo functionality by using 2 instances of <seealso cref="BoundedStack{T}"/>.
+    /// </summary>
+    internal class HistoryStack<T>
+    {
+        private readonly BoundedStack<T> _boundedUndoStack;
+        private readonly BoundedStack<T> _boundedRedoStack;
+
+        internal HistoryStack(int capacity)
+        {
+            _boundedUndoStack = new BoundedStack<T>(capacity);
+            _boundedRedoStack = new BoundedStack<T>(capacity);
+        }
+
+        internal void Push(T item)
+        {
+            _boundedUndoStack.Push(item);
+            if (RedoCount >= 0)
+            {
+                _boundedRedoStack.Clear();
+            }
+        }
+
+        /// <summary>
+        /// Handles bounded history stacks by pushing the current item to the redoStack and returning the item from the popped undoStack.
+        /// </summary>
+        internal T Undo(T currentItem)
+        {
+            T previousItem = _boundedUndoStack.Pop();
+            _boundedRedoStack.Push(currentItem);
+            return previousItem;
+        }
+
+        /// <summary>
+        /// Handles bounded history stacks by pushing the current item to the undoStack and returning the item from the popped redoStack.
+        /// </summary>
+        internal T Redo(T currentItem)
+        {
+            var nextItem = _boundedRedoStack.Pop();
+            _boundedUndoStack.Push(currentItem);
+            return nextItem;
+        }
+
+        internal int UndoCount => _boundedUndoStack.Count;
+
+        internal int RedoCount => _boundedRedoStack.Count;
+    }
+
+    /// <summary>
+    /// A bounded stack based on a linked list.
     /// </summary>
     internal class BoundedStack<T> : LinkedList<T>
     {
@@ -1484,7 +1776,7 @@ namespace System.Management.Automation.Internal
         {
             this.AddFirst(item);
 
-            if(this.Count > _capacity)
+            if (this.Count > _capacity)
             {
                 this.RemoveLast();
             }
@@ -1496,6 +1788,11 @@ namespace System.Management.Automation.Internal
         /// <returns></returns>
         internal T Pop()
         {
+            if (this.First == null)
+            {
+                throw new InvalidOperationException(SessionStateStrings.BoundedStackIsEmpty);
+            }
+
             var item = this.First.Value;
             try
             {
@@ -1505,7 +1802,65 @@ namespace System.Management.Automation.Internal
             {
                 throw new InvalidOperationException(SessionStateStrings.BoundedStackIsEmpty);
             }
+
             return item;
+        }
+    }
+
+    /// <summary>
+    /// A readonly Hashset.
+    /// </summary>
+    internal sealed class ReadOnlyBag<T> : IEnumerable
+    {
+        private readonly HashSet<T> _hashset;
+
+        /// <summary>
+        /// Constructor for the readonly Hashset.
+        /// </summary>
+        internal ReadOnlyBag(HashSet<T> hashset)
+        {
+            ArgumentNullException.ThrowIfNull(hashset);
+
+            _hashset = hashset;
+        }
+
+        /// <summary>
+        /// Get the count of the Hashset.
+        /// </summary>
+        public int Count => _hashset.Count;
+
+        /// <summary>
+        /// Indicate if it's a readonly Hashset.
+        /// </summary>
+        public bool IsReadOnly => true;
+
+        /// <summary>
+        /// Check if the set contains an item.
+        /// </summary>
+        public bool Contains(T item) => _hashset.Contains(item);
+
+        /// <summary>
+        /// GetEnumerator method.
+        /// </summary>
+        public IEnumerator GetEnumerator() => _hashset.GetEnumerator();
+
+        /// <summary>
+        /// Get an empty singleton.
+        /// </summary>
+        internal static readonly ReadOnlyBag<T> Empty = new ReadOnlyBag<T>(new HashSet<T>(capacity: 0));
+    }
+
+    /// <summary>
+    /// Helper class for simple argument validations.
+    /// </summary>
+    internal static class Requires
+    {
+        internal static void NotNullOrEmpty(ICollection value, string paramName)
+        {
+            if (value is null || value.Count == 0)
+            {
+                throw new ArgumentNullException(paramName);
+            }
         }
     }
 }

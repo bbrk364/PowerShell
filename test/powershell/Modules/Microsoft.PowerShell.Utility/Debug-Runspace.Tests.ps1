@@ -1,6 +1,6 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
-Describe "Debug-Runspace" -tag "CI" {
+Describe "Debug-Runspace" -Tag "CI" {
     BeforeAll {
         $rs1 = [runspacefactory]::CreateRunspace()
         $rs1.Open()
@@ -24,13 +24,40 @@ Describe "Debug-Runspace" -tag "CI" {
 
     It "Debugging a runspace should fail if the runspace is not open" {
         $rs2.Close()
-        { Debug-Runspace -runspace $rs2 -ErrorAction stop } | Should -Throw -ErrorId "InvalidOperation,Microsoft.PowerShell.Commands.DebugRunspaceCommand"
+        { Debug-Runspace -Runspace $rs2 -ErrorAction stop } | Should -Throw -ErrorId "InvalidOperation,Microsoft.PowerShell.Commands.DebugRunspaceCommand"
     }
 
     It "Debugging a runspace should fail if the runspace has no debugger" {
         $rs1.Debugger.SetDebugMode("None")
-        { Debug-Runspace -runspace $rs1 -ErrorAction stop } | Should -Throw -ErrorId "InvalidOperation,Microsoft.PowerShell.Commands.DebugRunspaceCommand"
+        { Debug-Runspace -Runspace $rs1 -ErrorAction stop } | Should -Throw -ErrorId "InvalidOperation,Microsoft.PowerShell.Commands.DebugRunspaceCommand"
     }
+    
+    It "Should write attach event and mark runspace as having a remote debugger attached" {
+        $onAttachName = [System.Management.Automation.PSEngineEvent]::OnDebugAttach
+        
+        $debugTarget = [PowerShell]::Create()
+        $null = $debugTarget.AddCommand('Wait-Event').AddParameter('SourceIdentifier', $onAttachName)
+        $waitTask = $debugTarget.BeginInvoke()
 
+        $debugTarget.Runspace.IsRemoteDebuggerAttached | Should -BeFalse
+
+        $debugger = [PowerShell]::Create()
+        $null = $debugger.AddCommand('Debug-Runspace').AddParameter('Id', $debugTarget.Runspace.Id)
+        $debugTask = $debugger.BeginInvoke()
+        
+        $waitTask.AsyncWaitHandle.WaitOne(5000) | Should -BeTrue
+        $waitInfo = $debugTarget.EndInvoke($waitTask)
+        $waitInfo.SourceIdentifier | Should -Be $onAttachName
+
+        $debugTarget.Runspace.IsRemoteDebuggerAttached | Should -BeTrue
+
+        $debugger.Stop()
+        $exp = {
+            $debugger.EndInvoke($debugTask)
+        } | Should -Throw -PassThru
+        $exp.FullyQualifiedErrorId | Should -Be "PipelineStoppedException"
+
+        $debugTarget.Runspace.IsRemoteDebuggerAttached | Should -BeFalse
+    }
 }
 

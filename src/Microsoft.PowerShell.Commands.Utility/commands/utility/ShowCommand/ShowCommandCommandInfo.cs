@@ -1,31 +1,28 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Management.Automation;
 
 namespace Microsoft.PowerShell.Commands.ShowCommandExtension
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Linq;
-    using System.Management.Automation;
-
     /// <summary>
-    /// Implements a facade around CommandInfo and its deserialized counterpart
+    /// Implements a facade around CommandInfo and its deserialized counterpart.
     /// </summary>
     public class ShowCommandCommandInfo
     {
         /// <summary>
-        /// Creates an instance of the ShowCommandCommandInfo class based on a CommandInfo object
+        /// Initializes a new instance of the <see cref="ShowCommandCommandInfo"/> class
+        /// with the specified <see cref="CommandInfo"/>.
         /// </summary>
-        ///
         /// <param name="other">
         /// The object to wrap.
         /// </param>
         public ShowCommandCommandInfo(CommandInfo other)
         {
-            if (other == null)
-            {
-                throw new ArgumentNullException("other");
-            }
+            ArgumentNullException.ThrowIfNull(other);
 
             this.Name = other.Name;
             this.ModuleName = other.ModuleName;
@@ -39,7 +36,7 @@ namespace Microsoft.PowerShell.Commands.ShowCommandExtension
             {
                 this.ParameterSets =
                     other.ParameterSets
-                        .Select(x => new ShowCommandParameterSetInfo(x))
+                        .Select(static x => new ShowCommandParameterSetInfo(x))
                         .ToList()
                         .AsReadOnly();
             }
@@ -63,18 +60,15 @@ namespace Microsoft.PowerShell.Commands.ShowCommandExtension
         }
 
         /// <summary>
-        /// Creates an instance of the ShowCommandCommandInfo class based on a PSObject object
+        /// Initializes a new instance of the <see cref="ShowCommandCommandInfo"/> class
+        /// with the specified <see cref="PSObject"/>.
         /// </summary>
-        ///
         /// <param name="other">
         /// The object to wrap.
         /// </param>
         public ShowCommandCommandInfo(PSObject other)
         {
-            if (other == null)
-            {
-                throw new ArgumentNullException("other");
-            }
+            ArgumentNullException.ThrowIfNull(other);
 
             this.Name = other.Members["Name"].Value as string;
             this.ModuleName = other.Members["ModuleName"].Value as string;
@@ -92,9 +86,9 @@ namespace Microsoft.PowerShell.Commands.ShowCommandExtension
                 this.CommandType = (CommandTypes)((other.Members["CommandType"].Value as PSObject).BaseObject);
 
                 var parameterSets = (other.Members["ParameterSets"].Value as PSObject).BaseObject as System.Collections.ArrayList;
-                this.ParameterSets = GetObjectEnumerable(parameterSets).Cast<PSObject>().Select(x => new ShowCommandParameterSetInfo(x)).ToList().AsReadOnly();
+                this.ParameterSets = GetObjectEnumerable(parameterSets).Cast<PSObject>().Select(static x => new ShowCommandParameterSetInfo(x)).ToList().AsReadOnly();
 
-                if (other.Members["Module"] != null && other.Members["Module"].Value as PSObject != null)
+                if (other.Members["Module"]?.Value is PSObject)
                 {
                     this.Module = new ShowCommandModuleInfo(other.Members["Module"].Value as PSObject);
                 }
@@ -102,9 +96,8 @@ namespace Microsoft.PowerShell.Commands.ShowCommandExtension
         }
 
         /// <summary>
-        /// Builds a strongly typed IEnumerable{object} out of an IEnumerable
+        /// Builds a strongly typed IEnumerable{object} out of an IEnumerable.
         /// </summary>
-        ///
         /// <param name="enumerable">
         /// The object to enumerate.
         /// </param>
@@ -119,31 +112,31 @@ namespace Microsoft.PowerShell.Commands.ShowCommandExtension
         /// <summary>
         /// A string representing the definition of the command.
         /// </summary>
-        public string Name { get; private set; }
+        public string Name { get; }
 
         /// <summary>
         /// A string representing module the command belongs to.
         /// </summary>
-        public string ModuleName { get; private set; }
+        public string ModuleName { get; }
 
         /// <summary>
         /// A reference to the module the command came from.
         /// </summary>
-        public ShowCommandModuleInfo Module { get; private set; }
+        public ShowCommandModuleInfo Module { get; }
 
         /// <summary>
         /// An enumeration of the command types this command belongs to.
         /// </summary>
-        public CommandTypes CommandType { get; private set; }
+        public CommandTypes CommandType { get; }
 
         /// <summary>
         /// A string representing the definition of the command.
         /// </summary>
-        public string Definition { get; private set; }
+        public string Definition { get; }
 
         /// <summary>
         /// A string representing the definition of the command.
         /// </summary>
-        public ICollection<ShowCommandParameterSetInfo> ParameterSets { get; private set; }
+        public ICollection<ShowCommandParameterSetInfo> ParameterSets { get; }
     }
 }

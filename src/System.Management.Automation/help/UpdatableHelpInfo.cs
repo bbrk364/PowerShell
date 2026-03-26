@@ -1,24 +1,26 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Management.Automation.Internal;
-using System.Globalization;
-using System.Diagnostics;
-using System.Text;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.Globalization;
+using System.Linq;
+using System.Management.Automation.Internal;
+using System.Text;
 
 namespace System.Management.Automation.Help
 {
     /// <summary>
-    /// Represents each supported culture
+    /// Represents each supported culture.
     /// </summary>
     internal class CultureSpecificUpdatableHelp
     {
         /// <summary>
-        /// Class constructor
+        /// Class constructor.
         /// </summary>
-        /// <param name="culture">culture info</param>
-        /// <param name="version">version info</param>
+        /// <param name="culture">Culture info.</param>
+        /// <param name="version">Version info.</param>
         internal CultureSpecificUpdatableHelp(CultureInfo culture, Version version)
         {
             Debug.Assert(version != null);
@@ -29,26 +31,64 @@ namespace System.Management.Automation.Help
         }
 
         /// <summary>
-        /// Culture version
+        /// Culture version.
         /// </summary>
         internal Version Version { get; set; }
 
         /// <summary>
-        /// Supported culture
+        /// Supported culture.
         /// </summary>
         internal CultureInfo Culture { get; set; }
+
+        /// <summary>
+        /// Enumerates fallback chain (parents) of the culture, including itself.
+        /// </summary>
+        /// <param name="culture">Culture to enumerate</param>
+        /// <example>
+        /// Examples:
+        /// en-GB => { en-GB, en }
+        /// zh-Hans-CN => { zh-Hans-CN, zh-Hans, zh }.
+        /// </example>
+        /// <returns>An enumerable list of culture names.</returns>
+        internal static IEnumerable<string> GetCultureFallbackChain(CultureInfo culture)
+        {
+            // We use just names instead because comparing two CultureInfo objects
+            // can fail if they are created using different means
+            while (culture != null)
+            {
+                if (string.IsNullOrEmpty(culture.Name))
+                {
+                    yield break;
+                }
+
+                yield return culture.Name;
+
+                culture = culture.Parent;
+            }
+        }
+
+        /// <summary>
+        /// Checks if a culture is supported.
+        /// </summary>
+        /// <param name="cultureName">Name of the culture to check.</param>
+        /// <returns>True if supported, false if not.</returns>
+        internal bool IsCultureSupported(string cultureName)
+        {
+            Debug.Assert(cultureName != null, $"{nameof(cultureName)} may not be null");
+            return GetCultureFallbackChain(Culture).Any(fallback => fallback == cultureName);
+        }
     }
 
     /// <summary>
-    /// This class represents the HelpInfo metadata XML
+    /// This class represents the HelpInfo metadata XML.
     /// </summary>
     internal class UpdatableHelpInfo
     {
         /// <summary>
-        /// Class constructor
+        /// Class constructor.
         /// </summary>
-        /// <param name="unresolvedUri">unresolved help content URI</param>
-        /// <param name="cultures">supported UI cultures</param>
+        /// <param name="unresolvedUri">Unresolved help content URI.</param>
+        /// <param name="cultures">Supported UI cultures.</param>
         internal UpdatableHelpInfo(string unresolvedUri, CultureSpecificUpdatableHelp[] cultures)
         {
             Debug.Assert(cultures != null);
@@ -59,26 +99,26 @@ namespace System.Management.Automation.Help
         }
 
         /// <summary>
-        /// Unresolved URI
+        /// Unresolved URI.
         /// </summary>
         internal string UnresolvedUri { get; }
 
         /// <summary>
-        /// Link to the actual help content
+        /// Link to the actual help content.
         /// </summary>
         internal Collection<UpdatableHelpUri> HelpContentUriCollection { get; }
 
         /// <summary>
-        /// Supported UI cultures
+        /// Supported UI cultures.
         /// </summary>
         internal CultureSpecificUpdatableHelp[] UpdatableHelpItems { get; }
 
         /// <summary>
-        /// Checks if the other HelpInfo has a newer version
+        /// Checks if the other HelpInfo has a newer version.
         /// </summary>
-        /// <param name="helpInfo">HelpInfo object to check</param>
-        /// <param name="culture">culture to check</param>
-        /// <returns>true if the other HelpInfo is newer, false if not</returns>
+        /// <param name="helpInfo">HelpInfo object to check.</param>
+        /// <param name="culture">Culture to check.</param>
+        /// <returns>True if the other HelpInfo is newer, false if not.</returns>
         internal bool IsNewerVersion(UpdatableHelpInfo helpInfo, CultureInfo culture)
         {
             Debug.Assert(helpInfo != null);
@@ -93,34 +133,24 @@ namespace System.Management.Automation.Help
                 return true;
             }
 
-            return v1 > v2; ;
+            return v1 > v2;
         }
 
         /// <summary>
-        /// Checks if a culture is supported
+        /// Checks if a culture is supported.
         /// </summary>
-        /// <param name="culture">culture to check</param>
-        /// <returns>true if supported, false if not</returns>
-        internal bool IsCultureSupported(CultureInfo culture)
+        /// <param name="cultureName">Name of the culture to check.</param>
+        /// <returns>True if supported, false if not.</returns>
+        internal bool IsCultureSupported(string cultureName)
         {
-            Debug.Assert(culture != null);
-
-            foreach (CultureSpecificUpdatableHelp updatableHelpItem in UpdatableHelpItems)
-            {
-                if (String.Compare(updatableHelpItem.Culture.Name, culture.Name,
-                    StringComparison.OrdinalIgnoreCase) == 0)
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            Debug.Assert(cultureName != null, $"{nameof(cultureName)} may not be null");
+            return UpdatableHelpItems.Any(item => item.IsCultureSupported(cultureName));
         }
 
         /// <summary>
-        /// Gets a string representation of the supported cultures
+        /// Gets a string representation of the supported cultures.
         /// </summary>
-        /// <returns>supported cultures in string</returns>
+        /// <returns>Supported cultures in string.</returns>
         internal string GetSupportedCultures()
         {
             if (UpdatableHelpItems.Length == 0)
@@ -144,16 +174,16 @@ namespace System.Management.Automation.Help
         }
 
         /// <summary>
-        /// Gets the culture version
+        /// Gets the culture version.
         /// </summary>
-        /// <param name="culture">culture info</param>
-        /// <returns>culture version</returns>
+        /// <param name="culture">Culture info.</param>
+        /// <returns>Culture version.</returns>
         internal Version GetCultureVersion(CultureInfo culture)
         {
             foreach (CultureSpecificUpdatableHelp updatableHelpItem in UpdatableHelpItems)
             {
-                if (String.Compare(updatableHelpItem.Culture.Name, culture.Name,
-                    StringComparison.OrdinalIgnoreCase) == 0)
+                if (string.Equals(updatableHelpItem.Culture.Name, culture.Name,
+                    StringComparison.OrdinalIgnoreCase))
                 {
                     return updatableHelpItem.Version;
                 }

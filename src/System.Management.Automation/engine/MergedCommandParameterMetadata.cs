@@ -1,9 +1,10 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Management.Automation.Language;
 using System.Text;
 
 namespace System.Management.Automation
@@ -18,11 +19,9 @@ namespace System.Management.Automation
         /// will turn 'bindableParameters', 'aliasedParameters' and 'parameterSetMap' into
         /// ReadOnlyDictionary and ReadOnlyCollection.
         /// </summary>
-        ///
         /// <param name="metadata">
         /// The metadata to replace in this object.
         /// </param>
-        ///
         /// <returns>
         /// A list of the merged parameter metadata that was added.
         /// </returns>
@@ -56,38 +55,33 @@ namespace System.Management.Automation
                 "After replacement with the metadata of the new parameters, ParameterSetCount should be equal to nextAvailableParameterSetIndex");
 
             return result;
-        } // ReplaceMetadata
+        }
 
         /// <summary>
         /// Merges the specified metadata with the other metadata already defined
         /// in this object.
         /// </summary>
-        ///
         /// <param name="parameterMetadata">
         /// The compiled metadata for the type to be merged.
         /// </param>
-        ///
         /// <param name="binderAssociation">
         /// The type of binder that the CommandProcessor will use to bind
         /// the parameters for <paramref name="parameterMetadata"/>
         /// </param>
-        ///
         /// <returns>
         /// A collection of the merged parameter metadata that was added.
         /// </returns>
-        ///
         /// <exception cref="MetadataException">
         /// If a parameter name or alias described in the <paramref name="parameterMetadata"/> already
         /// exists.
         /// </exception>
-        ///
         internal Collection<MergedCompiledCommandParameter> AddMetadataForBinder(
             InternalParameterMetadata parameterMetadata,
             ParameterBinderAssociation binderAssociation)
         {
             if (parameterMetadata == null)
             {
-                throw PSTraceSource.NewArgumentNullException("parameterMetadata");
+                throw PSTraceSource.NewArgumentNullException(nameof(parameterMetadata));
             }
 
             Collection<MergedCompiledCommandParameter> result =
@@ -158,6 +152,7 @@ namespace System.Management.Automation
                     _aliasedParameters.Add(aliasName, mergedParameter);
                 }
             }
+
             return result;
         }
 
@@ -169,19 +164,25 @@ namespace System.Management.Automation
         private uint _nextAvailableParameterSetIndex;
 
         /// <summary>
+        /// The maximum number of parameter sets allowed. Limit is set by the use
+        /// of a uint bitmask to store which parameter sets a parameter is included in.
+        /// See <see cref="ParameterSetSpecificMetadata.ParameterSetFlag"/>.
+        /// </summary>
+        private const uint MaxParameterSetCount = 32;
+
+        /// <summary>
         /// Gets the number of parameter sets that were declared for the command.
         /// </summary>
-        ///
         internal int ParameterSetCount
         {
             get
             {
                 return _parameterSetMap.Count;
             }
-        } // ParameterSetCount
+        }
 
         /// <summary>
-        /// Gets a bit-field representing all valid parameter sets
+        /// Gets a bit-field representing all valid parameter sets.
         /// </summary>
         internal uint AllParameterSetFlags
         {
@@ -197,11 +198,10 @@ namespace System.Management.Automation
         /// The value is the parameter set name.
         /// New parameter sets are added at the nextAvailableParameterSetIndex.
         /// </summary>
-        ///
         private IList<string> _parameterSetMap = new List<string>();
 
         /// <summary>
-        /// The name of the default parameter set
+        /// The name of the default parameter set.
         /// </summary>
         private string _defaultParameterSetName;
 
@@ -210,36 +210,32 @@ namespace System.Management.Automation
         /// index. If the parameter set name was already in the map, the index to
         /// the existing parameter set name is returned.
         /// </summary>
-        ///
         /// <param name="parameterSetName">
         /// The name of the parameter set to add.
         /// </param>
-        ///
         /// <returns>
         /// The index of the parameter set name. If the name didn't already exist the
         /// name gets added and the new index is returned. If the name already exists
         /// the index of the existing name is returned.
         /// </returns>
-        ///
         /// <remarks>
         /// The nextAvailableParameterSetIndex is incremented if the parameter set name
         /// is added.
         /// </remarks>
-        ///
         /// <exception cref="ParsingMetadataException">
         /// If more than uint.MaxValue parameter-sets are defined for the command.
         /// </exception>
         private int AddParameterSetToMap(string parameterSetName)
         {
             int index = -1;
-            if (!String.IsNullOrEmpty(parameterSetName))
+            if (!string.IsNullOrEmpty(parameterSetName))
             {
                 index = _parameterSetMap.IndexOf(parameterSetName);
 
                 // A parameter set name should only be added once
                 if (index == -1)
                 {
-                    if (_nextAvailableParameterSetIndex == uint.MaxValue)
+                    if (_nextAvailableParameterSetIndex >= MaxParameterSetCount)
                     {
                         // Don't let the parameter set index overflow
                         ParsingMetadataException parsingException =
@@ -261,27 +257,24 @@ namespace System.Management.Automation
                     _nextAvailableParameterSetIndex++;
                 }
             }
+
             return index;
-        } // AddParameterSetToMap
+        }
 
         /// <summary>
         /// Loops through all the parameters and retrieves the parameter set names.  In the process
         /// it generates a mapping of parameter set names to the bits in the bit-field and sets
         /// the parameter set flags for the parameter.
         /// </summary>
-        ///
         /// <param name="defaultParameterSetName">
         /// The default parameter set name.
         /// </param>
-        ///
         /// <returns>
         /// The bit flag for the default parameter set.
         /// </returns>
-        ///
         /// <exception cref="ParsingMetadataException">
         /// If more than uint.MaxValue parameter-sets are defined for the command.
         /// </exception>
-        ///
         internal uint GenerateParameterSetMappingFromMetadata(string defaultParameterSetName)
         {
             // First clear the parameter set map
@@ -290,7 +283,7 @@ namespace System.Management.Automation
 
             uint defaultParameterSetFlag = 0;
 
-            if (!String.IsNullOrEmpty(defaultParameterSetName))
+            if (!string.IsNullOrEmpty(defaultParameterSetName))
             {
                 _defaultParameterSetName = defaultParameterSetName;
 
@@ -312,7 +305,7 @@ namespace System.Management.Automation
                 {
                     var parameterSetName = keyValuePair.Key;
                     var parameterSetData = keyValuePair.Value;
-                    if (String.Equals(parameterSetName, ParameterAttribute.AllParameterSets, StringComparison.OrdinalIgnoreCase))
+                    if (string.Equals(parameterSetName, ParameterAttribute.AllParameterSets, StringComparison.OrdinalIgnoreCase))
                     {
                         // Don't add the parameter set name but assign the bit field zero and then mark the bool
                         parameterSetData.ParameterSetFlag = 0;
@@ -343,26 +336,24 @@ namespace System.Management.Automation
                 // Set the bit field in the parameter
                 parameter.Parameter.ParameterSetFlags = parameterSetBitField;
             }
+
             return defaultParameterSetFlag;
-        } // GenerateParameterSetMappingFromMetadata
+        }
 
         /// <summary>
         /// Gets the parameter set name for the specified parameter set.
         /// </summary>
-        ///
         /// <param name="parameterSet">
         /// The parameter set to get the name for.
         /// </param>
-        ///
         /// <returns>
         /// The name of the specified parameter set.
         /// </returns>
-        ///
         internal string GetParameterSetName(uint parameterSet)
         {
             string result = _defaultParameterSetName;
 
-            if (String.IsNullOrEmpty(result))
+            if (string.IsNullOrEmpty(result))
             {
                 result = ParameterAttribute.AllParameterSets;
             }
@@ -379,7 +370,7 @@ namespace System.Management.Automation
                 }
 
                 // Now check to see if there are any remaining sets passed this bit.
-                // If so return String.Empty
+                // If so return string.Empty
 
                 if (((parameterSet >> (index + 1)) & 0x1) == 0)
                 {
@@ -390,16 +381,17 @@ namespace System.Management.Automation
                     }
                     else
                     {
-                        result = String.Empty;
+                        result = string.Empty;
                     }
                 }
                 else
                 {
-                    result = String.Empty;
+                    result = string.Empty;
                 }
             }
+
             return result;
-        } // GetParameterSetName
+        }
 
         /// <summary>
         /// Helper function to retrieve the name of the parameter
@@ -418,44 +410,38 @@ namespace System.Management.Automation
                 CompiledCommandParameter compiledParam = mergedParam.Parameter;
                 if (compiledParam != null)
                 {
-                    if (!String.IsNullOrEmpty(compiledParam.Name))
+                    if (!string.IsNullOrEmpty(compiledParam.Name))
                         return compiledParam.Name;
                 }
             }
-            return String.Empty;
+
+            return string.Empty;
         }
 
         /// <summary>
         /// Gets the parameters by matching its name.
         /// </summary>
-        ///
         /// <param name="name">
         /// The name of the parameter.
         /// </param>
-        ///
         /// <param name="throwOnParameterNotFound">
         /// If true and a matching parameter is not found, an exception will be
         /// throw. If false and a matching parameter is not found, null is returned.
         /// </param>
-        ///
         /// <param name="tryExactMatching">
         /// If true we do exact matching, otherwise we do not.
         /// </param>
-        ///
         /// <param name="invocationInfo">
         /// The invocation information about the code being run.
         /// </param>
-        ///
         /// <returns>
         /// The a collection of the metadata associated with the parameters that
         /// match the specified name. If no matches were found, an empty collection
         /// is returned.
         /// </returns>
-        ///
         /// <exception cref="ArgumentException">
         /// If <paramref name="name"/> is null or empty.
         /// </exception>
-        ///
         internal MergedCompiledCommandParameter GetMatchingParameter(
             string name,
             bool throwOnParameterNotFound,
@@ -464,14 +450,14 @@ namespace System.Management.Automation
         {
             if (string.IsNullOrEmpty(name))
             {
-                throw PSTraceSource.NewArgumentException("name");
+                throw PSTraceSource.NewArgumentException(nameof(name));
             }
 
             Collection<MergedCompiledCommandParameter> matchingParameters =
                 new Collection<MergedCompiledCommandParameter>();
 
             // Skip the leading '-' if present
-            if (name.Length > 0 && SpecialCharacters.IsDash(name[0]))
+            if (name.Length > 0 && CharExtensions.IsDash(name[0]))
             {
                 name = name.Substring(1);
             }
@@ -485,7 +471,7 @@ namespace System.Management.Automation
                     // If it is an exact match then only return the exact match
                     // as the result
 
-                    if (tryExactMatching && String.Equals(parameterName, name, StringComparison.OrdinalIgnoreCase))
+                    if (tryExactMatching && string.Equals(parameterName, name, StringComparison.OrdinalIgnoreCase))
                     {
                         return _bindableParameters[parameterName];
                     }
@@ -505,7 +491,7 @@ namespace System.Management.Automation
                     // If it is an exact match then only return the exact match
                     // as the result
 
-                    if (tryExactMatching && String.Equals(parameterName, name, StringComparison.OrdinalIgnoreCase))
+                    if (tryExactMatching && string.Equals(parameterName, name, StringComparison.OrdinalIgnoreCase))
                     {
                         return _aliasedParameters[parameterName];
                     }
@@ -534,7 +520,7 @@ namespace System.Management.Automation
                     }
                 }
 
-                if (filteredParameters.Count == 1)
+                if (tryExactMatching && filteredParameters.Count == 1)
                 {
                     matchingParameters = filteredParameters;
                 }
@@ -587,21 +573,19 @@ namespace System.Management.Automation
             {
                 result = matchingParameters[0];
             }
+
             return result;
-        } // GetMatchingParameter
+        }
 
         /// <summary>
-        /// Gets a collection of all the parameters that are allowed in the parameter set
+        /// Gets a collection of all the parameters that are allowed in the parameter set.
         /// </summary>
-        ///
         /// <param name="parameterSetFlag">
         /// The bit representing the parameter set from which the parameters should be retrieved.
         /// </param>
-        ///
         /// <returns>
         /// A collection of all the parameters in the specified parameter set.
         /// </returns>
-        ///
         internal Collection<MergedCompiledCommandParameter> GetParametersInParameterSet(uint parameterSetFlag)
         {
             Collection<MergedCompiledCommandParameter> result =
@@ -615,8 +599,9 @@ namespace System.Management.Automation
                     result.Add(parameter);
                 }
             }
+
             return result;
-        } // GetParametersInParameterSet
+        }
 
         /// <summary>
         /// Gets a dictionary of the compiled parameter metadata for this Type.
@@ -624,6 +609,7 @@ namespace System.Management.Automation
         /// the values are the compiled parameter metadata.
         /// </summary>
         internal IDictionary<string, MergedCompiledCommandParameter> BindableParameters { get { return _bindableParameters; } }
+
         private IDictionary<string, MergedCompiledCommandParameter> _bindableParameters =
             new Dictionary<string, MergedCompiledCommandParameter>(StringComparer.OrdinalIgnoreCase);
 
@@ -632,6 +618,7 @@ namespace System.Management.Automation
         /// the alias name and the value is the MergedCompiledCommandParameter metadata.
         /// </summary>
         internal IDictionary<string, MergedCompiledCommandParameter> AliasedParameters { get { return _aliasedParameters; } }
+
         private IDictionary<string, MergedCompiledCommandParameter> _aliasedParameters =
             new Dictionary<string, MergedCompiledCommandParameter>(StringComparer.OrdinalIgnoreCase);
 
@@ -647,24 +634,21 @@ namespace System.Management.Automation
             _bindableParameters = new Dictionary<string, MergedCompiledCommandParameter>(_bindableParameters, StringComparer.OrdinalIgnoreCase);
             _aliasedParameters = new Dictionary<string, MergedCompiledCommandParameter>(_aliasedParameters, StringComparer.OrdinalIgnoreCase);
         }
-    } // MergedCommandParameterMetadata
+    }
 
     /// <summary>
     /// Makes an association between a CompiledCommandParameter and the type
     /// of the parameter binder used to bind the parameter.
     /// </summary>
-    ///
     internal class MergedCompiledCommandParameter
     {
         /// <summary>
         /// Constructs an association between the CompiledCommandParameter and the
         /// binder that should be used to bind it.
         /// </summary>
-        ///
         /// <param name="parameter">
         /// The metadata for a parameter.
         /// </param>
-        ///
         /// <param name="binderAssociation">
         /// The type of binder that should be used to bind the parameter.
         /// </param>
@@ -678,14 +662,14 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Gets the compiled command parameter for the association
+        /// Gets the compiled command parameter for the association.
         /// </summary>
-        internal CompiledCommandParameter Parameter { get; private set; }
+        internal CompiledCommandParameter Parameter { get; }
 
         /// <summary>
         /// Gets the type of binder that the compiled command parameter should be bound with.
         /// </summary>
-        internal ParameterBinderAssociation BinderAssociation { get; private set; }
+        internal ParameterBinderAssociation BinderAssociation { get; }
 
         public override string ToString()
         {
@@ -698,7 +682,6 @@ namespace System.Management.Automation
     /// to associate a particular CompiledCommandParameter with the
     /// appropriate ParameterBinder.
     /// </summary>
-    ///
     internal enum ParameterBinderAssociation
     {
         /// <summary>
@@ -732,4 +715,3 @@ namespace System.Management.Automation
         PagingParameters,
     }
 }
-

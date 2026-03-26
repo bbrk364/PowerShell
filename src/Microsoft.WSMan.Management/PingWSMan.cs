@@ -1,53 +1,57 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
-using System.IO;
-using System.Reflection;
-using System.ComponentModel;
-using System.Runtime.InteropServices;
-using System.Runtime.CompilerServices;
-using System.Management.Automation;
-using System.Management.Automation.Provider;
-using System.Xml;
 using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
+using System.Management.Automation;
+using System.Management.Automation.Provider;
+using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Xml;
 
 namespace Microsoft.WSMan.Management
 {
-
     #region Test-WSMAN
 
     /// <summary>
     /// Issues an operation against the remote machine to ensure that the wsman
-    /// service is running
+    /// service is running.
     /// </summary>
-
-    [Cmdlet(VerbsDiagnostic.Test, "WSMan", HelpUri = "https://go.microsoft.com/fwlink/?LinkId=141464")]
+    [Cmdlet(VerbsDiagnostic.Test, "WSMan", HelpUri = "https://go.microsoft.com/fwlink/?LinkId=2097114")]
+    [OutputType(typeof(XmlElement))]
     public class TestWSManCommand : AuthenticatingWSManCommand, IDisposable
     {
         /// <summary>
         /// The following is the definition of the input parameter "ComputerName".
         /// Executes the management operation on the specified computer. The default is
         /// the local computer. Type the fully qualified domain name, NETBIOS name or IP
-        /// address to indicate the remote host
+        /// address to indicate the remote host.
         /// </summary>
         [Parameter(Position = 0, ValueFromPipeline = true)]
         [Alias("cn")]
-        public String ComputerName
+        public string ComputerName
         {
-            get { return computername; }
+            get
+            {
+                return computername;
+            }
+
             set
             {
                 computername = value;
-                if ((string.IsNullOrEmpty(computername)) || (computername.Equals(".", StringComparison.CurrentCultureIgnoreCase)))
+                if ((string.IsNullOrEmpty(computername)) || (computername.Equals(".", StringComparison.OrdinalIgnoreCase)))
                 {
                     computername = "localhost";
                 }
             }
         }
-        private String computername = null;
+
+        private string computername = null;
 
         /// <summary>
         /// The following is the definition of the input parameter "Authentication".
@@ -72,13 +76,18 @@ namespace Microsoft.WSMan.Management
         [Alias("auth", "am")]
         public override AuthenticationMechanism Authentication
         {
-            get { return authentication; }
+            get
+            {
+                return authentication;
+            }
+
             set
             {
                 authentication = value;
                 ValidateSpecifiedAuthentication();
             }
         }
+
         private AuthenticationMechanism authentication = AuthenticationMechanism.None;
 
         /// <summary>
@@ -87,13 +96,15 @@ namespace Microsoft.WSMan.Management
         /// </summary>
         [Parameter(ParameterSetName = "ComputerName")]
         [ValidateNotNullOrEmpty]
-        [ValidateRange(1, Int32.MaxValue)]
-        public Int32 Port
+        [ValidateRange(1, int.MaxValue)]
+        public int Port
         {
             get { return port; }
+
             set { port = value; }
         }
-        private Int32 port = 0;
+
+        private int port = 0;
 
         /// <summary>
         /// The following is the definition of the input parameter "UseSSL".
@@ -106,8 +117,10 @@ namespace Microsoft.WSMan.Management
         public SwitchParameter UseSSL
         {
             get { return usessl; }
+
             set { usessl = value; }
         }
+
         private SwitchParameter usessl;
 
         /// <summary>
@@ -116,37 +129,38 @@ namespace Microsoft.WSMan.Management
         /// </summary>
         [Parameter(ParameterSetName = "ComputerName")]
         [ValidateNotNullOrEmpty]
-        public String ApplicationName
+        public string ApplicationName
         {
             get { return applicationname; }
+
             set { applicationname = value; }
         }
-        private String applicationname = null;
+
+        private string applicationname = null;
 
         /// <summary>
         /// ProcessRecord method.
         /// </summary>
         protected override void ProcessRecord()
         {
-
             WSManHelper helper = new WSManHelper(this);
             IWSManEx wsmanObject = (IWSManEx)new WSManClass();
-            string connectionStr = String.Empty;
+            string connectionStr = string.Empty;
             connectionStr = helper.CreateConnectionString(null, port, computername, applicationname);
             IWSManSession m_SessionObj = null;
             try
             {
                 m_SessionObj = helper.CreateSessionObject(wsmanObject, Authentication, null, Credential, connectionStr, CertificateThumbprint, usessl.IsPresent);
-                m_SessionObj.Timeout = 1000; //1 sec. we are putting this low so that Test-WSMan can return promptly if the server goes unresponsive.
+                m_SessionObj.Timeout = 1000; // 1 sec. we are putting this low so that Test-WSMan can return promptly if the server goes unresponsive.
                 XmlDocument xmldoc = new XmlDocument();
                 xmldoc.LoadXml(m_SessionObj.Identify(0));
                 WriteObject(xmldoc.DocumentElement);
             }
-            catch(Exception)
+            catch (Exception)
             {
                 try
                 {
-                    if (!String.IsNullOrEmpty(m_SessionObj.Error))
+                    if (!string.IsNullOrEmpty(m_SessionObj.Error))
                     {
                         XmlDocument ErrorDoc = new XmlDocument();
                         ErrorDoc.LoadXml(m_SessionObj.Error);
@@ -155,30 +169,30 @@ namespace Microsoft.WSMan.Management
                         this.WriteError(er);
                     }
                 }
-                catch(Exception)
-                {}
+                catch (Exception)
+                { }
             }
             finally
             {
                 if (m_SessionObj != null)
                     Dispose(m_SessionObj);
             }
-        }//End BeginProcessing()
+        }
 
         #region IDisposable Members
 
         /// <summary>
-        /// public dispose method
+        /// Public dispose method.
         /// </summary>
         public
         void
         Dispose()
         {
-            //CleanUp();
+            // CleanUp();
             GC.SuppressFinalize(this);
         }
         /// <summary>
-        /// public dispose method
+        /// Public dispose method.
         /// </summary>
         public
         void
@@ -189,7 +203,6 @@ namespace Microsoft.WSMan.Management
         }
 
         #endregion IDisposable Members
-
-    }//End Class
+    }
     #endregion
 }

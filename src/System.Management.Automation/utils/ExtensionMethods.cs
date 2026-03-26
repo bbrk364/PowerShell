@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Collections.Generic;
@@ -12,18 +12,12 @@ namespace System.Management.Automation
     {
         public static void SafeInvoke(this EventHandler eventHandler, object sender, EventArgs eventArgs)
         {
-            if (eventHandler != null)
-            {
-                eventHandler(sender, eventArgs);
-            }
+            eventHandler?.Invoke(sender, eventArgs);
         }
 
         public static void SafeInvoke<T>(this EventHandler<T> eventHandler, object sender, T eventArgs) where T : EventArgs
         {
-            if (eventHandler != null)
-            {
-                eventHandler(sender, eventArgs);
-            }
+            eventHandler?.Invoke(sender, eventArgs);
         }
     }
 
@@ -38,22 +32,24 @@ namespace System.Management.Automation
 
         internal static int SequenceGetHashCode<T>(this IEnumerable<T> xs)
         {
-            // algorithm based on http://stackoverflow.com/questions/263400/what-is-the-best-algorithm-for-an-overridden-system-object-gethashcode
+            // algorithm based on https://stackoverflow.com/questions/263400/what-is-the-best-algorithm-for-an-overridden-system-object-gethashcode
             if (xs == null)
             {
                 return 82460653; // random number
             }
+
             unchecked
             {
                 int hash = 41; // 41 is a random prime number
                 foreach (T x in xs)
                 {
-                    hash = hash * 59; // 59 is a random prime number
+                    hash *= 59; // 59 is a random prime number
                     if (x != null)
                     {
-                        hash = hash + x.GetHashCode();
+                        hash += x.GetHashCode();
                     }
                 }
+
                 return hash;
             }
         }
@@ -66,18 +62,13 @@ namespace System.Management.Automation
     /// * If you want to add an extension method that will be used only by CoreCLR powershell, please add it to the partial
     ///   'PSTypeExtensions' class in 'CorePsExtensions.cs'.
     /// </summary>
-    internal static partial class PSTypeExtensions
+    internal static class PSTypeExtensions
     {
-        /// <summary>
-        /// Type.EmptyTypes is not in CoreCLR. Use this one to replace it.
-        /// </summary>
-        internal static Type[] EmptyTypes = new Type[0];
-
         /// <summary>
         /// Check does the type have an instance default constructor with visibility that allows calling it from subclass.
         /// </summary>
-        /// <param name="type">type</param>
-        /// <returns>true when type has a default ctor.</returns>
+        /// <param name="type">Type.</param>
+        /// <returns>True when type has a default ctor.</returns>
         internal static bool HasDefaultCtor(this Type type)
         {
             var ctor = type.GetConstructor(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, Type.EmptyTypes, null);

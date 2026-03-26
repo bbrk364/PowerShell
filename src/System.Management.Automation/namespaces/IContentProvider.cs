@@ -1,6 +1,7 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+#nullable enable
 namespace System.Management.Automation.Provider
 {
     #region IContentCmdletProvider
@@ -9,7 +10,6 @@ namespace System.Management.Automation.Provider
     /// An interface that can be implemented on a Cmdlet provider to expose an item's
     /// content.
     /// </summary>
-    ///
     /// <remarks>
     /// An IContentCmdletProvider provider implements a set of methods that allows
     /// the use of a set of core commands against the data store that the provider
@@ -31,11 +31,9 @@ namespace System.Management.Automation.Provider
         /// <summary>
         /// Gets the content reader for the item at the specified path.
         /// </summary>
-        ///
         /// <param name="path">
         /// The path to the item to get the content reader for.
         /// </param>
-        ///
         /// <remarks>
         /// Overrides of this method should return an <see cref="System.Management.Automation.Provider.IContentReader"/>
         /// for the item specified by the path.
@@ -49,18 +47,16 @@ namespace System.Management.Automation.Provider
         /// the user unless the Force property is set to true. An error should be sent to the WriteError method if
         /// the path represents an item that is hidden from the user and Force is set to false.
         /// </remarks>
-        IContentReader GetContentReader(string path);
+        IContentReader? GetContentReader(string path);
 
         /// <summary>
         /// Gives the provider an opportunity to attach additional parameters to the
         /// get-content cmdlet.
         /// </summary>
-        ///
         /// <param name="path">
         /// If the path was specified on the command line, this is the path
         /// to the item to get the dynamic parameters for.
         /// </param>
-        ///
         /// <returns>
         /// Overrides of this method should return an object that has properties and fields decorated with
         /// parsing attributes similar to a cmdlet class or a
@@ -68,20 +64,17 @@ namespace System.Management.Automation.Provider
         ///
         /// The default implementation returns null. (no additional parameters)
         /// </returns>
-        object GetContentReaderDynamicParameters(string path);
+        object? GetContentReaderDynamicParameters(string path);
 
         /// <summary>
         /// Gets the content writer for the item at the specified path.
         /// </summary>
-        ///
         /// <param name="path">
         /// The path to the item to get the content writer for.
         /// </param>
-        ///
         /// <returns>
         /// An IContentWriter for the item at the specified path.
         /// </returns>
-        ///
         /// <remarks>
         /// Overrides of this method should return an <see cref="System.Management.Automation.Provider.IContentWriter"/>
         /// for the item specified by the path.
@@ -95,18 +88,16 @@ namespace System.Management.Automation.Provider
         /// the user unless the Force property is set to true. An error should be sent to the WriteError method if
         /// the path represents an item that is hidden from the user and Force is set to false.
         /// </remarks>
-        IContentWriter GetContentWriter(string path);
+        IContentWriter? GetContentWriter(string path);
 
         /// <summary>
         /// Gives the provider an opportunity to attach additional parameters to the
         /// set-content and add-content cmdlet.
         /// </summary>
-        ///
         /// <param name="path">
         /// If the path was specified on the command line, this is the path
         /// to the item to get the dynamic parameters for.
         /// </param>
-        ///
         /// <returns>
         /// Overrides of this method should return an object that has properties and fields decorated with
         /// parsing attributes similar to a cmdlet class or a
@@ -114,16 +105,14 @@ namespace System.Management.Automation.Provider
         ///
         /// The default implementation returns null. (no additional parameters)
         /// </returns>
-        object GetContentWriterDynamicParameters(string path);
+        object? GetContentWriterDynamicParameters(string path);
 
         /// <summary>
         /// Clears the content from the specified item.
         /// </summary>
-        ///
         /// <param name="path">
         /// The path to the item to clear the content from.
         /// </param>
-        ///
         /// <remarks>
         /// Overrides of this method should remove any content from the object but
         /// not remove (delete) the object itself.
@@ -142,12 +131,10 @@ namespace System.Management.Automation.Provider
         /// Gives the provider an opportunity to attach additional parameters to the
         /// clear-content cmdlet.
         /// </summary>
-        ///
         /// <param name="path">
         /// If the path was specified on the command line, this is the path
         /// to the item to get the dynamic parameters for.
         /// </param>
-        ///
         /// <returns>
         /// Overrides of this method should return an object that has properties and fields decorated with
         /// parsing attributes similar to a cmdlet class or a
@@ -155,9 +142,8 @@ namespace System.Management.Automation.Provider
         ///
         /// The default implementation returns null. (no additional parameters)
         /// </returns>
-        object ClearContentDynamicParameters(string path);
-    } // IContentCmdletProvider
+        object? ClearContentDynamicParameters(string path);
+    }
 
     #endregion IContentCmdletProvider
-} // namespace System.Management.Automation
-
+}

@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Linq;
@@ -46,45 +46,16 @@ namespace System.Management.Automation
                                      : GetAttributeCollection(attributeAsts);
                 var = new PSVariable(variablePath.UnqualifiedPath, value, ScopedItemOptions.None, attributes);
 
+                if (attributes.Count > 0)
+                {
+                    // When there are any attributes, it's possible the value was converted/transformed.
+                    // Use 'GetValueRaw' here so the debugger check won't be triggered.
+                    value = var.GetValueRaw();
+                }
+
+                // Marking untrusted values for assignments in 'ConstrainedLanguage' mode is done in
+                // SessionStateScope.SetVariable.
                 sessionState.SetVariable(variablePath, var, false, origin);
-
-                if (executionContext._debuggingMode > 0)
-                {
-                    executionContext.Debugger.CheckVariableWrite(variablePath.UnqualifiedPath);
-                }
-            }
-            else if (attributeAsts != null)
-            {
-                // Use bytewise operation directly instead of 'var.IsReadOnly || var.IsConstant' on
-                // a hot path (setting variable with type constraint) to get better performance.
-                if ((var.Options & (ScopedItemOptions.ReadOnly | ScopedItemOptions.Constant)) != ScopedItemOptions.None)
-                {
-                    SessionStateUnauthorizedAccessException e =
-                        new SessionStateUnauthorizedAccessException(
-                                var.Name,
-                                SessionStateCategory.Variable,
-                                "VariableNotWritable",
-                                SessionStateStrings.VariableNotWritable);
-                    throw e;
-                }
-
-                var attributes = GetAttributeCollection(attributeAsts);
-                value = PSVariable.TransformValue(attributes, value);
-                if (!PSVariable.IsValidValue(attributes, value))
-                {
-                    ValidationMetadataException e = new ValidationMetadataException(
-                        "ValidateSetFailure",
-                        null,
-                        Metadata.InvalidValueFailure,
-                        var.Name,
-                        ((value != null) ? value.ToString() : "$null"));
-
-                    throw e;
-                }
-                var.SetValueRaw(value, true);
-                // Don't update the PSVariable's attributes until we successfully set the value
-                var.Attributes.Clear();
-                var.AddParameterAttributesNoChecks(attributes);
 
                 if (executionContext._debuggingMode > 0)
                 {
@@ -93,8 +64,57 @@ namespace System.Management.Automation
             }
             else
             {
-                // The setter will handle checking for variable writes.
-                var.Value = value;
+                if (attributeAsts != null)
+                {
+                    // Use bytewise operation directly instead of 'var.IsReadOnly || var.IsConstant' on
+                    // a hot path (setting variable with type constraint) to get better performance.
+                    if ((var.Options & (ScopedItemOptions.ReadOnly | ScopedItemOptions.Constant)) != ScopedItemOptions.None)
+                    {
+                        SessionStateUnauthorizedAccessException e =
+                            new SessionStateUnauthorizedAccessException(
+                                    var.Name,
+                                    SessionStateCategory.Variable,
+                                    "VariableNotWritable",
+                                    SessionStateStrings.VariableNotWritable);
+                        throw e;
+                    }
+
+                    var attributes = GetAttributeCollection(attributeAsts);
+                    value = PSVariable.TransformValue(attributes, value);
+                    if (!PSVariable.IsValidValue(attributes, value))
+                    {
+                        ValidationMetadataException e = new ValidationMetadataException(
+                            "ValidateSetFailure",
+                            null,
+                            Metadata.InvalidValueFailure,
+                            var.Name,
+                            (value != null) ? value.ToString() : "$null");
+
+                        throw e;
+                    }
+
+                    var.SetValueRaw(value, true);
+                    // Don't update the PSVariable's attributes until we successfully set the value
+                    var.Attributes.Clear();
+                    var.AddParameterAttributesNoChecks(attributes);
+
+                    if (executionContext._debuggingMode > 0)
+                    {
+                        executionContext.Debugger.CheckVariableWrite(variablePath.UnqualifiedPath);
+                    }
+                }
+                else
+                {
+                    // The setter will handle checking for variable writes.
+                    var.Value = value;
+                }
+
+                if (executionContext.LanguageMode == PSLanguageMode.ConstrainedLanguage)
+                {
+                    // Mark untrusted values for assignments to 'Global:' variables, and 'Script:' variables in
+                    // a module scope, if it's necessary.
+                    ExecutionContext.MarkObjectAsUntrustedForVariableAssignment(var, scope, sessionState);
+                }
             }
 
             return value;
@@ -123,8 +143,10 @@ namespace System.Management.Automation
                     {
                         return false;
                     }
+
                     parent = parent.Parent;
                 }
+
                 return true;
             }
 
@@ -152,6 +174,7 @@ namespace System.Management.Automation
 
                 result = null;
             }
+
             return result;
         }
 
@@ -216,6 +239,7 @@ namespace System.Management.Automation
                     staticType = value.GetType();
                 }
             }
+
             if (staticType == null)
             {
                 var declaredType = var.Attributes.OfType<ArgumentTypeConverterAttribute>().FirstOrDefault();
@@ -232,6 +256,7 @@ namespace System.Management.Automation
             {
                 result.Add(attributeAst.GetAttribute());
             }
+
             return result;
         }
 
@@ -259,7 +284,7 @@ namespace System.Management.Automation
             return null;
         }
 
-        private class UsingResult
+        private sealed class UsingResult
         {
             public object Value { get; set; }
         }

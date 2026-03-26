@@ -1,17 +1,18 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
+
+using System;
+using System.Collections;
+using System.Management.Automation;
+
+using Microsoft.PowerShell.Commands.Internal.Format;
 
 namespace Microsoft.PowerShell.Commands
 {
-    using System;
-    using System.Collections;
-    using System.Management.Automation;
-    using Microsoft.PowerShell.Commands.Internal.Format;
-
-    internal class OriginalColumnInfo : ColumnInfo
+    internal sealed class OriginalColumnInfo : ColumnInfo
     {
-        private string _liveObjectPropertyName;
-        private OutGridViewCommand _parentCmdlet;
+        private readonly string _liveObjectPropertyName;
+        private readonly OutGridViewCommand _parentCmdlet;
 
         internal OriginalColumnInfo(string staleObjectPropertyName, string displayName, string liveObjectPropertyName, OutGridViewCommand parentCmdlet)
             : base(staleObjectPropertyName, displayName)
@@ -20,7 +21,7 @@ namespace Microsoft.PowerShell.Commands
             _parentCmdlet = parentCmdlet;
         }
 
-        internal override Object GetValue(PSObject liveObject)
+        internal override object GetValue(PSObject liveObject)
         {
             try
             {
@@ -31,16 +32,14 @@ namespace Microsoft.PowerShell.Commands
                 }
 
                 // The live object has the liveObjectPropertyName property.
-                Object liveObjectValue = propertyInfo.Value;
-                ICollection collectionValue = liveObjectValue as ICollection;
-                if (collectionValue != null)
+                object liveObjectValue = propertyInfo.Value;
+                if (liveObjectValue is ICollection collectionValue)
                 {
                     liveObjectValue = _parentCmdlet.ConvertToString(PSObjectHelper.AsPSObject(propertyInfo.Value));
                 }
                 else
                 {
-                    PSObject psObjectValue = liveObjectValue as PSObject;
-                    if (psObjectValue != null)
+                    if (liveObjectValue is PSObject psObjectValue)
                     {
                         // Since PSObject implements IComparable there is a need to verify if its BaseObject actually implements IComparable.
                         if (psObjectValue.BaseObject is IComparable)
@@ -65,6 +64,7 @@ namespace Microsoft.PowerShell.Commands
             {
                 // ignore
             }
+
             return null;
         }
     }

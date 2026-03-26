@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
@@ -16,9 +16,9 @@ using Dbg = System.Management.Automation.Diagnostics;
 namespace Microsoft.PowerShell.Cmdletization.Cim
 {
     /// <summary>
-    /// CimQuery supports building of queries against CIM object model
+    /// CimQuery supports building of queries against CIM object model.
     /// </summary>
-    internal class CimQuery : QueryBuilder, ISessionBoundQueryBuilder<CimSession>
+    internal sealed class CimQuery : QueryBuilder, ISessionBoundQueryBuilder<CimSession>
     {
         private readonly StringBuilder _wqlCondition;
 
@@ -27,9 +27,9 @@ namespace Microsoft.PowerShell.Cmdletization.Cim
         private string _resultRole;
         private string _sourceRole;
 
-        internal readonly Dictionary<string, object> queryOptions = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+        internal readonly Dictionary<string, object> queryOptions = new(StringComparer.OrdinalIgnoreCase);
 
-        internal ClientSideQuery ClientSideQuery { get; private set; }
+        internal ClientSideQuery ClientSideQuery { get; }
 
         internal CimQuery()
         {
@@ -52,7 +52,7 @@ namespace Microsoft.PowerShell.Cmdletization.Cim
         {
             if (LanguagePrimitives.IsNull(o))
             {
-                return "null"; // based on an example at http://msdn.microsoft.com/library/aa394054(VS.85).aspx
+                return "null"; // based on an example at https://msdn.microsoft.com/library/aa394054(VS.85).aspx
             }
 
             o = CimValueConverter.ConvertFromDotNetToCim(o);
@@ -95,9 +95,10 @@ namespace Microsoft.PowerShell.Cmdletization.Cim
             {
                 if ((bool)LanguagePrimitives.ConvertTo(o, typeof(bool), CultureInfo.InvariantCulture))
                 {
-                    return "TRUE"; // based on http://msdn.microsoft.com/library/aa394054(VS.85).aspx
+                    return "TRUE"; // based on https://msdn.microsoft.com/library/aa394054(VS.85).aspx
                 }
-                return "FALSE"; // based on http://msdn.microsoft.com/library/aa394054(VS.85).aspx
+
+                return "FALSE"; // based on https://msdn.microsoft.com/library/aa394054(VS.85).aspx
             }
 
             throw CimValueConverter.GetInvalidCastException(
@@ -176,7 +177,7 @@ namespace Microsoft.PowerShell.Cmdletization.Cim
                 .Select(propertyValue => wildcardsEnabled
                                              ? GetMatchConditionForLikeOperator(propertyName, propertyValue)
                                              : GetMatchConditionForEqualityOperator(propertyName, propertyValue))
-                .Where(individualCondition => !string.IsNullOrWhiteSpace(individualCondition))
+                .Where(static individualCondition => !string.IsNullOrWhiteSpace(individualCondition))
                 .ToList();
             if (individualConditions.Count == 0)
             {
@@ -190,13 +191,13 @@ namespace Microsoft.PowerShell.Cmdletization.Cim
         #region Public inputs from cmdletization
 
         /// <summary>
-        /// Modifies the query, so that it only returns objects with a given property value
+        /// Modifies the query, so that it only returns objects with a given property value.
         /// </summary>
-        /// <param name="propertyName">Property name to query on</param>
-        /// <param name="allowedPropertyValues">Property values to accept in the query</param>
+        /// <param name="propertyName">Property name to query on.</param>
+        /// <param name="allowedPropertyValues">Property values to accept in the query.</param>
         /// <param name="wildcardsEnabled">
-        ///   <c>true</c> if <paramref name="allowedPropertyValues"/> should be treated as a <see cref="System.String"/> containing a wildcard pattern;
-        ///   <c>false otherwise</c>
+        ///   <see langword="true"/> if <paramref name="allowedPropertyValues"/> should be treated as a <see cref="string"/> containing a wildcard pattern;
+        ///   <see langword="false"/> otherwise.
         /// </param>
         /// <param name="behaviorOnNoMatch">
         /// Describes how to handle filters that didn't match any objects
@@ -213,13 +214,13 @@ namespace Microsoft.PowerShell.Cmdletization.Cim
         }
 
         /// <summary>
-        /// Modifies the query, so that it does not return objects with a given property value
+        /// Modifies the query, so that it does not return objects with a given property value.
         /// </summary>
-        /// <param name="propertyName">Property name to query on</param>
-        /// <param name="excludedPropertyValues">Property values to reject in the query</param>
+        /// <param name="propertyName">Property name to query on.</param>
+        /// <param name="excludedPropertyValues">Property values to reject in the query.</param>
         /// <param name="wildcardsEnabled">
-        /// <c>true</c> if <paramref name="excludedPropertyValues"/> should be treated as a <see cref="System.String"/> containing a wildcard pattern;
-        /// <c>false otherwise</c>
+        /// <see langword="true"/> if <paramref name="excludedPropertyValues"/> should be treated as a <see cref="string"/> containing a wildcard pattern;
+        /// <see langword="false"/> otherwise.
         /// </param>
         /// <param name="behaviorOnNoMatch">
         /// Describes how to handle filters that didn't match any objects
@@ -240,10 +241,10 @@ namespace Microsoft.PowerShell.Cmdletization.Cim
         }
 
         /// <summary>
-        /// Modifies the query, so that it returns only objects that have a property value greater than or equal to a <paramref name="minPropertyValue"/> threshold
+        /// Modifies the query, so that it returns only objects that have a property value greater than or equal to a <paramref name="minPropertyValue"/> threshold.
         /// </summary>
-        /// <param name="propertyName">Property name to query on</param>
-        /// <param name="minPropertyValue">Minimum property value</param>
+        /// <param name="propertyName">Property name to query on.</param>
+        /// <param name="minPropertyValue">Minimum property value.</param>
         /// <param name="behaviorOnNoMatch">
         /// Describes how to handle filters that didn't match any objects
         /// </param>
@@ -264,10 +265,10 @@ namespace Microsoft.PowerShell.Cmdletization.Cim
         }
 
         /// <summary>
-        /// Modifies the query, so that it returns only objects that have a property value less than or equal to a <paramref name="maxPropertyValue"/> threshold
+        /// Modifies the query, so that it returns only objects that have a property value less than or equal to a <paramref name="maxPropertyValue"/> threshold.
         /// </summary>
-        /// <param name="propertyName">Property name to query on</param>
-        /// <param name="maxPropertyValue">Maximum property value</param>
+        /// <param name="propertyName">Property name to query on.</param>
+        /// <param name="maxPropertyValue">Maximum property value.</param>
         /// <param name="behaviorOnNoMatch">
         /// Describes how to handle filters that didn't match any objects
         /// </param>
@@ -290,10 +291,10 @@ namespace Microsoft.PowerShell.Cmdletization.Cim
         /// <summary>
         /// Modifies the query, so that it returns only objects associated with <paramref name="associatedInstance"/>
         /// </summary>
-        /// <param name="associatedInstance">object that query results have to be associated with</param>
-        /// <param name="associationName">name of the association</param>
-        /// <param name="resultRole">name of the role that <paramref name="associatedInstance"/> has in the association</param>
-        /// <param name="sourceRole">name of the role that query results have in the association</param>
+        /// <param name="associatedInstance">Object that query results have to be associated with.</param>
+        /// <param name="associationName">Name of the association.</param>
+        /// <param name="resultRole">Name of the role that <paramref name="associatedInstance"/> has in the association.</param>
+        /// <param name="sourceRole">Name of the role that query results have in the association.</param>
         /// <param name="behaviorOnNoMatch">
         /// Describes how to handle filters that didn't match any objects
         /// </param>
@@ -307,20 +308,14 @@ namespace Microsoft.PowerShell.Cmdletization.Cim
         }
 
         /// <summary>
-        /// Sets a query option
+        /// Sets a query option.
         /// </summary>
         /// <param name="optionName"></param>
         /// <param name="optionValue"></param>
         public override void AddQueryOption(string optionName, object optionValue)
         {
-            if (string.IsNullOrEmpty(optionName))
-            {
-                throw new ArgumentNullException("optionName");
-            }
-            if (optionValue == null)
-            {
-                throw new ArgumentNullException("optionValue");
-            }
+            ArgumentException.ThrowIfNullOrEmpty(optionName);
+            ArgumentNullException.ThrowIfNull(optionValue);
 
             this.queryOptions[optionName] = optionValue;
         }
@@ -360,13 +355,14 @@ namespace Microsoft.PowerShell.Cmdletization.Cim
             {
                 return CimCmdletAdapter.GetSessionOfOriginFromCimInstance(_associatedObject);
             }
+
             return null;
         }
 
         /// <summary>
-        /// Returns a string that represents the current CIM query
+        /// Returns a string that represents the current CIM query.
         /// </summary>
-        /// <returns>A string that represents the current CIM query</returns>
+        /// <returns>A string that represents the current CIM query.</returns>
         public override string ToString()
         {
             return _wqlCondition.ToString();

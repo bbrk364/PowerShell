@@ -1,19 +1,20 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.IO;
 using System.Management.Automation;
 using System.Management.Automation.Help;
+
 using Microsoft.PowerShell.Commands;
 
 namespace System.Management.Automation
 {
-    internal class HelpUtils
+    internal static class HelpUtils
     {
         private static string userHomeHelpPath = null;
 
         /// <summary>
-        /// Get the path to $HOME
+        /// Get the path to $HOME.
         /// </summary>
         internal static string GetUserHomeHelpSearchPath()
         {
@@ -40,25 +41,25 @@ namespace System.Management.Automation
             // In case of other modules, the help is under moduleBase/<current_culture> or
             // under moduleBase/<Version>/<current_culture>.
             // The code below creates a similar layout for CurrentUser scope.
-            // If the the scope is AllUsers, then the help goes under moduleBase.
+            // If the scope is AllUsers, then the help goes under moduleBase.
 
             var userHelpPath = GetUserHomeHelpSearchPath();
             string moduleBaseParent = Directory.GetParent(moduleBase).Name;
 
             if (moduleBase.EndsWith(moduleName, StringComparison.OrdinalIgnoreCase))
             {
-                //This module is not an inbox module, so help goes under <userHelpPath>/<moduleName>
+                // This module is not an inbox module, so help goes under <userHelpPath>/<moduleName>
                 newModuleBase = Path.Combine(userHelpPath, moduleName);
             }
-            else if (String.Equals(moduleBaseParent, moduleName, StringComparison.OrdinalIgnoreCase))
+            else if (string.Equals(moduleBaseParent, moduleName, StringComparison.OrdinalIgnoreCase))
             {
-                //This module has version folder.
+                // This module has version folder.
                 var moduleVersion = Path.GetFileName(moduleBase);
                 newModuleBase = Path.Combine(userHelpPath, moduleName, moduleVersion);
             }
             else
             {
-                //This module is inbox module, help should be under <userHelpPath>
+                // This module is inbox module, help should be under <userHelpPath>
                 newModuleBase = userHelpPath;
             }
 

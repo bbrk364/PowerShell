@@ -1,8 +1,8 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Runtime.Serialization;
 using System.Reflection;
+using System.Runtime.Serialization;
 using System.Security.Permissions;
 
 namespace System.Management.Automation.Runspaces
@@ -19,13 +19,12 @@ namespace System.Management.Automation.Runspaces
     ///     1. PSSnapin name
     ///     2. Inner exception.
     /// -->
-    [Serializable]
     public class PSSnapInException : RuntimeException
     {
         /// <summary>
         /// Initiate an instance of PSSnapInException.
         /// </summary>
-        /// <param name="PSSnapin">PSSnapin for the exception</param>
+        /// <param name="PSSnapin">PSSnapin for the exception.</param>
         /// <param name="message">Message with load failure detail.</param>
         internal PSSnapInException(string PSSnapin, string message)
             : base()
@@ -38,7 +37,7 @@ namespace System.Management.Automation.Runspaces
         /// <summary>
         /// Initiate an instance of PSSnapInException.
         /// </summary>
-        /// <param name="PSSnapin">PSSnapin for the exception</param>
+        /// <param name="PSSnapin">PSSnapin for the exception.</param>
         /// <param name="message">Message with load failure detail.</param>
         /// <param name="warning">Whether this is just a warning for PSSnapin load.</param>
         internal PSSnapInException(string PSSnapin, string message, bool warning)
@@ -53,9 +52,9 @@ namespace System.Management.Automation.Runspaces
         /// <summary>
         /// Initiate an instance of PSSnapInException.
         /// </summary>
-        /// <param name="PSSnapin">PSSnapin for the exception</param>
+        /// <param name="PSSnapin">PSSnapin for the exception.</param>
         /// <param name="message">Message with load failure detail.</param>
-        /// <param name="exception">Exception for PSSnapin load failure</param>
+        /// <param name="exception">Exception for PSSnapin load failure.</param>
         internal PSSnapInException(string PSSnapin, string message, Exception exception)
             : base(message, exception)
         {
@@ -74,7 +73,7 @@ namespace System.Management.Automation.Runspaces
         /// <summary>
         /// Initiate an instance of PSSnapInException.
         /// </summary>
-        /// <param name="message">Error message</param>
+        /// <param name="message">Error message.</param>
         public PSSnapInException(string message)
             : base(message)
         {
@@ -83,8 +82,8 @@ namespace System.Management.Automation.Runspaces
         /// <summary>
         /// Initiate an instance of PSSnapInException.
         /// </summary>
-        /// <param name="message">Error message</param>
-        /// <param name="innerException">Inner exception</param>
+        /// <param name="message">Error message.</param>
+        /// <param name="innerException">Inner exception.</param>
         public PSSnapInException(string message, Exception innerException)
             : base(message, innerException)
         {
@@ -99,24 +98,24 @@ namespace System.Management.Automation.Runspaces
             // if _PSSnapin or _reason is empty, this exception is created using default
             // constructor. Don't create the error record since there is
             // no useful information anyway.
-            if (!String.IsNullOrEmpty(_PSSnapin) && !String.IsNullOrEmpty(_reason))
+            if (!string.IsNullOrEmpty(_PSSnapin) && !string.IsNullOrEmpty(_reason))
             {
                 Assembly currentAssembly = typeof(PSSnapInException).Assembly;
 
                 if (_warning)
                 {
                     _errorRecord = new ErrorRecord(new ParentContainsErrorRecordException(this), "PSSnapInLoadWarning", ErrorCategory.ResourceUnavailable, null);
-                    _errorRecord.ErrorDetails = new ErrorDetails(String.Format(ConsoleInfoErrorStrings.PSSnapInLoadWarning, _PSSnapin, _reason));
+                    _errorRecord.ErrorDetails = new ErrorDetails(string.Format(ConsoleInfoErrorStrings.PSSnapInLoadWarning, _PSSnapin, _reason));
                 }
                 else
                 {
                     _errorRecord = new ErrorRecord(new ParentContainsErrorRecordException(this), "PSSnapInLoadFailure", ErrorCategory.ResourceUnavailable, null);
-                    _errorRecord.ErrorDetails = new ErrorDetails(String.Format(ConsoleInfoErrorStrings.PSSnapInLoadFailure, _PSSnapin, _reason));
+                    _errorRecord.ErrorDetails = new ErrorDetails(string.Format(ConsoleInfoErrorStrings.PSSnapInLoadFailure, _PSSnapin, _reason));
                 }
             }
         }
 
-        private bool _warning = false;
+        private readonly bool _warning = false;
 
         private ErrorRecord _errorRecord;
         private bool _isErrorRecordOriginallyNull;
@@ -141,12 +140,13 @@ namespace System.Management.Automation.Runspaces
                         ErrorCategory.NotSpecified,
                         null);
                 }
+
                 return _errorRecord;
             }
         }
 
-        private string _PSSnapin = string.Empty;
-        private string _reason = string.Empty;
+        private readonly string _PSSnapin = string.Empty;
+        private readonly string _reason = string.Empty;
 
         /// <summary>
         /// Gets message for this exception.
@@ -169,38 +169,15 @@ namespace System.Management.Automation.Runspaces
         /// <summary>
         /// Initiate a PSSnapInException instance.
         /// </summary>
-        /// <param name="info"> Serialization information </param>
-        /// <param name="context"> Streaming context </param>
+        /// <param name="info">Serialization information.</param>
+        /// <param name="context">Streaming context.</param>
+        [Obsolete("Legacy serialization support is deprecated since .NET 8", DiagnosticId = "SYSLIB0051")]
         protected PSSnapInException(SerializationInfo info,
                                         StreamingContext context)
-            : base(info, context)
         {
-            _PSSnapin = info.GetString("PSSnapIn");
-            _reason = info.GetString("Reason");
-
-            CreateErrorRecord();
-        }
-
-        /// <summary>
-        /// Get object data from serialization information.
-        /// </summary>
-        /// <param name="info"> Serialization information </param>
-        /// <param name="context"> Streaming context </param>
-        [SecurityPermissionAttribute(SecurityAction.Demand, SerializationFormatter = true)]
-        public override void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            if (info == null)
-            {
-                throw PSTraceSource.NewArgumentNullException("info");
-            }
-
-            base.GetObjectData(info, context);
-
-            info.AddValue("PSSnapIn", _PSSnapin);
-            info.AddValue("Reason", _reason);
+            throw new NotSupportedException();
         }
 
         #endregion Serialization
     }
 }
-

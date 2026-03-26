@@ -1,11 +1,11 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Collections.Generic;
 using System.Globalization;
+using System.Management.Automation.Host;
 using System.Management.Automation.Remoting;
 using System.Management.Automation.Runspaces;
-using System.Management.Automation.Host;
-using System.Collections.Generic;
 
 using Dbg = System.Management.Automation.Diagnostics;
 
@@ -14,7 +14,6 @@ using Dbg = System.Management.Automation.Diagnostics;
 namespace System.Management.Automation.Internal.Host
 {
     /// <summary>
-    ///
     /// Wraps PSHost instances to provide a shim layer
     /// between InternalCommand and the host-supplied PSHost instance.
     ///
@@ -24,12 +23,10 @@ namespace System.Management.Automation.Internal.Host
     ///
     /// That leverage may be necessary to manage concurrent access between multiple pipelines sharing the same instance of
     /// PSHost.
-    ///
     /// </summary>
     internal class InternalHost : PSHost, IHostSupportsInteractiveSession
     {
         /// <summary>
-        ///
         /// There should only be one instance of InternalHost per runspace (i.e. per engine), and all engine use of the host
         /// should be through that single instance.  If we ever accidentally create more than one instance of InternalHost per
         /// runspace, then some of the internal state checks that InternalHost makes, like checking the nestedPromptCounter, can
@@ -38,12 +35,11 @@ namespace System.Management.Automation.Internal.Host
         /// To ensure that this constraint is met, I wanted to make this class a singleton.  However, Hitesh rightly pointed out
         /// that a singleton would be appdomain-global, which would prevent having multiple runspaces per appdomain. So we will
         /// just have to be careful not to create extra instances of InternalHost per runspace.
-        ///
         /// </summary>
         internal InternalHost(PSHost externalHost, ExecutionContext executionContext)
         {
             Dbg.Assert(externalHost != null, "must supply an PSHost");
-            Dbg.Assert(!(externalHost is InternalHost), "try to create an InternalHost from another InternalHost");
+            Dbg.Assert(externalHost is not InternalHost, "try to create an InternalHost from another InternalHost");
 
             Dbg.Assert(executionContext != null, "must supply an ExecutionContext");
 
@@ -58,26 +54,22 @@ namespace System.Management.Automation.Internal.Host
         }
 
         /// <summary>
-        ///
-        /// See base class
-        ///
+        /// See base class.
         /// </summary>
         /// <value></value>
         /// <exception cref="NotImplementedException">
-        ///
         ///  when the external host's Name is null or empty.
-        ///
         /// </exception>
         public override string Name
         {
             get
             {
-                if (String.IsNullOrEmpty(_nameResult))
+                if (string.IsNullOrEmpty(_nameResult))
                 {
                     _nameResult = _externalHostRef.Value.Name;
 
 #pragma warning disable 56503
-                    if (String.IsNullOrEmpty(_nameResult))
+                    if (string.IsNullOrEmpty(_nameResult))
                     {
                         throw PSTraceSource.NewNotImplementedException();
                     }
@@ -89,15 +81,11 @@ namespace System.Management.Automation.Internal.Host
         }
 
         /// <summary>
-        ///
-        /// See base class
-        ///
+        /// See base class.
         /// </summary>
         /// <value></value>
         /// <exception cref="NotImplementedException">
-        ///
         ///  when the external host's Version is null.
-        ///
         /// </exception>
         public override System.Version Version
         {
@@ -120,15 +108,11 @@ namespace System.Management.Automation.Internal.Host
         }
 
         /// <summary>
-        ///
-        /// See base class
-        ///
+        /// See base class.
         /// </summary>
         /// <value></value>
         /// <exception cref="NotImplementedException">
-        ///
         ///  when the external host's InstanceId is a zero Guid.
-        ///
         /// </exception>
         public override System.Guid InstanceId
         {
@@ -145,14 +129,13 @@ namespace System.Management.Automation.Internal.Host
                     }
 #pragma warning restore 56503
                 }
+
                 return _idResult;
             }
         }
 
         /// <summary>
-        ///
-        /// See base class
-        ///
+        /// See base class.
         /// </summary>
         /// <value>
         /// </value>
@@ -179,16 +162,12 @@ namespace System.Management.Automation.Internal.Host
         }
 
         /// <summary>
-        ///
-        /// See base class
-        ///
+        /// See base class.
         /// </summary>
         /// <value>
         /// </value>
         /// <exception cref="NotImplementedException">
-        ///
         ///  when the external host's CurrentCulture is null.
-        ///
         /// </exception>
         public override System.Globalization.CultureInfo CurrentCulture
         {
@@ -201,34 +180,24 @@ namespace System.Management.Automation.Internal.Host
         }
 
         /// <summary>
-        ///
-        /// See base class
-        ///
+        /// See base class.
         /// </summary>
         /// <value>
         /// </value>
         /// <exception cref="NotImplementedException">
-        ///
         /// If the external host's CurrentUICulture is null.
-        ///
         /// </exception>
         public override CultureInfo CurrentUICulture
         {
             get
             {
-#if CORECLR     // No CultureInfo.InstalledUICulture In CoreCLR. Locale cannot be changed On CSS.
-                CultureInfo ci = _externalHostRef.Value.CurrentUICulture ?? CultureInfo.CurrentUICulture;
-#else
                 CultureInfo ci = _externalHostRef.Value.CurrentUICulture ?? CultureInfo.InstalledUICulture;
-#endif
                 return ci;
             }
         }
 
         /// <summary>
-        ///
-        /// See base class
-        ///
+        /// See base class.
         /// </summary>
         /// <param name="exitCode"></param>
         public override void SetShouldExit(int exitCode)
@@ -237,9 +206,7 @@ namespace System.Management.Automation.Internal.Host
         }
 
         /// <summary>
-        ///
         /// See base class
-        ///
         /// <seealso cref="ExitNestedPrompt"/>
         /// </summary>
         public override void EnterNestedPrompt()
@@ -257,10 +224,9 @@ namespace System.Management.Automation.Internal.Host
         }
 
         /// <summary>
-        /// Internal proxy for EnterNestedPrompt
+        /// Internal proxy for EnterNestedPrompt.
         /// </summary>
         /// <param name="callingCommand"></param>
-        ///
         internal void EnterNestedPrompt(InternalCommand callingCommand)
         {
             // Ensure we are in control of the pipeline
@@ -334,7 +300,6 @@ namespace System.Management.Automation.Internal.Host
                     commandInfoProperty.Value = callingCommand.CommandInfo;
                 }
 
-#if !CORECLR //TODO:CORECLR StackTrace not in CoreCLR
                 stackTraceProperty = newValue.Properties["StackTrace"];
                 if (stackTraceProperty == null)
                 {
@@ -345,7 +310,6 @@ namespace System.Management.Automation.Internal.Host
                     oldStackTrace = stackTraceProperty.Value;
                     stackTraceProperty.Value = new System.Diagnostics.StackTrace();
                 }
-#endif
 
                 Context.SetVariable(SpecialVariables.CurrentlyExecutingCommandVarPath, newValue);
             }
@@ -386,6 +350,7 @@ namespace System.Management.Automation.Internal.Host
                 {
                     commandInfoProperty.Value = oldCommandInfo;
                 }
+
                 if (stackTraceProperty != null)
                 {
                     stackTraceProperty.Value = oldStackTrace;
@@ -419,9 +384,7 @@ namespace System.Management.Automation.Internal.Host
         }
 
         /// <summary>
-        ///
         /// See base class
-        ///
         /// <seealso cref="EnterNestedPrompt()"/>
         /// </summary>
         public override void ExitNestedPrompt()
@@ -439,14 +402,13 @@ namespace System.Management.Automation.Internal.Host
             {
                 ExitNestedPromptHelper();
             }
+
             ExitNestedPromptException enpe = new ExitNestedPromptException();
             throw enpe;
         }
 
         /// <summary>
-        ///
-        /// See base class
-        ///
+        /// See base class.
         /// </summary>
         public override PSObject PrivateData
         {
@@ -458,9 +420,7 @@ namespace System.Management.Automation.Internal.Host
         }
 
         /// <summary>
-        ///
         /// See base class
-        ///
         /// <seealso cref="NotifyEndApplication"/>
         /// </summary>
         public override void NotifyBeginApplication()
@@ -469,9 +429,7 @@ namespace System.Management.Automation.Internal.Host
         }
 
         /// <summary>
-        ///
         /// Called by the engine to notify the host that the execution of a legacy command has completed.
-        ///
         /// <seealso cref="NotifyBeginApplication"/>
         /// </summary>
         public override void NotifyEndApplication()
@@ -490,11 +448,11 @@ namespace System.Management.Automation.Internal.Host
         /// </summary>
         private IHostSupportsInteractiveSession GetIHostSupportsInteractiveSession()
         {
-            IHostSupportsInteractiveSession host = _externalHostRef.Value as IHostSupportsInteractiveSession;
-            if (host == null)
+            if (_externalHostRef.Value is not IHostSupportsInteractiveSession host)
             {
                 throw new PSNotImplementedException();
             }
+
             return host;
         }
 
@@ -543,10 +501,10 @@ namespace System.Management.Automation.Internal.Host
         }
 
         /// <summary>
-        /// Checks if the host is in a nested prompt
+        /// Checks if the host is in a nested prompt.
         /// </summary>
-        /// <returns>true, if host in nested prompt
-        /// false, otherwise</returns>
+        /// <returns>True, if host in nested prompt
+        /// false, otherwise.</returns>
         internal bool HostInNestedPrompt()
         {
             if (NestedPromptCount > 0)
@@ -579,7 +537,11 @@ namespace System.Management.Automation.Internal.Host
         internal void RevertHostRef()
         {
             // nothing to revert if Host reference is not set.
-            if (!IsHostRefSet) { return; }
+            if (!IsHostRefSet)
+            {
+                return;
+            }
+
             _externalHostRef.Revert();
             _internalUIRef.Revert();
         }
@@ -605,15 +567,15 @@ namespace System.Management.Automation.Internal.Host
         internal int NestedPromptCount { get; private set; }
 
         // Masked variables.
-        private ObjectRef<PSHost> _externalHostRef;
-        private ObjectRef<InternalHostUserInterface> _internalUIRef;
+        private readonly ObjectRef<PSHost> _externalHostRef;
+        private readonly ObjectRef<InternalHostUserInterface> _internalUIRef;
 
         // Private variables.
         private string _nameResult;
         private Version _versionResult;
         private Guid _idResult;
-        private Stack<PromptContextData> _contextStack = new Stack<PromptContextData>();
+        private readonly Stack<PromptContextData> _contextStack = new Stack<PromptContextData>();
 
         private readonly Guid _zeroGuid;
     }
-}  // namespace
+}

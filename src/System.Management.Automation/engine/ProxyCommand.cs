@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Diagnostics.CodeAnalysis;
@@ -7,14 +7,14 @@ using System.Text;
 namespace System.Management.Automation
 {
     /// <summary>
-    /// A ProxyCommand class used to represent a Command constructed Dynamically
+    /// A ProxyCommand class used to represent a Command constructed Dynamically.
     /// </summary>
     public sealed class ProxyCommand
     {
         #region Private Constructor
 
         /// <summary>
-        /// Private Constructor to restrict inheritance
+        /// Private Constructor to restrict inheritance.
         /// </summary>
         private ProxyCommand()
         {
@@ -171,6 +171,7 @@ namespace System.Management.Automation
             {
                 throw PSTraceSource.NewArgumentNullException("commandMetaData");
             }
+
             return commandMetadata.GetBeginBlock();
         }
 
@@ -194,6 +195,7 @@ namespace System.Management.Automation
             {
                 throw PSTraceSource.NewArgumentNullException("commandMetaData");
             }
+
             return commandMetadata.GetProcessBlock();
         }
 
@@ -217,6 +219,7 @@ namespace System.Management.Automation
             {
                 throw PSTraceSource.NewArgumentNullException("commandMetaData");
             }
+
             return commandMetadata.GetDynamicParamBlock();
         }
 
@@ -240,7 +243,32 @@ namespace System.Management.Automation
             {
                 throw PSTraceSource.NewArgumentNullException("commandMetaData");
             }
+
             return commandMetadata.GetEndBlock();
+        }
+
+        /// <summary>
+        /// This method constructs a string representing the clean block of the command
+        /// specified by <paramref name="commandMetadata"/>. The returned string only contains the
+        /// script, it is not enclosed in "clean { }".
+        /// </summary>
+        /// <param name="commandMetadata">
+        /// An instance of CommandMetadata representing a command.
+        /// </param>
+        /// <returns>
+        /// A string representing the end block of the command.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        /// If <paramref name="commandMetadata"/> is null.
+        /// </exception>
+        public static string GetClean(CommandMetadata commandMetadata)
+        {
+            if (commandMetadata == null)
+            {
+                throw PSTraceSource.NewArgumentNullException(nameof(commandMetadata));
+            }
+
+            return commandMetadata.GetCleanBlock();
         }
 
         private static T GetProperty<T>(PSObject obj, string property) where T : class
@@ -250,6 +278,7 @@ namespace System.Management.Automation
             {
                 result = obj.Properties[property].Value as T;
             }
+
             return result;
         }
 
@@ -262,6 +291,7 @@ namespace System.Management.Automation
             {
                 text = GetProperty<string>(psobj, "Text");
             }
+
             return text ?? obj.ToString();
         }
 
@@ -272,11 +302,11 @@ namespace System.Management.Automation
                 string text = GetObjText(obj);
                 if (!string.IsNullOrEmpty(text))
                 {
-                    sb.Append("\n");
+                    sb.Append('\n');
                     sb.Append(section);
                     sb.Append("\n\n");
                     sb.Append(text);
-                    sb.Append("\n");
+                    sb.Append('\n');
                 }
             }
         }
@@ -298,13 +328,15 @@ namespace System.Management.Automation
                             sb.Append(section);
                             sb.Append("\n\n");
                         }
+
                         sb.Append(text);
-                        sb.Append("\n");
+                        sb.Append('\n');
                     }
                 }
+
                 if (!first)
                 {
-                    sb.Append("\n");
+                    sb.Append('\n');
                 }
             }
         }
@@ -319,7 +351,7 @@ namespace System.Management.Automation
                 sb.Append(section);
                 sb.Append("\n\n");
                 sb.Append(GetObjText(name));
-                sb.Append("\n");
+                sb.Append('\n');
             }
             else
             {
@@ -330,7 +362,7 @@ namespace System.Management.Automation
                     sb.Append(section);
                     sb.Append("\n\n");
                     sb.Append(GetObjText(uri));
-                    sb.Append("\n");
+                    sb.Append('\n');
                 }
             }
         }
@@ -344,10 +376,7 @@ namespace System.Management.Automation
         /// <exception cref="System.InvalidOperationException">When the help argument is not recognized as a HelpInfo object.</exception>
         public static string GetHelpComments(PSObject help)
         {
-            if (help == null)
-            {
-                throw new ArgumentNullException("help");
-            }
+            ArgumentNullException.ThrowIfNull(help);
 
             bool isHelpObject = false;
             foreach (string typeName in help.InternalTypeNames)
@@ -387,7 +416,7 @@ namespace System.Management.Automation
                         if (!string.IsNullOrEmpty(text))
                         {
                             sb.Append(text);
-                            sb.Append("\n");
+                            sb.Append('\n');
                         }
                     }
                 }
@@ -412,26 +441,28 @@ namespace System.Management.Automation
                             }
                         }
                     }
+
                     PSObject code = GetProperty<PSObject>(ex, "code");
                     if (code != null)
                     {
                         exsb.Append(code.ToString());
                     }
+
                     PSObject[] remarks = GetProperty<PSObject[]>(ex, "remarks");
                     if (remarks != null)
                     {
-                        exsb.Append("\n");
+                        exsb.Append('\n');
                         foreach (PSObject remark in remarks)
                         {
                             string remarkText = GetProperty<string>(remark, "text");
-                            exsb.Append(remarkText.ToString());
+                            exsb.Append(remarkText);
                         }
                     }
 
                     if (exsb.Length > 0)
                     {
                         sb.Append("\n\n.EXAMPLE\n\n");
-                        sb.Append(exsb.ToString());
+                        sb.Append(exsb);
                     }
                 }
             }

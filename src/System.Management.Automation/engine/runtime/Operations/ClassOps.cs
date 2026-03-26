@@ -1,14 +1,14 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Management.Automation.Language;
 using System.Management.Automation.Runspaces;
 using System.Reflection;
 using System.Reflection.Emit;
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-using System.Management.Automation.Language;
 using System.Threading;
 
 // These APIs are not part of the public contract.
@@ -22,7 +22,7 @@ namespace System.Management.Automation.Internal
     /// <summary>
     /// Every Runspace in one process contains SessionStateInternal per module (module SessionState).
     /// Every RuntimeType is associated to only one SessionState in the Runspace, which creates it:
-    /// it's ever global state or a module state.
+    /// it's either global state or a module state.
     /// In the former case, module can be imported from the different runspaces in the same process.
     /// And so runspaces will share RuntimeType. But in every runspace, Type is associated with just one SessionState.
     /// We want type methods to be able access $script: variables and module-specific methods.
@@ -42,24 +42,23 @@ namespace System.Management.Automation.Internal
 
         internal void RegisterRunspace()
         {
-            SessionStateInternal ssInMap = null;
-            Runspace rsToUse = Runspace.DefaultRunspace;
-            SessionStateInternal ssToUse = rsToUse.ExecutionContext.EngineSessionState;
+            SessionStateInternal sessionStateInMap = null;
+            Runspace runspaceToUse = Runspace.DefaultRunspace;
+            SessionStateInternal sessionStateToUse = runspaceToUse.ExecutionContext.EngineSessionState;
 
             // Different threads will operate on different key/value pairs (default-runspace/session-state pairs),
             // and a ConditionalWeakTable itself is thread safe, so there won't be race condition here.
-            if (!_stateMap.TryGetValue(rsToUse, out ssInMap))
+            if (!_stateMap.TryGetValue(runspaceToUse, out sessionStateInMap))
             {
                 // If the key doesn't exist yet, add it
-                _stateMap.Add(rsToUse, ssToUse);
+                _stateMap.Add(runspaceToUse, sessionStateToUse);
             }
-            else if (!ssInMap.Equals(ssToUse))
+            else if (sessionStateInMap != sessionStateToUse)
             {
                 // If the key exists but the corresponding value is not what we should use, then remove the key/value pair and add the new pair.
                 // This could happen when a powershell class is defined in a module and the module gets reloaded. In such case, the same TypeDefinitionAst
                 // instance will get reused, but should be associated with the SessionState from the new module, instead of the one from the old module.
-                _stateMap.Remove(rsToUse);
-                _stateMap.Add(rsToUse, ssToUse);
+                _stateMap.AddOrUpdate(runspaceToUse, sessionStateToUse);
             }
             // If the key exists and the corresponding value is the one we should use, then do nothing.
         }
@@ -77,7 +76,7 @@ namespace System.Management.Automation.Internal
         /// However, if the instantiation happens in a different Runspace where the class is not defined, or it happens on
         /// a thread without a default Runspace, then the created instance won't be bound to any session state.
         /// </remarks>
-        /// <returns>SessionStateInternal</returns>
+        /// <returns>SessionStateInternal.</returns>
         public object GetSessionState()
         {
             SessionStateInternal ss = null;
@@ -90,6 +89,7 @@ namespace System.Management.Automation.Internal
             {
                 _stateMap.TryGetValue(defaultRunspace, out ss);
             }
+
             return ss;
         }
     }
@@ -98,7 +98,7 @@ namespace System.Management.Automation.Internal
     public class ScriptBlockMemberMethodWrapper
     {
         /// <summary>Used in codegen</summary>
-        public static readonly object[] _emptyArgumentArray = Utils.EmptyArray<object>(); // See TypeDefiner.DefineTypeHelper.DefineMethodBody
+        public static readonly object[] _emptyArgumentArray = Array.Empty<object>(); // See TypeDefiner.DefineTypeHelper.DefineMethodBody
 
         /// <summary>
         /// Indicate the wrapper is for a static member method.
@@ -115,10 +115,10 @@ namespace System.Management.Automation.Internal
         /// We use WeakReference object to point to the default SessionState because if GC already collect the SessionState,
         /// or the Runspace it chains to is closed and disposed, then we cannot run the static method there anyways.
         /// </summary>
-        /// <remakr>
+        /// <remarks>
         /// The default SessionState is used only if a static method is called from a Runspace where the PowerShell class is
         /// never defined, or is called on a thread without a default Runspace. Usage like those should be rare.
-        /// </remakr>
+        /// </remarks>
         private readonly WeakReference<SessionStateInternal> _defaultSessionStateToUse;
 
         /// <summary>
@@ -162,7 +162,7 @@ namespace System.Management.Automation.Internal
         /// Initialization happens when the script that defines PowerShell class is executed.
         /// This initialization is required only if this wrapper is for a static method.
         /// </summary>
-        /// <remark>
+        /// <remarks>
         /// When the same script file gets executed multiple times, the .NET type generated from the PowerShell class
         /// defined in the file will be shared in those executions, and thus this method will be called multiple times
         /// possibly in the contexts of different Runspace/SessionState.
@@ -174,7 +174,7 @@ namespace System.Management.Automation.Internal
         /// is declared, and thus we can always get the correct SessionState to use by querying the 'SessionStateKeeper'.
         /// The default SessionState is used only if a static method is called from a Runspace where the class is never
         /// defined, or is called on a thread without a default Runspace.
-        /// </remark>
+        /// </remarks>
         internal void InitAtRuntime()
         {
             if (_isStatic)
@@ -217,13 +217,14 @@ namespace System.Management.Automation.Internal
                     }
                 }
             }
+
             _boundScriptBlock.Value.SessionStateInternal = sessionStateToUse;
         }
 
         /// <summary>
         /// </summary>
-        /// <param name="instance">target object or null for static call</param>
-        /// <param name="sessionStateInternal">sessionStateInternal from private field of instance or null for static call</param>
+        /// <param name="instance">Target object or null for static call.</param>
+        /// <param name="sessionStateInternal">SessionStateInternal from private field of instance or null for static call.</param>
         /// <param name="args"></param>
         public void InvokeHelper(object instance, object sessionStateInternal, object[] args)
         {
@@ -245,8 +246,8 @@ namespace System.Management.Automation.Internal
         /// <summary>
         /// </summary>
         /// <typeparam name="T"></typeparam>
-        /// <param name="instance">target object or null for static call</param>
-        /// <param name="sessionStateInternal">sessionStateInternal from private field of instance or null for static call</param>
+        /// <param name="instance">Target object or null for static call.</param>
+        /// <param name="sessionStateInternal">SessionStateInternal from private field of instance or null for static call.</param>
         /// <param name="args"></param>
         /// <returns></returns>
         public T InvokeHelperT<T>(object instance, object sessionStateInternal, object[] args)
@@ -283,7 +284,7 @@ namespace System.Management.Automation.Internal
         {
             var validateAttributes = type.GetProperty(propertyName).GetCustomAttributes<ValidateArgumentsAttribute>();
             var executionContext = LocalPipeline.GetExecutionContextFromTLS();
-            var engineIntrinsics = executionContext == null ? null : executionContext.EngineIntrinsics;
+            var engineIntrinsics = executionContext?.EngineIntrinsics;
             foreach (var validateAttribute in validateAttributes)
             {
                 validateAttribute.InternalValidate(value, engineIntrinsics);
@@ -293,9 +294,9 @@ namespace System.Management.Automation.Internal
         /// <summary>
         /// Performs base ctor call as a method call.
         /// </summary>
-        /// <param name="target">object for invocation</param>
-        /// <param name="ci">ctor info for invocation</param>
-        /// <param name="args">arguments for invocation</param>
+        /// <param name="target">Object for invocation.</param>
+        /// <param name="ci">Ctor info for invocation.</param>
+        /// <param name="args">Arguments for invocation.</param>
         [SuppressMessage("Microsoft.Design", "CA1011:ConsiderPassingBaseTypesAsParameters")]
         public static void CallBaseCtor(object target, ConstructorInfo ci, object[] args)
         {
@@ -305,9 +306,9 @@ namespace System.Management.Automation.Internal
         /// <summary>
         /// Performs non-virtual method call with return value. Main usage: base class method call inside subclass method.
         /// </summary>
-        /// <param name="target">object for invocation</param>
-        /// <param name="mi">method info for invocation</param>
-        /// <param name="args">arguments for invocation</param>
+        /// <param name="target">Object for invocation.</param>
+        /// <param name="mi">Method info for invocation.</param>
+        /// <param name="args">Arguments for invocation.</param>
         public static object CallMethodNonVirtually(object target, MethodInfo mi, object[] args)
         {
             return CallMethodNonVirtuallyImpl(target, mi, args);
@@ -316,9 +317,9 @@ namespace System.Management.Automation.Internal
         /// <summary>
         /// Performs non-virtual void method call. Main usage: base class method call inside subclass method.
         /// </summary>
-        /// <param name="target">object for invocation</param>
-        /// <param name="mi">method info for invocation</param>
-        /// <param name="args">arguments for invocation</param>
+        /// <param name="target">Object for invocation.</param>
+        /// <param name="mi">Method info for invocation.</param>
+        /// <param name="args">Arguments for invocation.</param>
         public static void CallVoidMethodNonVirtually(object target, MethodInfo mi, object[] args)
         {
             CallMethodNonVirtuallyImpl(target, mi, args);
@@ -334,9 +335,9 @@ namespace System.Management.Automation.Internal
         /// <summary>
         /// Implementation of non-virtual method call.
         /// </summary>
-        /// <param name="target">object for invocation</param>
-        /// <param name="mi">method info for invocation</param>
-        /// <param name="args">arguments for invocation</param>
+        /// <param name="target">Object for invocation.</param>
+        /// <param name="mi">Method info for invocation.</param>
+        /// <param name="args">Arguments for invocation.</param>
         private static object CallMethodNonVirtuallyImpl(object target, MethodInfo mi, object[] args)
         {
             DynamicMethod dm = s_nonVirtualCallCache.GetValue(mi, CreateDynamicMethod);
@@ -355,7 +356,7 @@ namespace System.Management.Automation.Internal
         {
             // Pass in the declaring type because instance method has a hidden parameter 'this' as the first parameter.
             var paramTypes = new List<Type> { mi.DeclaringType };
-            paramTypes.AddRange(mi.GetParameters().Select(x => x.ParameterType));
+            paramTypes.AddRange(mi.GetParameters().Select(static x => x.ParameterType));
 
             var dm = new DynamicMethod("PSNonVirtualCall_" + mi.Name, mi.ReturnType, paramTypes.ToArray(), mi.DeclaringType);
             ILGenerator il = dm.GetILGenerator();
@@ -363,6 +364,7 @@ namespace System.Management.Automation.Internal
             {
                 il.Emit(OpCodes.Ldarg, i);
             }
+
             il.Emit(OpCodes.Tailcall);
             il.EmitCall(OpCodes.Call, mi, null);
             il.Emit(OpCodes.Ret);

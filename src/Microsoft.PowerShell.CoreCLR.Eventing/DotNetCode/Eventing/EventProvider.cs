@@ -1,12 +1,12 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Runtime.InteropServices;
-using System.ComponentModel;
-using System.Threading;
 using System.Security;
-using System.Diagnostics.CodeAnalysis;
+using System.Threading;
 
 namespace System.Diagnostics.Eventing
 {
@@ -14,16 +14,18 @@ namespace System.Diagnostics.Eventing
     {
         [SecurityCritical]
         private UnsafeNativeMethods.EtwEnableCallback _etwCallback;  // Trace Callback function
+
         private long _regHandle;                       // Trace Registration Handle
         private byte _level;                            // Tracing Level
         private long _anyKeywordMask;                  // Trace Enable Flags
         private long _allKeywordMask;                  // Match all keyword
         private int _enabled;                           // Enabled flag from Trace callback
-        private Guid _providerId;                       // Control Guid
+        private readonly Guid _providerId;              // Control Guid
         private int _disposed;                          // when 1, provider has unregister
 
         [ThreadStatic]
         private static WriteEventErrorCode t_returnCode; // thread slot to keep last error
+
         [ThreadStatic]
         private static Guid t_activityId;
 
@@ -37,7 +39,7 @@ namespace System.Diagnostics.Eventing
         [SuppressMessage("Microsoft.Design", "CA1034:NestedTypesShouldNotBeVisible")]
         public enum WriteEventErrorCode : int
         {
-            //check mapping to runtime codes
+            // check mapping to runtime codes
             NoError = 0,
             NoFreeBuffers = 1,
             EventTooBig = 2
@@ -48,8 +50,10 @@ namespace System.Diagnostics.Eventing
         {
             [FieldOffset(0)]
             internal ulong DataPointer;
+
             [FieldOffset(8)]
             internal uint Size;
+
             [FieldOffset(12)]
             internal int Reserved;
         }
@@ -95,7 +99,7 @@ namespace System.Diagnostics.Eventing
 
             _etwCallback = new UnsafeNativeMethods.EtwEnableCallback(EtwEnableCallBack);
 
-            status = UnsafeNativeMethods.EventRegister(ref _providerId, _etwCallback, null, ref _regHandle);
+            status = UnsafeNativeMethods.EventRegister(in _providerId, _etwCallback, null, ref _regHandle);
             if (status != 0)
             {
                 throw new Win32Exception((int)status);
@@ -103,7 +107,7 @@ namespace System.Diagnostics.Eventing
         }
 
         //
-        // implement Dispose Pattern to early deregister from ETW insted of waiting for
+        // implement Dispose Pattern to early deregister from ETW instead of waiting for
         // the finalizer to call deregistration.
         // Once the user is done with the provider it needs to call Close() or Dispose()
         // If neither are called the finalizer will unregister the provider anyway
@@ -127,7 +131,10 @@ namespace System.Diagnostics.Eventing
             //
             // check if the object has been already disposed
             //
-            if (_disposed == 1) return;
+            if (_disposed == 1)
+            {
+                return;
+            }
 
             if (Interlocked.Exchange(ref _disposed, 1) != 0)
             {
@@ -146,7 +153,6 @@ namespace System.Diagnostics.Eventing
 
         /// <summary>
         /// This method deregisters the controlGuid of this class with ETW.
-        ///
         /// </summary>
         public virtual void Close()
         {
@@ -195,15 +201,15 @@ namespace System.Diagnostics.Eventing
         }
 
         /// <summary>
-        /// IsEnabled, method used to test if provider is enabled
+        /// IsEnabled, method used to test if provider is enabled.
         /// </summary>
         public bool IsEnabled()
         {
-            return (_enabled != 0) ? true : false;
+            return _enabled != 0;
         }
 
         /// <summary>
-        /// IsEnabled, method used to test if event is enabled
+        /// IsEnabled, method used to test if event is enabled.
         /// </summary>
         /// <param name="level">
         /// Level to test
@@ -288,8 +294,7 @@ namespace System.Diagnostics.Eventing
         {
             dataDescriptor->Reserved = 0;
 
-            string sRet = data as string;
-            if (sRet != null)
+            if (data is string sRet)
             {
                 dataDescriptor->Size = (uint)((sRet.Length + 1) * 2);
                 return sRet;
@@ -328,10 +333,10 @@ namespace System.Diagnostics.Eventing
                 *uintptr = (uint)data;
                 dataDescriptor->DataPointer = (ulong)uintptr;
             }
-            else if (data is UInt64)
+            else if (data is ulong)
             {
                 dataDescriptor->Size = (uint)sizeof(ulong);
-                UInt64* ulongptr = (ulong*)dataBuffer;
+                ulong* ulongptr = (ulong*)dataBuffer;
                 *ulongptr = (ulong)data;
                 dataDescriptor->DataPointer = (ulong)ulongptr;
             }
@@ -405,16 +410,9 @@ namespace System.Diagnostics.Eventing
                 *decimalptr = (decimal)data;
                 dataDescriptor->DataPointer = (ulong)decimalptr;
             }
-            else if (data is Boolean)
-            {
-                dataDescriptor->Size = (uint)sizeof(Boolean);
-                Boolean* booleanptr = (Boolean*)dataBuffer;
-                *booleanptr = (Boolean)data;
-                dataDescriptor->DataPointer = (ulong)booleanptr;
-            }
             else
             {
-                //To our eyes, everything else is a just a string
+                // To our eyes, everything else is a just a string
                 sRet = data.ToString();
                 dataDescriptor->Size = (uint)((sRet.Length + 1) * 2);
                 return sRet;
@@ -441,10 +439,7 @@ namespace System.Diagnostics.Eventing
         {
             int status = 0;
 
-            if (eventMessage == null)
-            {
-                throw new ArgumentNullException("eventMessage");
-            }
+            ArgumentNullException.ThrowIfNull(eventMessage);
 
             if (IsEnabled(eventLevel, eventKeywords))
             {
@@ -453,6 +448,7 @@ namespace System.Diagnostics.Eventing
                     t_returnCode = WriteEventErrorCode.EventTooBig;
                     return false;
                 }
+
                 unsafe
                 {
                     fixed (char* pdata = eventMessage)
@@ -467,6 +463,7 @@ namespace System.Diagnostics.Eventing
                     }
                 }
             }
+
             return true;
         }
 
@@ -483,20 +480,20 @@ namespace System.Diagnostics.Eventing
         }
 
         /// <summary>
-        /// WriteEvent method to write parameters with event schema properties
+        /// WriteEvent method to write parameters with event schema properties.
         /// </summary>
         /// <param name="eventDescriptor">
         /// Event Descriptor for this event.
         /// </param>
         /// <param name="eventPayload">
         /// </param>
-        public bool WriteEvent(ref EventDescriptor eventDescriptor, params object[] eventPayload)
+        public bool WriteEvent(in EventDescriptor eventDescriptor, params object[] eventPayload)
         {
-            return WriteTransferEvent(ref eventDescriptor, Guid.Empty, eventPayload);
+            return WriteTransferEvent(in eventDescriptor, Guid.Empty, eventPayload);
         }
 
         /// <summary>
-        /// WriteEvent, method to write a string with event schema properties
+        /// WriteEvent, method to write a string with event schema properties.
         /// </summary>
         /// <param name="eventDescriptor">
         /// Event Descriptor for this event.
@@ -506,14 +503,11 @@ namespace System.Diagnostics.Eventing
         /// </param>
         [System.Security.SecurityCritical]
         [SuppressMessage("Microsoft.Usage", "CA2208:InstantiateArgumentExceptionsCorrectly")]
-        public bool WriteEvent(ref EventDescriptor eventDescriptor, string data)
+        public bool WriteEvent(in EventDescriptor eventDescriptor, string data)
         {
             uint status = 0;
 
-            if (data == null)
-            {
-                throw new ArgumentNullException("dataString");
-            }
+            ArgumentNullException.ThrowIfNull(data);
 
             if (IsEnabled(eventDescriptor.Level, eventDescriptor.Keywords))
             {
@@ -536,7 +530,7 @@ namespace System.Diagnostics.Eventing
                         userData.DataPointer = (ulong)pdata;
 
                         status = UnsafeNativeMethods.EventWriteTransfer(_regHandle,
-                                                                        ref eventDescriptor,
+                                                                        in eventDescriptor,
                                                                         (activityId == Guid.Empty) ? null : &activityId,
                                                                         null,
                                                                         1,
@@ -550,11 +544,12 @@ namespace System.Diagnostics.Eventing
                 SetLastError((int)status);
                 return false;
             }
+
             return true;
         }
 
         /// <summary>
-        /// WriteEvent, method to be used by generated code on a derived class
+        /// WriteEvent, method to be used by generated code on a derived class.
         /// </summary>
         /// <param name="eventDescriptor">
         /// Event Descriptor for this event.
@@ -566,7 +561,7 @@ namespace System.Diagnostics.Eventing
         /// pointer do the event data
         /// </param>
         [System.Security.SecurityCritical]
-        protected bool WriteEvent(ref EventDescriptor eventDescriptor, int dataCount, IntPtr data)
+        protected bool WriteEvent(in EventDescriptor eventDescriptor, int dataCount, IntPtr data)
         {
             uint status = 0;
 
@@ -576,7 +571,7 @@ namespace System.Diagnostics.Eventing
 
                 status = UnsafeNativeMethods.EventWriteTransfer(
                                     _regHandle,
-                                    ref eventDescriptor,
+                                    in eventDescriptor,
                                     (activityId == Guid.Empty) ? null : &activityId,
                                     null,
                                     (uint)dataCount,
@@ -588,11 +583,12 @@ namespace System.Diagnostics.Eventing
                 SetLastError((int)status);
                 return false;
             }
+
             return true;
         }
 
         /// <summary>
-        /// WriteTransferEvent, method to write a parameters with event schema properties
+        /// WriteTransferEvent, method to write a parameters with event schema properties.
         /// </summary>
         /// <param name="eventDescriptor">
         /// Event Descriptor for this event.
@@ -602,7 +598,7 @@ namespace System.Diagnostics.Eventing
         /// <param name="eventPayload">
         /// </param>
         [System.Security.SecurityCritical]
-        public bool WriteTransferEvent(ref EventDescriptor eventDescriptor, Guid relatedActivityId, params object[] eventPayload)
+        public bool WriteTransferEvent(in EventDescriptor eventDescriptor, Guid relatedActivityId, params object[] eventPayload)
         {
             uint status = 0;
 
@@ -621,16 +617,16 @@ namespace System.Diagnostics.Eventing
                         if (argCount > s_etwMaxNumberArguments)
                         {
                             //
-                            //too many arguments to log
+                            // too many arguments to log
                             //
-                            throw new ArgumentOutOfRangeException("eventPayload",
+                            throw new ArgumentOutOfRangeException(nameof(eventPayload),
                                 string.Format(CultureInfo.CurrentCulture, DotNetEventingStrings.ArgumentOutOfRange_MaxArgExceeded, s_etwMaxNumberArguments));
                         }
 
                         uint totalEventSize = 0;
                         int index;
                         int stringIndex = 0;
-                        int[] stringPosition = new int[s_etwAPIMaxStringCount]; //used to keep the position of strings in the eventPayload parameter
+                        int[] stringPosition = new int[s_etwAPIMaxStringCount]; // used to keep the position of strings in the eventPayload parameter
                         string[] dataString = new string[s_etwAPIMaxStringCount]; // string arrays from the eventPayload parameter
                         EventData* userData = stackalloc EventData[argCount];             // allocation for the data descriptors
                         userDataPtr = (EventData*)userData;
@@ -660,7 +656,7 @@ namespace System.Diagnostics.Eventing
                                 }
                                 else
                                 {
-                                    throw new ArgumentOutOfRangeException("eventPayload",
+                                    throw new ArgumentOutOfRangeException(nameof(eventPayload),
                                         string.Format(CultureInfo.CurrentCulture, DotNetEventingStrings.ArgumentOutOfRange_MaxStringsExceeded, s_etwAPIMaxStringCount));
                                 }
                             }
@@ -680,30 +676,37 @@ namespace System.Diagnostics.Eventing
                             {
                                 userDataPtr[stringPosition[0]].DataPointer = (ulong)v0;
                             }
+
                             if (dataString[1] != null)
                             {
                                 userDataPtr[stringPosition[1]].DataPointer = (ulong)v1;
                             }
+
                             if (dataString[2] != null)
                             {
                                 userDataPtr[stringPosition[2]].DataPointer = (ulong)v2;
                             }
+
                             if (dataString[3] != null)
                             {
                                 userDataPtr[stringPosition[3]].DataPointer = (ulong)v3;
                             }
+
                             if (dataString[4] != null)
                             {
                                 userDataPtr[stringPosition[4]].DataPointer = (ulong)v4;
                             }
+
                             if (dataString[5] != null)
                             {
                                 userDataPtr[stringPosition[5]].DataPointer = (ulong)v5;
                             }
+
                             if (dataString[6] != null)
                             {
                                 userDataPtr[stringPosition[6]].DataPointer = (ulong)v6;
                             }
+
                             if (dataString[7] != null)
                             {
                                 userDataPtr[stringPosition[7]].DataPointer = (ulong)v7;
@@ -712,7 +715,7 @@ namespace System.Diagnostics.Eventing
                     }
 
                     status = UnsafeNativeMethods.EventWriteTransfer(_regHandle,
-                                                                    ref eventDescriptor,
+                                                                    in eventDescriptor,
                                                                     (activityId == Guid.Empty) ? null : &activityId,
                                                                     (relatedActivityId == Guid.Empty) ? null : &relatedActivityId,
                                                                     (uint)argCount,
@@ -725,11 +728,12 @@ namespace System.Diagnostics.Eventing
                 SetLastError((int)status);
                 return false;
             }
+
             return true;
         }
 
         [System.Security.SecurityCritical]
-        protected bool WriteTransferEvent(ref EventDescriptor eventDescriptor, Guid relatedActivityId, int dataCount, IntPtr data)
+        protected bool WriteTransferEvent(in EventDescriptor eventDescriptor, Guid relatedActivityId, int dataCount, IntPtr data)
         {
             uint status = 0;
 
@@ -739,7 +743,7 @@ namespace System.Diagnostics.Eventing
             {
                 status = UnsafeNativeMethods.EventWriteTransfer(
                                                 _regHandle,
-                                                ref eventDescriptor,
+                                                in eventDescriptor,
                                                 (activityId == Guid.Empty) ? null : &activityId,
                                                 &relatedActivityId,
                                                 (uint)dataCount,
@@ -751,6 +755,7 @@ namespace System.Diagnostics.Eventing
                 SetLastError((int)status);
                 return false;
             }
+
             return true;
         }
 
@@ -770,7 +775,7 @@ namespace System.Diagnostics.Eventing
         [System.Security.SecurityCritical]
         public static Guid CreateActivityId()
         {
-            Guid newId = new Guid();
+            Guid newId = new();
             UnsafeNativeMethods.EventActivityIdControl((int)ActivityControl.EVENT_ACTIVITY_CTRL_CREATE_ID, ref newId);
             return newId;
         }

@@ -1,11 +1,11 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
 using System.Collections.Generic;
-using System.Text;
-using System.Management.Automation;
 using System.ComponentModel;
+using System.Management.Automation;
+using System.Text;
 
 namespace Microsoft.PowerShell.Commands
 {
@@ -81,7 +81,7 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        /// Get type files to be used for this mshsnapin.
+        /// Get type files to be used for this PSSnapin.
         /// </summary>
         public override string[] Types
         {
@@ -90,10 +90,11 @@ namespace Microsoft.PowerShell.Commands
                 return _types;
             }
         }
+
         private string[] _types = new string[] { "getevent.types.ps1xml" };
 
         /// <summary>
-        /// Get format files to be used for this mshsnapin.
+        /// Get format files to be used for this PSSnapin.
         /// </summary>
         public override string[] Formats
         {

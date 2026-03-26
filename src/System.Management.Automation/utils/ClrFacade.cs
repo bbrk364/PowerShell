@@ -1,24 +1,16 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
-using System.Linq;
 using System.Management.Automation.Internal;
 using System.Management.Automation.Language;
 using System.Reflection;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Runtime.Loader;
+using System.Security;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading;
-using System.Security;
-using Microsoft.Win32.SafeHandles;
-using System.Runtime.InteropServices.ComTypes;
 
 namespace System.Management.Automation
 {
@@ -30,13 +22,23 @@ namespace System.Management.Automation
     {
         /// <summary>
         /// Initialize powershell AssemblyLoadContext and register the 'Resolving' event, if it's not done already.
-        /// If powershell is hosted by a native host such as DSC, then PS ALC might be initialized via 'SetPowerShellAssemblyLoadContext' before loading S.M.A.
+        /// If powershell is hosted by a native host such as DSC, then PS ALC may be initialized via 'SetPowerShellAssemblyLoadContext' before loading S.M.A.
         /// </summary>
+        /// <remarks>
+        /// We do this both here and during the initialization of the 'RunspaceBase' type.
+        /// This is because we want to make sure the assembly/library resolvers are:
+        ///  1. registered before any script/cmdlet can run.
+        ///  2. registered before 'ClrFacade' gets used for assembly related operations.
+        ///
+        /// The 'ClrFacade' type may be used without a Runspace created, for example, by calling type conversion methods in the 'LanguagePrimitive' type.
+        /// And at the mean time, script or cmdlet may run without the 'ClrFacade' type initialized.
+        /// That's why we attempt to create the singleton of 'PowerShellAssemblyLoadContext' at both places.
+        /// </remarks>
         static ClrFacade()
         {
-            if (PowerShellAssemblyLoadContext.Instance == null)
+            if (PowerShellAssemblyLoadContext.Instance is null)
             {
-                PowerShellAssemblyLoadContext.InitializeSingleton(string.Empty);
+                PowerShellAssemblyLoadContext.InitializeSingleton(string.Empty, throwOnReentry: false);
             }
         }
 
@@ -49,7 +51,7 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Facade for AppDomain.GetAssemblies
+        /// Facade for AppDomain.GetAssemblies.
         /// </summary>
         /// <param name="namespaceQualifiedTypeName">
         /// In CoreCLR context, if it's for string-to-type conversion and the namespace qualified type name is known, pass it in so that
@@ -57,19 +59,46 @@ namespace System.Management.Automation
         /// </param>
         internal static IEnumerable<Assembly> GetAssemblies(string namespaceQualifiedTypeName = null)
         {
-            return PSAssemblyLoadContext.GetAssembly(namespaceQualifiedTypeName) ??
-                   AppDomain.CurrentDomain.GetAssemblies().Where(a =>
-                       !TypeDefiner.DynamicClassAssemblyName.Equals(a.GetName().Name, StringComparison.Ordinal));
+            return PSAssemblyLoadContext.GetAssembly(namespaceQualifiedTypeName) ?? GetPSVisibleAssemblies();
         }
 
         /// <summary>
-        /// Get the namespace-qualified type names of all available .NET Core types shipped with PowerShell Core.
+        /// Return assemblies from the default load context and the 'individual' load contexts.
+        /// The 'individual' load contexts are the ones holding assemblies loaded via 'Assembly.Load(byte[])' and 'Assembly.LoadFile'.
+        /// Assemblies loaded in any custom load contexts are not consider visible to PowerShell to avoid type identity issues.
+        /// </summary>
+        private static IEnumerable<Assembly> GetPSVisibleAssemblies()
+        {
+            const string IndividualAssemblyLoadContext = "System.Runtime.Loader.IndividualAssemblyLoadContext";
+
+            foreach (Assembly assembly in AssemblyLoadContext.Default.Assemblies)
+            {
+                if (!assembly.FullName.StartsWith(TypeDefiner.DynamicClassAssemblyFullNamePrefix, StringComparison.Ordinal))
+                {
+                    yield return assembly;
+                }
+            }
+
+            foreach (AssemblyLoadContext context in AssemblyLoadContext.All)
+            {
+                if (IndividualAssemblyLoadContext.Equals(context.GetType().FullName, StringComparison.Ordinal))
+                {
+                    foreach (Assembly assembly in context.Assemblies)
+                    {
+                        yield return assembly;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Get the namespace-qualified type names of all available .NET Core types shipped with PowerShell.
         /// This is used for type name auto-completion in PS engine.
         /// </summary>
         internal static IEnumerable<string> AvailableDotNetTypeNames => PSAssemblyLoadContext.AvailableDotNetTypeNames;
 
         /// <summary>
-        /// Get the assembly names of all available .NET Core assemblies shipped with PowerShell Core.
+        /// Get the assembly names of all available .NET Core assemblies shipped with PowerShell.
         /// This is used for type name auto-completion in PS engine.
         /// </summary>
         internal static HashSet<string> AvailableDotNetAssemblyNames => PSAssemblyLoadContext.AvailableDotNetAssemblyNames;
@@ -81,50 +110,25 @@ namespace System.Management.Automation
         #region Encoding
 
         /// <summary>
-        /// Facade for getting default encoding
-        /// </summary>
-        internal static Encoding GetDefaultEncoding()
-        {
-            if (s_defaultEncoding == null)
-            {
-                // load all available encodings
-                EncodingRegisterProvider();
-                s_defaultEncoding = new UTF8Encoding(false);
-            }
-            return s_defaultEncoding;
-        }
-
-        private static volatile Encoding s_defaultEncoding;
-
-        /// <summary>
         /// Facade for getting OEM encoding
-        /// OEM encodings work on all platforms, or rather codepage 437 is available on both Windows and Non-Windows
+        /// OEM encodings work on all platforms, or rather codepage 437 is available on both Windows and Non-Windows.
         /// </summary>
         internal static Encoding GetOEMEncoding()
         {
             if (s_oemEncoding == null)
             {
-                // load all available encodings
-                EncodingRegisterProvider();
 #if UNIX
-                s_oemEncoding = new UTF8Encoding(false);
+                s_oemEncoding = Encoding.Default;
 #else
-                uint oemCp = NativeMethods.GetOEMCP();
+                uint oemCp = Interop.Windows.GetOEMCP();
                 s_oemEncoding = Encoding.GetEncoding((int)oemCp);
 #endif
             }
+
             return s_oemEncoding;
         }
 
         private static volatile Encoding s_oemEncoding;
-
-        private static void EncodingRegisterProvider()
-        {
-            if (s_defaultEncoding == null && s_oemEncoding == null)
-            {
-                Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-            }
-        }
 
         #endregion Encoding
 
@@ -137,7 +141,7 @@ namespace System.Management.Automation
         internal static SecurityZone GetFileSecurityZone(string filePath)
         {
             Diagnostics.Assert(Path.IsPathRooted(filePath), "Caller makes sure the path is rooted.");
-            Diagnostics.Assert(Utils.FileExists(filePath), "Caller makes sure the file exists.");
+            Diagnostics.Assert(File.Exists(filePath), "Caller makes sure the file exists.");
             return MapSecurityZone(filePath);
         }
 
@@ -179,8 +183,19 @@ namespace System.Management.Automation
         /// </remarks>
         private static SecurityZone MapSecurityZone(string filePath)
         {
+            // WSL introduces a new filesystem path to access the Linux filesystem from Windows, like '\\wsl$\ubuntu'.
+            // If the given file path is such a special case, we consider it's in 'MyComputer' zone.
+            if (filePath.StartsWith(Utils.WslRootPath, StringComparison.OrdinalIgnoreCase))
+            {
+                return SecurityZone.MyComputer;
+            }
+
             SecurityZone reval = ReadFromZoneIdentifierDataStream(filePath);
-            if (reval != SecurityZone.NoZone) { return reval; }
+            if (reval != SecurityZone.NoZone)
+            {
+                return reval;
+            }
+
             // If it reaches here, then we either couldn't get the ZoneId information, or the ZoneId is invalid.
             // In this case, we try to determine the SecurityZone by analyzing the file path.
             Uri uri = new Uri(filePath);
@@ -201,7 +216,7 @@ namespace System.Management.Automation
                 // has 'dot' in it, the file will be treated as in Internet security zone. Otherwise, it's
                 // in Intranet security zone.
                 string hostName = uri.Host;
-                return hostName.IndexOf('.') == -1 ? SecurityZone.Intranet : SecurityZone.Internet;
+                return hostName.Contains('.') ? SecurityZone.Internet : SecurityZone.Intranet;
             }
 
             string root = Path.GetPathRoot(filePath);
@@ -224,56 +239,55 @@ namespace System.Management.Automation
         /// </summary>
         private static SecurityZone ReadFromZoneIdentifierDataStream(string filePath)
         {
-            try
+            if (!AlternateDataStreamUtilities.TryCreateFileStream(filePath, "Zone.Identifier", FileMode.Open, FileAccess.Read, FileShare.Read, out var zoneDataStream))
             {
-                FileStream zoneDataSteam = AlternateDataStreamUtilities.CreateFileStream(
-                                            filePath, "Zone.Identifier", FileMode.Open,
-                                            FileAccess.Read, FileShare.Read);
+                return SecurityZone.NoZone;
+            }
 
-                // If we successfully get the zone data stream, try to read the ZoneId information
-                using (StreamReader zoneDataReader = new StreamReader(zoneDataSteam, GetDefaultEncoding()))
+            // If we successfully get the zone data stream, try to read the ZoneId information
+            using (StreamReader zoneDataReader = new StreamReader(zoneDataStream, Encoding.Default))
+            {
+                string line = null;
+                bool zoneTransferMatched = false;
+
+                // After a lot experiments with Zone.CreateFromUrl/Zone.SecurityZone, the way it handles the alternate
+                // data stream 'Zone.Identifier' is observed as follows:
+                //    1. Read content of the data stream line by line. Each line is trimmed.
+                //    2. Try to match the current line with '^\[ZoneTransfer\]'.
+                //           - if matching, then do step #3 starting from the next line
+                //           - if not matching, then continue to do step #2 with the next line.
+                //    3. Try to match the current line with '^ZoneId\s*=\s*(.*)'
+                //           - if matching, check if the ZoneId is valid. Then return the corresponding SecurityZone if valid, or 'NoZone' if invalid.
+                //           - if not matching, then continue to do step #3 with the next line.
+                //    4. Reach EOF, then return 'NoZone'.
+                while ((line = zoneDataReader.ReadLine()) != null)
                 {
-                    string line = null;
-                    bool zoneTransferMatched = false;
-
-                    // After a lot experiments with Zone.CreateFromUrl/Zone.SecurityZone, the way it handles the alternate
-                    // data stream 'Zone.Identifier' is observed as follows:
-                    //    1. Read content of the data stream line by line. Each line is trimmed.
-                    //    2. Try to match the current line with '^\[ZoneTransfer\]'.
-                    //           - if matching, then do step #3 starting from the next line
-                    //           - if not matching, then continue to do step #2 with the next line.
-                    //    3. Try to match the current line with '^ZoneId\s*=\s*(.*)'
-                    //           - if matching, check if the ZoneId is valid. Then return the corresponding SecurityZone if valid, or 'NoZone' if invalid.
-                    //           - if not matching, then continue to do step #3 with the next line.
-                    //    4. Reach EOF, then return 'NoZone'.
-                    while ((line = zoneDataReader.ReadLine()) != null)
+                    line = line.Trim();
+                    if (!zoneTransferMatched)
                     {
-                        line = line.Trim();
-                        if (!zoneTransferMatched)
+                        zoneTransferMatched = Regex.IsMatch(line, @"^\[ZoneTransfer\]", RegexOptions.IgnoreCase);
+                    }
+                    else
+                    {
+                        Match match = Regex.Match(line, @"^ZoneId\s*=\s*(.*)", RegexOptions.IgnoreCase);
+                        if (!match.Success)
                         {
-                            zoneTransferMatched = Regex.IsMatch(line, @"^\[ZoneTransfer\]", RegexOptions.IgnoreCase);
+                            continue;
                         }
-                        else
+
+                        // Match found. Validate ZoneId value.
+                        string zoneIdRawValue = match.Groups[1].Value;
+                        match = Regex.Match(zoneIdRawValue, @"^[+-]?\d+", RegexOptions.IgnoreCase);
+                        if (!match.Success)
                         {
-                            Match match = Regex.Match(line, @"^ZoneId\s*=\s*(.*)", RegexOptions.IgnoreCase);
-                            if (!match.Success) { continue; }
-
-                            // Match found. Validate ZoneId value.
-                            string zoneIdRawValue = match.Groups[1].Value;
-                            match = Regex.Match(zoneIdRawValue, @"^[+-]?\d+", RegexOptions.IgnoreCase);
-                            if (!match.Success) { return SecurityZone.NoZone; }
-
-                            string zoneId = match.Groups[0].Value;
-                            SecurityZone result;
-                            return LanguagePrimitives.TryConvertTo(zoneId, out result) ? result : SecurityZone.NoZone;
+                            return SecurityZone.NoZone;
                         }
+
+                        string zoneId = match.Groups[0].Value;
+                        SecurityZone result;
+                        return LanguagePrimitives.TryConvertTo(zoneId, out result) ? result : SecurityZone.NoZone;
                     }
                 }
-            }
-            catch (FileNotFoundException)
-            {
-                // FileNotFoundException may be thrown by AlternateDataStreamUtilities.CreateFileStream when the data stream 'Zone.Identifier'
-                // does not exist, or when the underlying file system doesn't support alternate data stream.
             }
 
             return SecurityZone.NoZone;
@@ -283,19 +297,6 @@ namespace System.Management.Automation
 #endif
 
         #region Misc
-
-        /// <summary>
-        /// Facade for RemotingServices.IsTransparentProxy(object)
-        /// </summary>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static bool IsTransparentProxy(object obj)
-        {
-#if CORECLR // Namespace System.Runtime.Remoting is not in CoreCLR
-            return false;
-#else
-            return System.Runtime.Remoting.RemotingServices.IsTransparentProxy(obj);
-#endif
-        }
 
         /// <summary>
         /// Facade for ManagementDateTimeConverter.ToDmtfDateTime(DateTime)
@@ -309,12 +310,12 @@ namespace System.Management.Automation
             // it's recommended to use TimeZoneInfo.Local whenever possible.
 
             const int maxsizeUtcDmtf = 999;
-            string UtcString = String.Empty;
+            string UtcString = string.Empty;
             // Fill up the UTC field in the DMTF date with the current zones UTC value
             TimeZoneInfo curZone = TimeZoneInfo.Local;
             TimeSpan tickOffset = curZone.GetUtcOffset(date);
             long OffsetMins = (tickOffset.Ticks / TimeSpan.TicksPerMinute);
-            IFormatProvider frmInt32 = (IFormatProvider)CultureInfo.InvariantCulture.GetFormat(typeof(Int32));
+            IFormatProvider frmInt32 = (IFormatProvider)CultureInfo.InvariantCulture.GetFormat(typeof(int));
 
             // If the offset is more than that what can be specified in DMTF format, then
             // convert the date to UniversalTime
@@ -336,27 +337,28 @@ namespace System.Management.Automation
 
             string dmtfDateTime = date.Year.ToString(frmInt32).PadLeft(4, '0');
 
-            dmtfDateTime = (dmtfDateTime + date.Month.ToString(frmInt32).PadLeft(2, '0'));
-            dmtfDateTime = (dmtfDateTime + date.Day.ToString(frmInt32).PadLeft(2, '0'));
-            dmtfDateTime = (dmtfDateTime + date.Hour.ToString(frmInt32).PadLeft(2, '0'));
-            dmtfDateTime = (dmtfDateTime + date.Minute.ToString(frmInt32).PadLeft(2, '0'));
-            dmtfDateTime = (dmtfDateTime + date.Second.ToString(frmInt32).PadLeft(2, '0'));
-            dmtfDateTime = (dmtfDateTime + ".");
+            dmtfDateTime += date.Month.ToString(frmInt32).PadLeft(2, '0');
+            dmtfDateTime += date.Day.ToString(frmInt32).PadLeft(2, '0');
+            dmtfDateTime += date.Hour.ToString(frmInt32).PadLeft(2, '0');
+            dmtfDateTime += date.Minute.ToString(frmInt32).PadLeft(2, '0');
+            dmtfDateTime += date.Second.ToString(frmInt32).PadLeft(2, '0');
+            dmtfDateTime += ".";
 
-            // Construct a DateTime with with the precision to Second as same as the passed DateTime and so get
+            // Construct a DateTime with the precision to Second as same as the passed DateTime and so get
             // the ticks difference so that the microseconds can be calculated
             DateTime dtTemp = new DateTime(date.Year, date.Month, date.Day, date.Hour, date.Minute, date.Second, 0);
             Int64 microsec = ((date.Ticks - dtTemp.Ticks) * 1000) / TimeSpan.TicksPerMillisecond;
 
             // fill the microseconds field
-            String strMicrosec = microsec.ToString((IFormatProvider)CultureInfo.InvariantCulture.GetFormat(typeof(Int64)));
+            string strMicrosec = microsec.ToString((IFormatProvider)CultureInfo.InvariantCulture.GetFormat(typeof(Int64)));
             if (strMicrosec.Length > 6)
             {
                 strMicrosec = strMicrosec.Substring(0, 6);
             }
-            dmtfDateTime = dmtfDateTime + strMicrosec.PadLeft(6, '0');
+
+            dmtfDateTime += strMicrosec.PadLeft(6, '0');
             // adding the UTC offset
-            dmtfDateTime = dmtfDateTime + UtcString;
+            dmtfDateTime += UtcString;
 
             return dmtfDateTime;
 #else
@@ -364,36 +366,6 @@ namespace System.Management.Automation
 #endif
         }
 
-        /// <summary>
-        /// Facade for ProfileOptimization.SetProfileRoot
-        /// </summary>
-        /// <param name="directoryPath">The full path to the folder where profile files are stored for the current application domain.</param>
-        internal static void SetProfileOptimizationRoot(string directoryPath)
-        {
-            PSAssemblyLoadContext.SetProfileOptimizationRootImpl(directoryPath);
-        }
-
-        /// <summary>
-        /// Facade for ProfileOptimization.StartProfile
-        /// </summary>
-        /// <param name="profile">The file name of the profile to use.</param>
-        internal static void StartProfileOptimization(string profile)
-        {
-            PSAssemblyLoadContext.StartProfileOptimizationImpl(profile);
-        }
-
         #endregion Misc
-
-        /// <summary>
-        /// Native methods that are used by facade methods
-        /// </summary>
-        private static class NativeMethods
-        {
-            /// <summary>
-            /// Pinvoke for GetOEMCP to get the OEM code page.
-            /// </summary>
-            [DllImport(PinvokeDllNames.GetOEMCPDllName, SetLastError = false, CharSet = CharSet.Unicode)]
-            internal static extern uint GetOEMCP();
-        }
     }
 }

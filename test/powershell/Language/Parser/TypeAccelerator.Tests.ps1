@@ -1,4 +1,4 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
 Describe "Type accelerators" -Tags "CI" {
@@ -71,6 +71,18 @@ Describe "Type accelerators" -Tags "CI" {
                     Type        = [System.Management.Automation.DscResourceAttribute]
                 }
                 @{
+                    Accelerator = 'ExperimentAction'
+                    Type        = [System.Management.Automation.ExperimentAction]
+                }
+                @{
+                    Accelerator = 'Experimental'
+                    Type        = [System.Management.Automation.ExperimentalAttribute]
+                }
+                @{
+                    Accelerator = 'ExperimentalFeature'
+                    Type        = [System.Management.Automation.ExperimentalFeature]
+                }
+                @{
                     Accelerator = 'float'
                     Type        = [System.Single]
                 }
@@ -93,6 +105,10 @@ Describe "Type accelerators" -Tags "CI" {
                 @{
                     Accelerator = 'int32'
                     Type        = [System.Int32]
+                }
+                @{
+                    Accelerator = 'short'
+                    Type        = [System.Int16]
                 }
                 @{
                     Accelerator = 'int16'
@@ -219,12 +235,24 @@ Describe "Type accelerators" -Tags "CI" {
                     Type        = [System.TimeSpan]
                 }
                 @{
+                    Accelerator = 'ushort'
+                    Type        = [System.UInt16]
+                }
+                @{
                     Accelerator = 'uint16'
                     Type        = [System.UInt16]
                 }
                 @{
+                    Accelerator = 'uint'
+                    Type        = [System.UInt32]
+                }
+                @{
                     Accelerator = 'uint32'
                     Type        = [System.UInt32]
+                }
+                @{
+                    Accelerator = 'ulong'
+                    Type        = [System.Uint64]
                 }
                 @{
                     Accelerator = 'uint64'
@@ -253,6 +281,10 @@ Describe "Type accelerators" -Tags "CI" {
                 @{
                     Accelerator = 'ValidateNotNullOrEmpty'
                     Type        = [System.Management.Automation.ValidateNotNullOrEmptyAttribute]
+                }
+                @{
+                    Accelerator = 'ValidateNotNullOrWhiteSpace'
+                    Type        = [System.Management.Automation.ValidateNotNullOrWhiteSpaceAttribute]
                 }
                 @{
                     Accelerator = 'ValidatePattern'
@@ -372,17 +404,25 @@ Describe "Type accelerators" -Tags "CI" {
                 }
                 @{
                     Accelerator = 'pspropertyexpression'
-                    Type = [Microsoft.PowerShell.Commands.PSPropertyExpression]
+                    Type        = [Microsoft.PowerShell.Commands.PSPropertyExpression]
+                }
+                @{
+                    Accelerator = 'ordered'
+                    Type        = [System.Collections.Specialized.OrderedDictionary]
+                }
+                @{
+                    Accelerator = 'NoRunspaceAffinity'
+                    Type        = [System.Management.Automation.Language.NoRunspaceAffinityAttribute]
                 }
             )
 
             if ( !$IsWindows )
             {
-                $totalAccelerators = 91
+                $totalAccelerators = 102
             }
             else
             {
-                $totalAccelerators = 96
+                $totalAccelerators = 107
 
                 $extraFullPSAcceleratorTestCases = @(
                     @{

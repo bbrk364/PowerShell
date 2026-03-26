@@ -1,31 +1,28 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.IO;
-using System.Text;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Security;
 using System.Globalization;
+using System.IO;
 using System.Management.Automation.Configuration;
+using System.Management.Automation.Internal;
 using System.Management.Automation.Runspaces;
-using Microsoft.PowerShell.Commands;
+using System.Security;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace System.Management.Automation.Host
 {
     /// <summary>
-    ///
     /// Defines the properties and facilities providing by an hosting application deriving from
     /// <see cref="System.Management.Automation.Host.PSHost"/> that offers dialog-oriented and
     /// line-oriented interactive features.
-    ///
     /// </summary>
     /// <seealso cref="System.Management.Automation.Host.PSHost"/>
     /// <seealso cref="System.Management.Automation.Host.PSHostRawUserInterface"/>
-
     public abstract class PSHostUserInterface
     {
         /// <summary>
@@ -61,6 +58,7 @@ namespace System.Management.Automation.Host
         /// <seealso cref="System.Management.Automation.Host.PSHostUserInterface.PromptForChoice"/>
         /// <seealso cref="System.Management.Automation.Host.PSHostUserInterface.Prompt"/>
         public abstract string ReadLine();
+
         /// <summary>
         /// Same as ReadLine, except that the result is a SecureString, and that the input is not echoed to the user while it is
         /// collected (or is echoed in some obfuscated way, such as showing a dot for each character).
@@ -114,10 +112,10 @@ namespace System.Management.Automation.Host
 
         /// <summary>
         /// The default implementation writes a carriage return to the screen buffer.
-        /// <seealso cref="System.Management.Automation.Host.PSHostUserInterface.Write(string)"/>
-        /// <seealso cref="System.Management.Automation.Host.PSHostUserInterface.Write(System.ConsoleColor, System.ConsoleColor, string)"/>
-        /// <seealso cref="System.Management.Automation.Host.PSHostUserInterface.WriteLine(string)"/>
-        /// <seealso cref="System.Management.Automation.Host.PSHostUserInterface.WriteLine(System.ConsoleColor, System.ConsoleColor, string)"/>
+        /// <see cref="System.Management.Automation.Host.PSHostUserInterface.Write(string)"/>
+        /// <see cref="System.Management.Automation.Host.PSHostUserInterface.Write(System.ConsoleColor, System.ConsoleColor, string)"/>
+        /// <see cref="System.Management.Automation.Host.PSHostUserInterface.WriteLine(string)"/>
+        /// <see cref="System.Management.Automation.Host.PSHostUserInterface.WriteLine(System.ConsoleColor, System.ConsoleColor, string)"/>
         /// </summary>
         public virtual void WriteLine()
         {
@@ -172,10 +170,10 @@ namespace System.Management.Automation.Host
         /// <summary>
         /// Writes a line to the "error display" of the host, as opposed to the "output display," which is
         /// written to by the variants of
-        /// <seealso cref="System.Management.Automation.Host.PSHostUserInterface.Write(string)"/>
-        /// <seealso cref="System.Management.Automation.Host.PSHostUserInterface.Write(System.ConsoleColor, System.ConsoleColor, string)"/>
-        /// <seealso cref="System.Management.Automation.Host.PSHostUserInterface.WriteLine()"/> and
-        /// <seealso cref="System.Management.Automation.Host.PSHostUserInterface.WriteLine(string)"/>
+        /// <see cref="System.Management.Automation.Host.PSHostUserInterface.Write(string)"/>
+        /// <see cref="System.Management.Automation.Host.PSHostUserInterface.Write(System.ConsoleColor, System.ConsoleColor, string)"/>
+        /// <see cref="System.Management.Automation.Host.PSHostUserInterface.WriteLine()"/> and
+        /// <see cref="System.Management.Automation.Host.PSHostUserInterface.WriteLine(string)"/>
         /// </summary>
         /// <param name="value">
         /// The characters to be written.
@@ -234,6 +232,147 @@ namespace System.Management.Automation.Host
         /// </summary>
         public virtual void WriteInformation(InformationRecord record) { }
 
+        private static bool ShouldOutputPlainText(bool isHost, bool? supportsVirtualTerminal)
+        {
+            var outputRendering = OutputRendering.PlainText;
+
+            if (supportsVirtualTerminal != false)
+            {
+                switch (PSStyle.Instance.OutputRendering)
+                {
+                    case OutputRendering.Host:
+                        outputRendering = isHost ? OutputRendering.Ansi : OutputRendering.PlainText;
+                        break;
+                    default:
+                        outputRendering = PSStyle.Instance.OutputRendering;
+                        break;
+                }
+            }
+
+            return outputRendering == OutputRendering.PlainText;
+        }
+
+        /// <summary>
+        /// The format styles that are supported by the host.
+        /// </summary>
+        public enum FormatStyle
+        {
+            /// <summary>
+            /// Reset the formatting to the default.
+            /// </summary>
+            Reset,
+
+            /// <summary>
+            /// Highlight text used in output formatting.
+            /// </summary>
+            FormatAccent,
+
+            /// <summary>
+            /// Highlight for table headers.
+            /// </summary>
+            TableHeader,
+
+            /// <summary>
+            /// Highlight for detailed error view.
+            /// </summary>
+            ErrorAccent,
+
+            /// <summary>
+            /// Style for error messages.
+            /// </summary>
+            Error,
+
+            /// <summary>
+            /// Style for warning messages.
+            /// </summary>
+            Warning,
+
+            /// <summary>
+            /// Style for verbose messages.
+            /// </summary>
+            Verbose,
+
+            /// <summary>
+            /// Style for debug messages.
+            /// </summary>
+            Debug,
+        }
+
+        /// <summary>
+        /// Get the ANSI escape sequence for the given format style.
+        /// </summary>
+        /// <param name="formatStyle">
+        /// The format style to get the escape sequence for.
+        /// </param>
+        /// <returns>
+        /// The ANSI escape sequence for the given format style.
+        /// </returns>
+        public static string GetFormatStyleString(FormatStyle formatStyle)
+        {
+            if (PSStyle.Instance.OutputRendering == OutputRendering.PlainText)
+            {
+                return string.Empty;
+            }
+
+            PSStyle psstyle = PSStyle.Instance;
+            switch (formatStyle)
+            {
+                case FormatStyle.Reset:
+                    return psstyle.Reset;
+                case FormatStyle.FormatAccent:
+                    return psstyle.Formatting.FormatAccent;
+                case FormatStyle.TableHeader:
+                    return psstyle.Formatting.TableHeader;
+                case FormatStyle.ErrorAccent:
+                    return psstyle.Formatting.ErrorAccent;
+                case FormatStyle.Error:
+                    return psstyle.Formatting.Error;
+                case FormatStyle.Warning:
+                    return psstyle.Formatting.Warning;
+                case FormatStyle.Verbose:
+                    return psstyle.Formatting.Verbose;
+                case FormatStyle.Debug:
+                    return psstyle.Formatting.Debug;
+                default:
+                    return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Get the appropriate output string based on different criteria.
+        /// </summary>
+        /// <param name="text">
+        /// The text to format.
+        /// </param>
+        /// <param name="supportsVirtualTerminal">
+        /// True if the host supports virtual terminal.
+        /// </param>
+        /// <returns>
+        /// The formatted text.
+        /// </returns>
+        public static string GetOutputString(string text, bool supportsVirtualTerminal)
+        {
+            return GetOutputString(text, isHost: true, supportsVirtualTerminal: supportsVirtualTerminal);
+        }
+
+        internal static string GetOutputString(string text, bool isHost, bool? supportsVirtualTerminal = null)
+        {
+            var sd = new ValueStringDecorated(text);
+
+            if (sd.IsDecorated)
+            {
+                var outputRendering = OutputRendering.Ansi;
+                if (ShouldOutputPlainText(isHost, supportsVirtualTerminal))
+                {
+                    outputRendering = OutputRendering.PlainText;
+                }
+
+                text = sd.ToString(outputRendering);
+            }
+
+            return text;
+        }
+
         // Gets the state associated with PowerShell transcription.
         //
         // Ideally, this would be associated with the host instance, but remoting recycles host instances
@@ -268,10 +407,11 @@ namespace System.Management.Automation.Host
                 return temporaryTranscriptionData;
             }
         }
+
         private TranscriptionData _volatileTranscriptionData;
 
         /// <summary>
-        /// Transcribes a command being invoked
+        /// Transcribes a command being invoked.
         /// </summary>
         /// <param name="commandText">The text of the command being invoked.</param>
         /// <param name="invocation">The invocation info of the command being transcribed.</param>
@@ -301,7 +441,7 @@ namespace System.Management.Automation.Host
                                 {
                                     transcript.OutputToLog.Add("**********************");
                                     transcript.OutputToLog.Add(
-                                        String.Format(
+                                        string.Format(
                                             Globalization.CultureInfo.InvariantCulture, InternalHostUserInterfaceStrings.CommandStartTime,
                                             DateTime.Now.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture)));
                                     transcript.OutputToLog.Add("**********************");
@@ -351,7 +491,7 @@ namespace System.Management.Automation.Host
             string[] helperCommands = { "TabExpansion2", "prompt", "TabExpansion", "PSConsoleHostReadline" };
             foreach (string helperCommand in helperCommands)
             {
-                if (String.Equals(helperCommand, commandName, StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(helperCommand, commandName, StringComparison.OrdinalIgnoreCase))
                 {
                     IgnoreCommand(logElement, invocation);
 
@@ -392,17 +532,22 @@ namespace System.Management.Automation.Host
         /// make it to the actual host.
         /// </summary>
         internal bool TranscribeOnly => Interlocked.CompareExchange(ref _transcribeOnlyCount, 0, 0) != 0;
+
         private int _transcribeOnlyCount = 0;
+
         internal IDisposable SetTranscribeOnly() => new TranscribeOnlyCookie(this);
+
         private sealed class TranscribeOnlyCookie : IDisposable
         {
-            private PSHostUserInterface _ui;
+            private readonly PSHostUserInterface _ui;
             private bool _disposed = false;
+
             public TranscribeOnlyCookie(PSHostUserInterface ui)
             {
-                _ui=ui;
+                _ui = ui;
                 Interlocked.Increment(ref _ui._transcribeOnlyCount);
             }
+
             public void Dispose()
             {
                 if (!_disposed)
@@ -412,6 +557,7 @@ namespace System.Management.Automation.Host
                     GC.SuppressFinalize(this);
                 }
             }
+
             ~TranscribeOnlyCookie() => Dispose();
         }
 
@@ -433,7 +579,7 @@ namespace System.Management.Automation.Host
             {
                 if (TranscriptionData.SystemTranscript == null)
                 {
-                    TranscriptionData.SystemTranscript = PSHostUserInterface.GetSystemTranscriptOption(TranscriptionData.SystemTranscript);
+                    TranscriptionData.SystemTranscript = GetSystemTranscriptOption(TranscriptionData.SystemTranscript);
                     if (TranscriptionData.SystemTranscript != null)
                     {
                         LogTranscriptHeader(null, TranscriptionData.SystemTranscript);
@@ -442,66 +588,79 @@ namespace System.Management.Automation.Host
             }
         }
 
-        internal void StartTranscribing(string path, System.Management.Automation.Remoting.PSSenderInfo senderInfo, bool includeInvocationHeader)
+        internal void StartTranscribing(string path, System.Management.Automation.Remoting.PSSenderInfo senderInfo, bool includeInvocationHeader, bool useMinimalHeader)
         {
             TranscriptionOption transcript = new TranscriptionOption();
             transcript.Path = path;
             transcript.IncludeInvocationHeader = includeInvocationHeader;
             TranscriptionData.Transcripts.Add(transcript);
 
-            LogTranscriptHeader(senderInfo, transcript);
+            LogTranscriptHeader(senderInfo, transcript, useMinimalHeader);
         }
 
-        private void LogTranscriptHeader(System.Management.Automation.Remoting.PSSenderInfo senderInfo, TranscriptionOption transcript)
+        private void LogTranscriptHeader(System.Management.Automation.Remoting.PSSenderInfo senderInfo, TranscriptionOption transcript, bool useMinimalHeader = false)
         {
-            string username = Environment.UserDomainName + "\\" + Environment.UserName;
-            string runAsUser = username;
-
-            if (senderInfo != null)
-            {
-                username = senderInfo.UserInfo.Identity.Name;
-            }
-
-            // Add bits from PSVersionTable
-            StringBuilder psVersionInfo = new StringBuilder();
-            Hashtable versionInfo = PSVersionInfo.GetPSVersionTable();
-            foreach (string versionKey in versionInfo.Keys)
-            {
-                Object value = versionInfo[versionKey];
-
-                if (value != null)
-                {
-                    var arrayValue = value as object[];
-                    string valueString = arrayValue != null ? string.Join(", ", arrayValue) : value.ToString();
-                    psVersionInfo.AppendLine(versionKey + ": " + valueString);
-                }
-            }
-            string psConfigurationName = string.Empty;
-            if (senderInfo != null && !string.IsNullOrEmpty(senderInfo.ConfigurationName))
-            {
-                psConfigurationName = senderInfo.ConfigurationName;
-            }
             // Transcribe the transcript header
-            string format = InternalHostUserInterfaceStrings.TranscriptPrologue;
-            string line =
-                String.Format(
-                    Globalization.CultureInfo.InvariantCulture,
-                    format,
-                    DateTime.Now,
-                    username,
-                    runAsUser,
-                    psConfigurationName,
-                    Environment.MachineName,
-                    Environment.OSVersion.VersionString,
-                    String.Join(" ", Environment.GetCommandLineArgs()),
-                    System.Diagnostics.Process.GetCurrentProcess().Id,
-                    psVersionInfo.ToString().TrimEnd()
-                    );
+            string line;
+            if (useMinimalHeader)
+            {
+                line =
+                    string.Format(
+                        Globalization.CultureInfo.InvariantCulture,
+                        InternalHostUserInterfaceStrings.MinimalTranscriptPrologue,
+                        DateTime.Now);
+            }
+            else
+            {
+                string username = Environment.UserDomainName + "\\" + Environment.UserName;
+                string runAsUser = username;
+
+                if (senderInfo != null)
+                {
+                    username = senderInfo.UserInfo.Identity.Name;
+                }
+
+                // Add bits from PSVersionTable
+                StringBuilder versionInfoFooter = new StringBuilder();
+                Hashtable versionInfo = PSVersionInfo.GetPSVersionTable();
+                foreach (string versionKey in versionInfo.Keys)
+                {
+                    object value = versionInfo[versionKey];
+
+                    if (value != null)
+                    {
+                        var arrayValue = value as object[];
+                        string valueString = arrayValue != null ? string.Join(", ", arrayValue) : value.ToString();
+                        versionInfoFooter.AppendLine(versionKey + ": " + valueString);
+                    }
+                }
+
+                string configurationName = string.Empty;
+                if (senderInfo != null && !string.IsNullOrEmpty(senderInfo.ConfigurationName))
+                {
+                    configurationName = senderInfo.ConfigurationName;
+                }
+
+                line =
+                    string.Format(
+                        Globalization.CultureInfo.InvariantCulture,
+                        InternalHostUserInterfaceStrings.TranscriptPrologue,
+                        DateTime.Now,
+                        username,
+                        runAsUser,
+                        configurationName,
+                        Environment.MachineName,
+                        Environment.OSVersion.VersionString,
+                        string.Join(" ", Environment.GetCommandLineArgs()),
+                        Environment.ProcessId,
+                        versionInfoFooter.ToString().TrimEnd());
+            }
 
             lock (transcript.OutputToLog)
             {
                 transcript.OutputToLog.Add(line);
             }
+
             TranscribeCommandComplete(null);
         }
 
@@ -525,7 +684,7 @@ namespace System.Management.Automation.Host
             // Transcribe the transcript epilogue
             try
             {
-                string message = String.Format(
+                string message = string.Format(
                     Globalization.CultureInfo.InvariantCulture,
                     InternalHostUserInterfaceStrings.TranscriptEpilogue, DateTime.Now);
 
@@ -533,6 +692,7 @@ namespace System.Management.Automation.Host
                 {
                     stoppedTranscript.OutputToLog.Add(message);
                 }
+
                 TranscribeCommandComplete(null);
             }
             catch (Exception)
@@ -591,7 +751,7 @@ namespace System.Management.Automation.Host
                     if (TranscriptionData.CommandBeingIgnored != null)
                     {
                         // If we're ignoring a prompt, capture the value
-                        if (String.Equals("prompt", TranscriptionData.CommandBeingIgnored, StringComparison.OrdinalIgnoreCase))
+                        if (string.Equals("prompt", TranscriptionData.CommandBeingIgnored, StringComparison.OrdinalIgnoreCase))
                         {
                             TranscriptionData.PromptText = resultText;
                         }
@@ -600,6 +760,13 @@ namespace System.Management.Automation.Host
                     }
 
                     resultText = resultText.TrimEnd();
+
+                    var text = new ValueStringDecorated(resultText);
+                    if (text.IsDecorated)
+                    {
+                        resultText = text.ToString(OutputRendering.PlainText);
+                    }
+
                     foreach (TranscriptionOption transcript in TranscriptionData.Transcripts.Prepend<TranscriptionOption>(TranscriptionData.SystemTranscript))
                     {
                         if (transcript != null)
@@ -631,7 +798,7 @@ namespace System.Management.Automation.Host
         }
 
         /// <summary>
-        /// Transcribes / records the completion of a command
+        /// Transcribes / records the completion of a command.
         /// </summary>
         /// <param name="invocation"></param>
         internal void TranscribeCommandComplete(InvocationInfo invocation)
@@ -652,7 +819,7 @@ namespace System.Management.Automation.Host
                 // If we're completing a command that we were ignoring, start transcribing results / etc. again.
                 if ((TranscriptionData.CommandBeingIgnored != null) &&
                     (invocation != null) && (invocation.MyCommand != null) &&
-                    String.Equals(commandNameToCheck, invocation.MyCommand.Name, StringComparison.OrdinalIgnoreCase))
+                    string.Equals(commandNameToCheck, invocation.MyCommand.Name, StringComparison.OrdinalIgnoreCase))
                 {
                     TranscriptionData.CommandBeingIgnored = null;
                     TranscriptionData.IsHelperCommand = false;
@@ -701,19 +868,21 @@ namespace System.Management.Automation.Host
                     // Transcription should begin only if file generation is successful.
                     // If there is an error in file generation, throw the exception.
                     string baseDirectory = Path.GetDirectoryName(transcript.Path);
-                    if (Directory.Exists(transcript.Path) || (String.Equals(baseDirectory, transcript.Path.TrimEnd(Path.DirectorySeparatorChar), StringComparison.Ordinal)))
+                    if (Directory.Exists(transcript.Path) || (string.Equals(baseDirectory, transcript.Path.TrimEnd(Path.DirectorySeparatorChar), StringComparison.Ordinal)))
                     {
-                        string errorMessage = String.Format(
+                        string errorMessage = string.Format(
                             System.Globalization.CultureInfo.CurrentCulture,
                             InternalHostUserInterfaceStrings.InvalidTranscriptFilePath,
                             transcript.Path);
                         throw new ArgumentException(errorMessage);
                     }
-                    if(!Directory.Exists(baseDirectory))
+
+                    if (!Directory.Exists(baseDirectory))
                     {
                         Directory.CreateDirectory(baseDirectory);
                     }
-                    if(!File.Exists(transcript.Path))
+
+                    if (!File.Exists(transcript.Path))
                     {
                         File.Create(transcript.Path).Dispose();
                     }
@@ -723,7 +892,7 @@ namespace System.Management.Automation.Host
                     {
                         // System transcripts can have high contention. Do exponential back-off on writing
                         // if needed.
-                        int delay = new Random().Next(10) + 1;
+                        int delay = Random.Shared.Next(10) + 1;
                         bool written = false;
 
                         while (!written)
@@ -757,7 +926,7 @@ namespace System.Management.Automation.Host
 
         #endregion Line-oriented interaction
 
-        # region Dialog-oriented Interaction
+        #region Dialog-oriented Interaction
 
         /// <summary>
         /// Constructs a 'dialog' where the user is presented with a number of fields for which to supply values.
@@ -782,7 +951,7 @@ namespace System.Management.Automation.Host
         /// <seealso cref="System.Management.Automation.Host.PSHostUserInterface.PromptForChoice"/>
         /// <seealso cref="System.Management.Automation.Host.PSHostUserInterface.PromptForCredential(string, string, string, string)"/>
         /// <seealso cref="System.Management.Automation.Host.PSHostUserInterface.PromptForCredential(string, string, string, string, System.Management.Automation.PSCredentialTypes, System.Management.Automation.PSCredentialUIOptions)"/>
-        public abstract Dictionary<String, PSObject> Prompt(string caption, string message, Collection<FieldDescription> descriptions);
+        public abstract Dictionary<string, PSObject> Prompt(string caption, string message, Collection<FieldDescription> descriptions);
 
         /// <summary>
         /// Prompt for credentials.
@@ -882,7 +1051,7 @@ namespace System.Management.Automation.Host
         #endregion Dialog-oriented interaction
 
         /// <summary>
-        /// Creates a new instance of the PSHostUserInterface class
+        /// Creates a new instance of the PSHostUserInterface class.
         /// </summary>
         protected PSHostUserInterface()
         {
@@ -892,9 +1061,9 @@ namespace System.Management.Automation.Host
         /// <summary>
         /// Helper to transcribe an error through formatting and output.
         /// </summary>
-        /// <param name="context">The Execution Context</param>
-        /// <param name="invocation">The invocation info associated with the record</param>
-        /// <param name="errorWrap">The error record</param>
+        /// <param name="context">The Execution Context.</param>
+        /// <param name="invocation">The invocation info associated with the record.</param>
+        /// <param name="errorWrap">The error record.</param>
         internal void TranscribeError(ExecutionContext context, InvocationInfo invocation, PSObject errorWrap)
         {
             context.InternalHost.UI.TranscribeCommandComplete(invocation);
@@ -909,7 +1078,10 @@ namespace System.Management.Automation.Host
         /// </summary>
         internal static TranscriptionOption GetSystemTranscriptOption(TranscriptionOption currentTranscript)
         {
-            var transcription = Utils.GetPolicySetting<Transcription>(Utils.SystemWideThenCurrentUserConfig);
+            var transcription = InternalTestHooks.BypassGroupPolicyCaching
+                ? Utils.GetPolicySetting<Transcription>(Utils.SystemWideThenCurrentUserConfig)
+                : s_transcriptionSettingCache.Value;
+
             if (transcription != null)
             {
                 // If we have an existing system transcript for this process, use that.
@@ -918,17 +1090,19 @@ namespace System.Management.Automation.Host
                 // This way, multiple runspaces opened by the same process will share the same transcript.
                 lock (s_systemTranscriptLock)
                 {
-                    if (systemTranscript == null)
-                    {
-                        systemTranscript = PSHostUserInterface.GetTranscriptOptionFromSettings(transcription, currentTranscript);
-                    }
+                    systemTranscript ??= PSHostUserInterface.GetTranscriptOptionFromSettings(transcription, currentTranscript);
                 }
             }
 
             return systemTranscript;
         }
+
         internal static TranscriptionOption systemTranscript = null;
-        private static Object s_systemTranscriptLock = new Object();
+        private static readonly object s_systemTranscriptLock = new object();
+
+        private static readonly Lazy<Transcription> s_transcriptionSettingCache = new Lazy<Transcription>(
+            static () => Utils.GetPolicySetting<Transcription>(Utils.SystemWideThenCurrentUserConfig),
+            isThreadSafe: true);
 
         private static TranscriptionOption GetTranscriptOptionFromSettings(Transcription transcriptConfig, TranscriptionOption currentTranscript)
         {
@@ -968,7 +1142,7 @@ namespace System.Management.Automation.Host
 
         internal static string GetTranscriptPath(string baseDirectory, bool includeDate)
         {
-            if (String.IsNullOrEmpty(baseDirectory))
+            if (string.IsNullOrEmpty(baseDirectory))
             {
                 baseDirectory = Platform.GetFolderPath(Environment.SpecialFolder.MyDocuments);
             }
@@ -982,6 +1156,11 @@ namespace System.Management.Automation.Host
                 }
             }
 
+            if (string.IsNullOrEmpty(baseDirectory))
+            {
+                return string.Empty;
+            }
+
             if (includeDate)
             {
                 baseDirectory = Path.Combine(baseDirectory, DateTime.Now.ToString("yyyyMMdd", CultureInfo.InvariantCulture));
@@ -993,9 +1172,9 @@ namespace System.Management.Automation.Host
             // bytes of randomness (2^48 = 2.8e14) would take an attacker about 891 years to guess
             // a filename (assuming they knew the time the transcript was started).
             // (5 bytes = 3 years, 4 bytes = about a month)
-            byte[] randomBytes = new byte[6];
-            System.Security.Cryptography.RandomNumberGenerator.Create().GetBytes(randomBytes);
-            string filename = String.Format(
+            Span<byte> randomBytes = stackalloc byte[6];
+            System.Security.Cryptography.RandomNumberGenerator.Fill(randomBytes);
+            string filename = string.Format(
                         Globalization.CultureInfo.InvariantCulture,
                         "PowerShell_transcript.{0}.{1}.{2:yyyyMMddHHmmss}.txt",
                         Environment.MachineName,
@@ -1019,15 +1198,14 @@ namespace System.Management.Automation.Host
             PromptText = "PS>";
         }
 
-        internal List<TranscriptionOption> Transcripts
-        {
-            get;
-            private set;
-        }
+        internal List<TranscriptionOption> Transcripts { get; }
 
         internal TranscriptionOption SystemTranscript { get; set; }
+
         internal string CommandBeingIgnored { get; set; }
+
         internal bool IsHelperCommand { get; set; }
+
         internal string PromptText { get; set; }
     }
 
@@ -1043,31 +1221,17 @@ namespace System.Management.Automation.Host
         /// <summary>
         /// The path that this transcript is being logged to.
         /// </summary>
-        internal string Path
-        {
-            get
-            {
-                return _path;
-            }
-
-            set
-            {
-                _path = value;
-                // Get the encoding from the file, or default (UTF8-NoBom)
-                Encoding = Utils.GetEncoding(value);
-            }
-        }
-        private string _path;
+        internal string Path { get; set; }
 
         /// <summary>
         /// Any output to log for this transcript.
         /// </summary>
-        internal List<string> OutputToLog { get; private set; }
+        internal List<string> OutputToLog { get; }
 
         /// <summary>
         /// Any output currently being logged for this transcript.
         /// </summary>
-        internal List<string> OutputBeingLogged { get; private set; }
+        internal List<string> OutputBeingLogged { get; }
 
         /// <summary>
         /// Whether to include time stamp / command separators in
@@ -1076,18 +1240,19 @@ namespace System.Management.Automation.Host
         internal bool IncludeInvocationHeader { get; set; }
 
         /// <summary>
-        /// The encoding of this transcript, so that appending to it
-        /// can be done correctly.
-        /// </summary>
-        internal Encoding Encoding { get; private set; }
-
-        /// <summary>
         /// Logs buffered content to disk. We use this instead of File.AppendAllLines
         /// so that we don't need to pay seek penalties all the time, and so that we
         /// don't need append permission to our own files.
         /// </summary>
         internal void FlushContentToDisk()
         {
+            static Encoding GetPathEncoding(string path)
+            {
+                using StreamReader reader = new StreamReader(path, Encoding.Default, detectEncodingFromByteOrderMarks: true);
+                _ = reader.Read();
+                return reader.CurrentEncoding;
+            }
+
             lock (OutputBeingLogged)
             {
                 if (!_disposed)
@@ -1096,11 +1261,13 @@ namespace System.Management.Automation.Host
                     {
                         try
                         {
+                            var currentEncoding = GetPathEncoding(this.Path);
+
                             // Try to first open the file with permissions that will allow us to read from it
                             // later.
                             _contentWriter = new StreamWriter(
                                 new FileStream(this.Path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read),
-                                this.Encoding);
+                                currentEncoding);
                             _contentWriter.BaseStream.Seek(0, SeekOrigin.End);
                         }
                         catch (IOException)
@@ -1109,8 +1276,9 @@ namespace System.Management.Automation.Host
                             // file permissions.
                             _contentWriter = new StreamWriter(
                                 new FileStream(this.Path, FileMode.Append, FileAccess.Write, FileShare.Read),
-                                this.Encoding);
+                                Encoding.Default);
                         }
+
                         _contentWriter.AutoFlush = true;
                     }
 
@@ -1123,6 +1291,7 @@ namespace System.Management.Automation.Host
                 OutputBeingLogged.Clear();
             }
         }
+
         private StreamWriter _contentWriter = null;
 
         /// <summary>
@@ -1130,7 +1299,10 @@ namespace System.Management.Automation.Host
         /// </summary>
         public void Dispose()
         {
-            if (_disposed) { return; }
+            if (_disposed)
+            {
+                return;
+            }
 
             // Wait for any pending output to be flushed to disk so that Stop-Transcript
             // can be trusted to immediately have all content from that session in the file)
@@ -1145,13 +1317,26 @@ namespace System.Management.Automation.Host
 
             if (_contentWriter != null)
             {
-                _contentWriter.Flush();
-                _contentWriter.Dispose();
+                try
+                {
+                    _contentWriter.Flush();
+                    _contentWriter.Dispose();
+                }
+                catch (ObjectDisposedException)
+                {
+                    // Do nothing
+                }
+                catch (IOException)
+                {
+                    // Do nothing
+                }
+
                 _contentWriter = null;
             }
 
             _disposed = true;
         }
+
         private bool _disposed = false;
     }
 
@@ -1160,6 +1345,7 @@ namespace System.Management.Automation.Host
     /// by giving the user ability to select more than one choice. The PromptForChoice method available
     /// in PSHostUserInterface class supports only one choice selection.
     /// </summary>
+#nullable enable
     public interface IHostUISupportsMultipleChoiceSelection
     {
         /// <summary>
@@ -1184,9 +1370,10 @@ namespace System.Management.Automation.Host
         /// implementation.
         /// </returns>
         /// <seealso cref="System.Management.Automation.Host.PSHostUserInterface.PromptForChoice"/>
-        Collection<int> PromptForChoice(string caption, string message,
-            Collection<ChoiceDescription> choices, IEnumerable<int> defaultChoices);
+        Collection<int> PromptForChoice(string? caption, string? message,
+            Collection<ChoiceDescription> choices, IEnumerable<int>? defaultChoices);
     }
+#nullable restore
 
     /// <summary>
     /// Helper methods used by PowerShell's Hosts: ConsoleHost and InternalHost to process
@@ -1218,9 +1405,10 @@ namespace System.Management.Automation.Host
                     Text.StringBuilder splitLabel = new Text.StringBuilder(choices[i].Label.Substring(0, andPos), choices[i].Label.Length);
                     if (andPos + 1 < choices[i].Label.Length)
                     {
-                        splitLabel.Append(choices[i].Label.Substring(andPos + 1));
-                        hotkeysAndPlainLabels[0, i] = CultureInfo.CurrentCulture.TextInfo.ToUpper(choices[i].Label.Substring(andPos + 1, 1).Trim());
+                        splitLabel.Append(choices[i].Label.AsSpan(andPos + 1));
+                        hotkeysAndPlainLabels[0, i] = CultureInfo.CurrentCulture.TextInfo.ToUpper(choices[i].Label.AsSpan(andPos + 1, 1).Trim().ToString());
                     }
+
                     hotkeysAndPlainLabels[1, i] = splitLabel.ToString().Trim();
                 }
                 else
@@ -1230,10 +1418,10 @@ namespace System.Management.Automation.Host
                 #endregion SplitLabel
 
                 // ? is not localizable
-                if (string.Compare(hotkeysAndPlainLabels[0, i], "?", StringComparison.Ordinal) == 0)
+                if (string.Equals(hotkeysAndPlainLabels[0, i], "?", StringComparison.Ordinal))
                 {
                     Exception e = PSTraceSource.NewArgumentException(
-                        String.Format(Globalization.CultureInfo.InvariantCulture, "choices[{0}].Label", i),
+                        string.Create(Globalization.CultureInfo.InvariantCulture, $"choices[{i}].Label"),
                         InternalHostUserInterfaceStrings.InvalidChoiceHotKeyError);
                     throw e;
                 }
@@ -1250,7 +1438,7 @@ namespace System.Management.Automation.Host
         /// <param name="hotkeysAndPlainLabels"></param>
         /// <returns>
         /// Returns the index into the choices array matching the response string, or -1 if there is no match.
-        ///</returns>
+        /// </returns>
         internal static int DetermineChoicePicked(string response, Collection<ChoiceDescription> choices, string[,] hotkeysAndPlainLabels)
         {
             Diagnostics.Assert(choices != null, "choices: expected a value");
@@ -1262,7 +1450,7 @@ namespace System.Management.Automation.Host
             for (int i = 0; i < choices.Count; ++i)
             {
                 // pick the one that matches either the hot key or the full label
-                if (string.Compare(response, hotkeysAndPlainLabels[1, i], StringComparison.CurrentCultureIgnoreCase) == 0)
+                if (string.Equals(response, hotkeysAndPlainLabels[1, i], StringComparison.CurrentCultureIgnoreCase))
                 {
                     result = i;
                     break;
@@ -1277,7 +1465,7 @@ namespace System.Management.Automation.Host
                     // Ignore labels with empty hotkeys
                     if (hotkeysAndPlainLabels[0, i].Length > 0)
                     {
-                        if (string.Compare(response, hotkeysAndPlainLabels[0, i], StringComparison.CurrentCultureIgnoreCase) == 0)
+                        if (string.Equals(response, hotkeysAndPlainLabels[0, i], StringComparison.CurrentCultureIgnoreCase))
                         {
                             result = i;
                             break;
@@ -1289,5 +1477,4 @@ namespace System.Management.Automation.Host
             return result;
         }
     }
-} // namespace System.Management.Automation.Host
-
+}

@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 #region Using directives
@@ -22,9 +22,9 @@ namespace Microsoft.PowerShell.Commands
     ///    - Current-user Group Policy
     ///    - Current session preference
     ///    - Current user machine preference
-    ///    - Local machine preference
+    ///    - Local machine preference.
     /// </summary>
-    [Cmdlet(VerbsCommon.Get, "ExecutionPolicy", HelpUri = "https://go.microsoft.com/fwlink/?LinkID=113315")]
+    [Cmdlet(VerbsCommon.Get, "ExecutionPolicy", HelpUri = "https://go.microsoft.com/fwlink/?LinkID=2096594")]
     [OutputType(typeof(ExecutionPolicy))]
     public class GetExecutionPolicyCommand : PSCmdlet
     {
@@ -35,8 +35,10 @@ namespace Microsoft.PowerShell.Commands
         public ExecutionPolicyScope Scope
         {
             get { return _executionPolicyScope; }
+
             set { _executionPolicyScope = value; _scopeSpecified = true; }
         }
+
         private ExecutionPolicyScope _executionPolicyScope = ExecutionPolicyScope.LocalMachine;
         private bool _scopeSpecified = false;
 
@@ -48,8 +50,10 @@ namespace Microsoft.PowerShell.Commands
         public SwitchParameter List
         {
             get { return _list; }
+
             set { _list = value; }
         }
+
         private bool _list;
 
         /// <summary>
@@ -61,11 +65,11 @@ namespace Microsoft.PowerShell.Commands
             {
                 string message = ExecutionPolicyCommands.ListAndScopeSpecified;
 
-                ErrorRecord errorRecord = new ErrorRecord(
+                ErrorRecord errorRecord = new(
                     new InvalidOperationException(),
                     "ListAndScopeSpecified",
                     ErrorCategory.InvalidOperation,
-                    null);
+                    targetObject: null);
 
                 errorRecord.ErrorDetails = new ErrorDetails(message);
                 ThrowTerminatingError(errorRecord);
@@ -79,11 +83,10 @@ namespace Microsoft.PowerShell.Commands
             {
                 foreach (ExecutionPolicyScope scope in SecuritySupport.ExecutionPolicyScopePreferences)
                 {
-                    PSObject outputObject = new PSObject();
+                    PSObject outputObject = new();
 
                     ExecutionPolicy policy = SecuritySupport.GetExecutionPolicy(shellId, scope);
-                    PSNoteProperty inputNote = new PSNoteProperty(
-                            "Scope", scope);
+                    PSNoteProperty inputNote = new("Scope", scope);
                     outputObject.Properties.Add(inputNote);
                     inputNote = new PSNoteProperty(
                             "ExecutionPolicy", policy);
@@ -100,8 +103,8 @@ namespace Microsoft.PowerShell.Commands
             {
                 WriteObject(SecuritySupport.GetExecutionPolicy(shellId));
             }
-        }//End BeginProcess()
-    }//End Class
+        }
+    }
 
     /// <summary>
     /// Defines the implementation of the 'Set-ExecutionPolicy' cmdlet.
@@ -112,7 +115,7 @@ namespace Microsoft.PowerShell.Commands
     /// If the Group Policy setting overrides the desired behaviour, the Cmdlet
     /// generates a terminating error.
     /// </summary>
-    [Cmdlet(VerbsCommon.Set, "ExecutionPolicy", SupportsShouldProcess = true, HelpUri = "https://go.microsoft.com/fwlink/?LinkID=113394")]
+    [Cmdlet(VerbsCommon.Set, "ExecutionPolicy", SupportsShouldProcess = true, HelpUri = "https://go.microsoft.com/fwlink/?LinkID=2096612")]
     public class SetExecutionPolicyCommand : PSCmdlet
     {
         /// <summary>
@@ -122,8 +125,10 @@ namespace Microsoft.PowerShell.Commands
         public ExecutionPolicy ExecutionPolicy
         {
             get { return _executionPolicy; }
+
             set { _executionPolicy = value; }
         }
+
         private ExecutionPolicy _executionPolicy;
 
         /// <summary>
@@ -133,8 +138,10 @@ namespace Microsoft.PowerShell.Commands
         public ExecutionPolicyScope Scope
         {
             get { return _executionPolicyScope; }
+
             set { _executionPolicyScope = value; }
         }
+
         private ExecutionPolicyScope _executionPolicyScope = ExecutionPolicyScope.LocalMachine;
 
         /// <summary>
@@ -148,11 +155,13 @@ namespace Microsoft.PowerShell.Commands
             {
                 return _force;
             }
+
             set
             {
                 _force = value;
             }
         }
+
         private SwitchParameter _force;
 
         /// <summary>
@@ -166,11 +175,11 @@ namespace Microsoft.PowerShell.Commands
             {
                 string message = ExecutionPolicyCommands.CantSetGroupPolicy;
 
-                ErrorRecord errorRecord = new ErrorRecord(
+                ErrorRecord errorRecord = new(
                     new InvalidOperationException(),
                     "CantSetGroupPolicy",
                     ErrorCategory.InvalidOperation,
-                    null);
+                    targetObject: null);
 
                 errorRecord.ErrorDetails = new ErrorDetails(message);
                 ThrowTerminatingError(errorRecord);
@@ -206,16 +215,16 @@ namespace Microsoft.PowerShell.Commands
                 if (ExecutionPolicy != ExecutionPolicy.Undefined)
                 {
                     string effectiveExecutionPolicy = SecuritySupport.GetExecutionPolicy(shellId).ToString();
-                    if (!String.Equals(effectiveExecutionPolicy, executionPolicy, StringComparison.OrdinalIgnoreCase))
+                    if (!string.Equals(effectiveExecutionPolicy, executionPolicy, StringComparison.OrdinalIgnoreCase))
                     {
                         string message = StringUtil.Format(ExecutionPolicyCommands.ExecutionPolicyOverridden, effectiveExecutionPolicy);
                         string recommendedAction = ExecutionPolicyCommands.ExecutionPolicyOverriddenRecommendedAction;
 
-                        ErrorRecord errorRecord = new ErrorRecord(
+                        ErrorRecord errorRecord = new(
                             new System.Security.SecurityException(),
                             "ExecutionPolicyOverride",
                             ErrorCategory.PermissionDenied,
-                            null);
+                            targetObject: null);
 
                         errorRecord.ErrorDetails = new ErrorDetails(message);
                         errorRecord.ErrorDetails.RecommendedAction = recommendedAction;
@@ -223,15 +232,13 @@ namespace Microsoft.PowerShell.Commands
                     }
                 }
 
-#if !CORECLR
                 PSEtwLog.LogSettingsEvent(MshLog.GetLogContext(Context, MyInvocation),
                     EtwLoggingStrings.ExecutionPolicyName, executionPolicy, null);
-#endif
             }
-        }//End ProcessRecord()
+        }
 
         // Determine if we should process this policy change
-#if CORECLR //Seems that we cannot find if the cmdlet is executed interactive or through a script on CoreCLR
+#if CORECLR // Seems that we cannot find if the cmdlet is executed interactive or through a script on CoreCLR
         private bool ShouldProcessPolicyChange(string localPreference)
         {
             return ShouldProcess(localPreference);
@@ -321,14 +328,14 @@ namespace Microsoft.PowerShell.Commands
         private void OnAccessDeniedError(Exception exception)
         {
             string message = StringUtil.Format(ExecutionPolicyCommands.SetExecutionPolicyAccessDeniedError, exception.Message);
-            ErrorRecord errorRecord = new ErrorRecord(
+            ErrorRecord errorRecord = new(
                 exception,
                 exception.GetType().FullName,
                 ErrorCategory.PermissionDenied,
-                null);
+                targetObject: null);
 
             errorRecord.ErrorDetails = new ErrorDetails(message);
             ThrowTerminatingError(errorRecord);
         }
-    }//End Class
-}//End namespace
+    }
+}

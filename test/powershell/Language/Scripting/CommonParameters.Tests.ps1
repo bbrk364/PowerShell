@@ -1,4 +1,4 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 Describe "Common parameters support for script cmdlets" -Tags "CI" {
     BeforeEach {
@@ -141,9 +141,47 @@ Describe "Common parameters support for script cmdlets" -Tags "CI" {
             # Exception: "Command execution stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: error foo"
 
             # BUG in runspace api.
-            #$ps.error.count | Should Be 1
+            #$ps.error.count | Should -Be 1
 
             $ps.InvocationStateInfo.State | Should -BeExactly 'Failed'
+        }
+    }
+
+    Context "ProgressAction" {
+        It "Ignores progress actions on advanced script function with no variables" {
+            $ps.AddScript(
+@'
+function test-function {
+    [CmdletBinding()]param()
+
+    Write-Progress "progress foo"
+}
+test-function -ProgressAction Ignore
+'@).Invoke()
+
+            $ps.Streams.Progress.Count | Should -Be 0
+            $ps.Streams.Error | ForEach-Object {
+                Write-Error -ErrorRecord $_ -ErrorAction Stop
+            }
+        }
+
+        It "Ignores progress actions on advanced script function with variables" {
+            $ps.AddScript(
+@'
+function test-function {
+    [CmdletBinding()]param([string]$path)
+
+    switch($false) { default { "echo $path" } }
+
+    Write-Progress "progress foo"
+}
+test-function -ProgressAction Ignore
+'@).Invoke()
+
+            $ps.Streams.Progress.Count | Should -Be 0
+            $ps.Streams.Error | ForEach-Object {
+                Write-Error -ErrorRecord $_ -ErrorAction Stop
+            }
         }
     }
 
@@ -154,7 +192,7 @@ Describe "Common parameters support for script cmdlets" -Tags "CI" {
                     [CmdletBinding(SupportsShouldProcess=$true)]
                     param()
 
-                    if($pscmdlet.shouldprocess("foo", "foo action"))
+                    if($PSCmdlet.shouldprocess("foo", "foo action"))
                     {
                         write-output "foo action"
                     }
@@ -205,7 +243,7 @@ Describe "Common parameters support for script cmdlets" -Tags "CI" {
                     [CmdletBinding(supportsshouldprocess=$true, ConfirmImpact="none")]
                     param()
 
-                    if($pscmdlet.shouldprocess("foo", "foo action"))
+                    if($PSCmdlet.shouldprocess("foo", "foo action"))
                     {
                         write-output "foo action"
                     }
@@ -239,7 +277,7 @@ Describe "Common parameters support for script cmdlets" -Tags "CI" {
                     [CmdletBinding(SupportsShouldProcess=$true, ConfirmImpact="low")]
                     param()
 
-                    if($pscmdlet.shouldprocess("foo", "foo action"))
+                    if($PSCmdlet.shouldprocess("foo", "foo action"))
                     {
                         write-output "foo action"
                     }
@@ -274,7 +312,7 @@ Describe "Common parameters support for script cmdlets" -Tags "CI" {
                     [CmdletBinding(SupportsShouldProcess=$true, ConfirmImpact="medium")]
                     param()
 
-                    if($pscmdlet.shouldprocess("foo", "foo action"))
+                    if($PSCmdlet.shouldprocess("foo", "foo action"))
                     {
                         write-output "foo action"
                     }
@@ -310,7 +348,7 @@ Describe "Common parameters support for script cmdlets" -Tags "CI" {
                     [CmdletBinding(SupportsShouldProcess=$true, ConfirmImpact="high")]
                     param()
 
-                    if($pscmdlet.shouldprocess("foo", "foo action"))
+                    if($PSCmdlet.shouldprocess("foo", "foo action"))
                     {
                         write-output "foo action"
                     }
@@ -346,7 +384,7 @@ Describe "Common parameters support for script cmdlets" -Tags "CI" {
                     [CmdletBinding()]
                     param()
 
-                    if($pscmdlet.shouldcontinue("foo", "foo action"))
+                    if($PSCmdlet.shouldcontinue("foo", "foo action"))
                     {
                         write-output "foo action"
                     }

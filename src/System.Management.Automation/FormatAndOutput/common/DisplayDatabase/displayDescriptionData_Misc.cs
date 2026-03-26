@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 // this file contains the data structures for the in memory database
@@ -7,7 +7,7 @@
 namespace Microsoft.PowerShell.Commands.Internal.Format
 {
     /// <summary>
-    /// in line definition of a format string control
+    /// In line definition of a format string control.
     /// </summary>
     internal sealed class FieldControlBody : ControlBody
     {

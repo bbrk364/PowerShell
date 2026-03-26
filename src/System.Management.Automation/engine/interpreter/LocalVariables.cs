@@ -35,7 +35,11 @@ namespace System.Management.Automation.Interpreter
 
         public bool IsBoxed
         {
-            get { return (_flags & IsBoxedFlag) != 0; }
+            get
+            {
+                return (_flags & IsBoxedFlag) != 0;
+            }
+
             set
             {
                 if (value)
@@ -56,7 +60,7 @@ namespace System.Management.Automation.Interpreter
 
         public bool InClosureOrBoxed
         {
-            get { return InClosure | IsBoxed; }
+            get { return InClosure || IsBoxed; }
         }
 
         internal LocalVariable(int index, bool closure, bool boxed)
@@ -73,11 +77,11 @@ namespace System.Management.Automation.Interpreter
 
         public override string ToString()
         {
-            return String.Format(CultureInfo.InvariantCulture, "{0}: {1} {2}", Index, IsBoxed ? "boxed" : null, InClosure ? "in closure" : null);
+            return string.Format(CultureInfo.InvariantCulture, "{0}: {1} {2}", Index, IsBoxed ? "boxed" : null, InClosure ? "in closure" : null);
         }
     }
 
-    internal struct LocalDefinition
+    internal readonly struct LocalDefinition
     {
         private readonly int _index;
         private readonly ParameterExpression _parameter;
@@ -121,6 +125,7 @@ namespace System.Management.Automation.Interpreter
             {
                 return 0;
             }
+
             return _parameter.GetHashCode() ^ _index.GetHashCode();
         }
 
@@ -148,8 +153,8 @@ namespace System.Management.Automation.Interpreter
 
         public LocalDefinition DefineLocal(ParameterExpression variable, int start)
         {
-            //ContractUtils.RequiresNotNull(variable, "variable");
-            //ContractUtils.Requires(start >= 0, "start", "start must be positive");
+            // ContractUtils.RequiresNotNull(variable, "variable");
+            // ContractUtils.Requires(start >= 0, "start", "start must be positive");
 
             LocalVariable result = new LocalVariable(_localCount++, false, false);
             _maxLocalCount = System.Math.Max(_localCount, _maxLocalCount);
@@ -158,10 +163,8 @@ namespace System.Management.Automation.Interpreter
             if (_variables.TryGetValue(variable, out existing))
             {
                 newScope = new VariableScope(result, start, existing);
-                if (existing.ChildScopes == null)
-                {
-                    existing.ChildScopes = new List<VariableScope>();
-                }
+                existing.ChildScopes ??= new List<VariableScope>();
+
                 existing.ChildScopes.Add(newScope);
             }
             else
@@ -226,6 +229,7 @@ namespace System.Management.Automation.Interpreter
             {
                 return DefineLocal(var, 0).Index;
             }
+
             return index;
         }
 
@@ -243,6 +247,7 @@ namespace System.Management.Automation.Interpreter
                 local = scope.Variable;
                 return true;
             }
+
             if (_closureVariables != null && _closureVariables.TryGetValue(var, out local))
             {
                 return true;
@@ -263,6 +268,7 @@ namespace System.Management.Automation.Interpreter
             {
                 res[keyValue.Key] = keyValue.Value.Variable;
             }
+
             return res;
         }
 
@@ -287,17 +293,15 @@ namespace System.Management.Automation.Interpreter
 
         internal LocalVariable AddClosureVariable(ParameterExpression variable)
         {
-            if (_closureVariables == null)
-            {
-                _closureVariables = new Dictionary<ParameterExpression, LocalVariable>();
-            }
+            _closureVariables ??= new Dictionary<ParameterExpression, LocalVariable>();
+
             LocalVariable result = new LocalVariable(_closureVariables.Count, true, false);
             _closureVariables.Add(variable, result);
             return result;
         }
 
         /// <summary>
-        /// Tracks where a variable is defined and what range of instructions it's used in
+        /// Tracks where a variable is defined and what range of instructions it's used in.
         /// </summary>
         private sealed class VariableScope
         {

@@ -1,8 +1,9 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Collections.ObjectModel;
 using System.Management.Automation.Provider;
+
 using Dbg = System.Management.Automation;
 
 #pragma warning disable 1634, 1691 // Stops compiler from warning about unknown warnings
@@ -11,7 +12,7 @@ using Dbg = System.Management.Automation;
 namespace System.Management.Automation
 {
     /// <summary>
-    /// Holds the state of a Monad Shell session
+    /// Holds the state of a Monad Shell session.
     /// </summary>
     internal sealed partial class SessionStateInternal
     {
@@ -20,42 +21,34 @@ namespace System.Management.Automation
         #region GetParentPath
 
         /// <summary>
-        /// Gets the path to the parent object for the given object
+        /// Gets the path to the parent object for the given object.
         /// </summary>
-        ///
         /// <param name="path">
         /// The path to the object to get the parent path from
         /// </param>
-        ///
         /// <param name="root">
         /// The root of the drive.
         /// </param>
-        ///
         /// <returns>
         /// The path to the parent object
         /// </returns>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If <paramref name="path"/> is null.
         /// </exception>
-        ///
         /// <exception cref="NotSupportedException">
         /// If the <paramref name="providerInstance"/> does not support this operation.
         /// </exception>
-        ///
         /// <exception cref="PipelineStoppedException">
         /// If the pipeline is being stopped while executing the command.
         /// </exception>
-        ///
         /// <exception cref="ProviderInvocationException">
         /// If the provider threw an exception.
         /// </exception>
-        ///
         internal string GetParentPath(string path, string root)
         {
             if (path == null)
             {
-                throw PSTraceSource.NewArgumentNullException("path");
+                throw PSTraceSource.NewArgumentNullException(nameof(path));
             }
 
             CmdletProviderContext context = new CmdletProviderContext(this.ExecutionContext);
@@ -65,45 +58,36 @@ namespace System.Management.Automation
             context.ThrowFirstErrorOrDoNothing();
 
             return result;
-        } //GetParentPath
+        }
 
         /// <summary>
-        /// Gets the path to the parent object for the given object
+        /// Gets the path to the parent object for the given object.
         /// </summary>
-        ///
         /// <param name="path">
         /// The path to the object to get the parent path from
         /// </param>
-        ///
         /// <param name="root">
         /// The root of the drive. Namespace providers should
         /// return the root if GetParentPath is called for the root.
         /// </param>
-        ///
         /// <param name="context">
         /// The context which the core command is running.
         /// </param>
-        ///
         /// <returns>
         /// The path to the parent object
         /// </returns>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If <paramref name="path"/> is null.
         /// </exception>
-        ///
         /// <exception cref="NotSupportedException">
         /// If the <paramref name="providerInstance"/> does not support this operation.
         /// </exception>
-        ///
         /// <exception cref="PipelineStoppedException">
         /// If the pipeline is being stopped while executing the command.
         /// </exception>
-        ///
         /// <exception cref="ProviderInvocationException">
         /// If the provider threw an exception.
         /// </exception>
-        ///
         internal string GetParentPath(
             string path,
             string root,
@@ -117,24 +101,19 @@ namespace System.Management.Automation
         /// Allow to use FileSystem as the default provider when the
         /// given path is drive-qualified and the drive cannot be found.
         /// </summary>
-        ///
         /// <param name="path">
         /// The path to the object to get the parent path from
         /// </param>
-        ///
         /// <param name="root">
         /// The root of the drive. Namespace providers should
         /// return the root if GetParentPath is called for the root.
         /// </param>
-        ///
         /// <param name="context">
         /// The context which the core command is running.
         /// </param>
-        ///
         /// <param name="useDefaultProvider">
         /// Specify whether to use default provider when needed.
         /// </param>
-        ///
         /// <returns>
         /// The path to the parent object
         /// </returns>
@@ -146,7 +125,7 @@ namespace System.Management.Automation
         {
             if (path == null)
             {
-                throw PSTraceSource.NewArgumentNullException("path");
+                throw PSTraceSource.NewArgumentNullException(nameof(path));
             }
 
             CmdletProviderContext getProviderPathContext =
@@ -198,7 +177,7 @@ namespace System.Management.Automation
 
                 string result = GetParentPath(provider, pathNoQualifier, root, context);
 
-                if (!String.IsNullOrEmpty(qualifier) && !String.IsNullOrEmpty(result))
+                if (!string.IsNullOrEmpty(qualifier) && !string.IsNullOrEmpty(result))
                 {
                     result = AddQualifier(result, provider, qualifier, isProviderQualified, isDriveQualified);
                 }
@@ -209,9 +188,9 @@ namespace System.Management.Automation
             {
                 getProviderPathContext.RemoveStopReferral();
             }
-        } // GetParentPath
+        }
 
-        private string AddQualifier(string path, ProviderInfo provider, string qualifier, bool isProviderQualified, bool isDriveQualified)
+        private static string AddQualifier(string path, ProviderInfo provider, string qualifier, bool isProviderQualified, bool isDriveQualified)
         {
             string result = path;
 
@@ -246,31 +225,24 @@ namespace System.Management.Automation
         /// <summary>
         /// Removes either the drive or provider qualifier or both from the path.
         /// </summary>
-        ///
         /// <param name="path">
         /// The path to strip the provider qualifier from.
         /// </param>
-        ///
         /// <param name="provider">
         /// The provider that should handle the RemoveQualifier call.
         /// </param>
-        ///
         /// <param name="qualifier">
         /// Returns the qualifier of the path.
         /// </param>
-        ///
         /// <param name="isProviderQualified">
         /// Returns true if the path is a provider-qualified path.
         /// </param>
-        ///
         /// <param name="isDriveQualified">
         /// Returns true if the path is a drive-qualified path.
         /// </param>
-        ///
         /// <returns>
         /// The path without the qualifier.
         /// </returns>
-        ///
         private string RemoveQualifier(string path, ProviderInfo provider, out string qualifier, out bool isProviderQualified, out bool isDriveQualified)
         {
             Dbg.Diagnostics.Assert(
@@ -315,49 +287,39 @@ namespace System.Management.Automation
             }
 
             return result;
-        } // RemoveQualifier
+        }
 
         /// <summary>
-        /// Gets the path to the parent object for the given object
+        /// Gets the path to the parent object for the given object.
         /// </summary>
-        ///
         /// <param name="provider">
         /// The provider that should handle the GetParentPath call.
         /// </param>
-        ///
         /// <param name="path">
         /// The path to the object to get the parent path from
         /// </param>
-        ///
         /// <param name="root">
         /// The root of the drive. Namespace providers should
         /// return the root if GetParentPath is called for the root.
         /// </param>
-        ///
         /// <param name="context">
         /// The context which the core command is running.
         /// </param>
-        ///
         /// <returns>
         /// The path to the parent object
         /// </returns>
-        ///
         /// <remarks>
         /// This is internal so that it can be called from the LocationGlobber.
         /// </remarks>
-        ///
         /// <exception cref="NotSupportedException">
         /// If the <paramref name="providerInstance"/> does not support this operation.
         /// </exception>
-        ///
         /// <exception cref="PipelineStoppedException">
         /// If the pipeline is being stopped while executing the command.
         /// </exception>
-        ///
         /// <exception cref="ProviderInvocationException">
         /// If the provider threw an exception.
         /// </exception>
-        ///
         internal string GetParentPath(
             ProviderInfo provider,
             string path,
@@ -386,46 +348,36 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Gets the path to the parent object for the given object
+        /// Gets the path to the parent object for the given object.
         /// </summary>
-        ///
         /// <param name="providerInstance">
         /// The instance of the provider that should handle the GetParentPath call.
         /// </param>
-        ///
         /// <param name="path">
         /// The path to the object to get the parent path from
         /// </param>
-        ///
         /// <param name="root">
         /// The root of the drive. Namespace providers should
         /// return the root if GetParentPath is called for the root.
         /// </param>
-        ///
         /// <param name="context">
         /// The context which the core command is running.
         /// </param>
-        ///
         /// <returns>
         /// The path to the parent object
         /// </returns>
-        ///
         /// <remarks>
         /// This is internal so that it can be called from the LocationGlobber.
         /// </remarks>
-        ///
         /// <exception cref="NotSupportedException">
         /// If the <paramref name="providerInstance"/> does not support this operation.
         /// </exception>
-        ///
         /// <exception cref="PipelineStoppedException">
         /// If the pipeline is being stopped while executing the command.
         /// </exception>
-        ///
         /// <exception cref="ProviderInvocationException">
         /// If the provider threw an exception.
         /// </exception>
-        ///
         internal string GetParentPath(
             CmdletProvider providerInstance,
             string path,
@@ -479,8 +431,9 @@ namespace System.Management.Automation
                     path,
                     e);
             }
+
             return result;
-        } // GetParentPath
+        }
 
         #endregion GetParentPath
 
@@ -490,41 +443,33 @@ namespace System.Management.Automation
         /// Normalizes the path that was passed in and returns the normalized path
         /// as a relative path to the basePath that was passed.
         /// </summary>
-        ///
         /// <param name="path">
         /// An MSH path to an item. The item should exist
         /// or the provider should write out an error.
         /// </param>
-        ///
         /// <param name="basePath">
         /// The path that the return value should be relative to.
         /// </param>
-        ///
         /// <returns>
         /// A normalized path that is relative to the basePath that was passed.
         /// </returns>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If <paramref name="path"/> is null.
         /// </exception>
-        ///
         /// <exception cref="NotSupportedException">
         /// If the <paramref name="providerInstance"/> does not support this operation.
         /// </exception>
-        ///
         /// <exception cref="PipelineStoppedException">
         /// If the pipeline is being stopped while executing the command.
         /// </exception>
-        ///
         /// <exception cref="ProviderInvocationException">
         /// If the provider threw an exception.
         /// </exception>
-        ///
         internal string NormalizeRelativePath(string path, string basePath)
         {
             if (path == null)
             {
-                throw PSTraceSource.NewArgumentNullException("path");
+                throw PSTraceSource.NewArgumentNullException(nameof(path));
             }
 
             CmdletProviderContext context = new CmdletProviderContext(this.ExecutionContext);
@@ -534,46 +479,37 @@ namespace System.Management.Automation
             context.ThrowFirstErrorOrDoNothing();
 
             return result;
-        } //NormalizeRelativePath
+        }
 
         /// <summary>
         /// Normalizes the path that was passed in and returns the normalized path
         /// as a relative path to the basePath that was passed.
         /// </summary>
-        ///
         /// <param name="path">
         /// An MSH path to an item. The item should exist
         /// or the provider should write out an error.
         /// </param>
-        ///
         /// <param name="basePath">
         /// The path that the return value should be relative to.
         /// </param>
-        ///
         /// <param name="context">
         /// The context under which the command is running.
         /// </param>
-        ///
         /// <returns>
         /// A normalized path that is relative to the basePath that was passed.
         /// </returns>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If <paramref name="path"/> is null.
         /// </exception>
-        ///
         /// <exception cref="NotSupportedException">
         /// If the <paramref name="providerInstance"/> does not support this operation.
         /// </exception>
-        ///
         /// <exception cref="PipelineStoppedException">
         /// If the pipeline is being stopped while executing the command.
         /// </exception>
-        ///
         /// <exception cref="ProviderInvocationException">
         /// If the provider threw an exception.
         /// </exception>
-        ///
         internal string NormalizeRelativePath(
             string path,
             string basePath,
@@ -581,7 +517,7 @@ namespace System.Management.Automation
         {
             if (path == null)
             {
-                throw PSTraceSource.NewArgumentNullException("path");
+                throw PSTraceSource.NewArgumentNullException(nameof(path));
             }
 
             CmdletProviderContext getProviderPathContext =
@@ -610,7 +546,7 @@ namespace System.Management.Automation
                     // Since the provider didn't write an error, and we didn't get any
                     // results ourselves, we need to write out our own error.
 
-                    Exception e = PSTraceSource.NewArgumentException("path");
+                    Exception e = PSTraceSource.NewArgumentException(nameof(path));
                     context.WriteError(new ErrorRecord(e, "NormalizePathNullResult", ErrorCategory.InvalidArgument, path));
                     return null;
                 }
@@ -654,7 +590,7 @@ namespace System.Management.Automation
                     // \\HKEY_LOCAL_MACHINE
                     if (
                         (GetProviderInstance(provider) is NavigationCmdletProvider) &&
-                        (!String.IsNullOrEmpty(drive.Root)) &&
+                        (!string.IsNullOrEmpty(drive.Root)) &&
                         (path.StartsWith(drive.Root, StringComparison.OrdinalIgnoreCase)))
                     {
                         //
@@ -696,15 +632,15 @@ namespace System.Management.Automation
             {
                 getProviderPathContext.RemoveStopReferral();
             }
-        } // NormalizeRelativePath
+        }
 
         /// <summary>
         /// Tests the specified character for equality with one of the powershell path separators and
         /// returns true if it matches.
         /// </summary>
-        /// <param name="c">The character to test</param>
+        /// <param name="c">The character to test.</param>
         /// <returns>True if the character is a path separator.</returns>
-        private bool IsPathSeparator(char c)
+        private static bool IsPathSeparator(char c)
         {
             return c == StringLiterals.DefaultPathSeparator || c == StringLiterals.AlternatePathSeparator;
         }
@@ -713,39 +649,30 @@ namespace System.Management.Automation
         /// Normalizes the path that was passed in and returns the normalized path
         /// as a relative path to the basePath that was passed.
         /// </summary>
-        ///
         /// <param name="provider">
         /// The provider to use to normalize the path.
         /// </param>
-        ///
         /// <param name="path">
         /// An provider internal path to normalize.
         /// </param>
-        ///
         /// <param name="basePath">
         /// The path that the return value should be relative to.
         /// </param>
-        ///
         /// <param name="context">
         /// The context under which the command is running.
         /// </param>
-        ///
         /// <returns>
         /// A normalized path that is relative to the basePath that was passed.
         /// </returns>
-        ///
         /// <exception cref="NotSupportedException">
         /// If the <paramref name="providerInstance"/> does not support this operation.
         /// </exception>
-        ///
         /// <exception cref="PipelineStoppedException">
         /// If the pipeline is being stopped while executing the command.
         /// </exception>
-        ///
         /// <exception cref="ProviderInvocationException">
         /// If the provider threw an exception.
         /// </exception>
-        ///
         internal string NormalizeRelativePath(
             ProviderInfo provider,
             string path,
@@ -808,7 +735,7 @@ namespace System.Management.Automation
             }
 
             return path;
-        } // NormalizeRelativePath
+        }
 
         #endregion NormalizeRelativePath
 
@@ -817,39 +744,30 @@ namespace System.Management.Automation
         /// <summary>
         /// Generates a path from the given parts.
         /// </summary>
-        ///
         /// <param name="parent">
         /// The parent segment of the path to be joined with the child.
         /// </param>
-        ///
         /// <param name="child">
         /// The child segment of the ath to be joined with the parent.
         /// </param>
-        ///
         /// <returns>
         /// The generated path.
         /// </returns>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If <paramref name="context"/> is null.
         /// </exception>
-        ///
         /// <exception cref="ArgumentException">
         /// If both <paramref name="parent"/> and <paramref name="child"/> is null.
         /// </exception>
-        ///
         /// <exception cref="NotSupportedException">
         /// If the <paramref name="providerId"/> does not support this operation.
         /// </exception>
-        ///
         /// <exception cref="PipelineStoppedException">
         /// If the pipeline is being stopped while executing the command.
         /// </exception>
-        ///
         /// <exception cref="ProviderInvocationException">
         /// If the provider threw an exception.
         /// </exception>
-        ///
         internal string MakePath(
             string parent,
             string child)
@@ -857,48 +775,38 @@ namespace System.Management.Automation
             CmdletProviderContext context = new CmdletProviderContext(this.ExecutionContext);
 
             return MakePath(parent, child, context);
-        } // MakePath
+        }
 
         /// <summary>
         /// Generates a path from the given parts.
         /// </summary>
-        ///
         /// <param name="parent">
         /// The parent segment of the path to be joined with the child.
         /// </param>
-        ///
         /// <param name="child">
         /// The child segment of the ath to be joined with the parent.
         /// </param>
-        ///
         /// <param name="context">
         /// The context which the core command is running.
         /// </param>
-        ///
         /// <returns>
         /// The generated path.
         /// </returns>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If <paramref name="context"/> is null.
         /// </exception>
-        ///
         /// <exception cref="ArgumentException">
         /// If both <paramref name="parent"/> and <paramref name="child"/> is null.
         /// </exception>
-        ///
         /// <exception cref="NotSupportedException">
         /// If the <paramref name="providerId"/> does not support this operation.
         /// </exception>
-        ///
         /// <exception cref="PipelineStoppedException">
         /// If the pipeline is being stopped while executing the command.
         /// </exception>
-        ///
         /// <exception cref="ProviderInvocationException">
         /// If the provider threw an exception.
         /// </exception>
-        ///
         internal string MakePath(
             string parent,
             string child,
@@ -908,13 +816,13 @@ namespace System.Management.Automation
 
             if (context == null)
             {
-                throw PSTraceSource.NewArgumentNullException("context");
+                throw PSTraceSource.NewArgumentNullException(nameof(context));
             }
 
             if (parent == null &&
                 child == null)
             {
-                throw PSTraceSource.NewArgumentException("parent");
+                throw PSTraceSource.NewArgumentException(nameof(parent));
             }
 
             // Set the drive data for the context
@@ -924,6 +832,7 @@ namespace System.Management.Automation
             {
                 provider = CurrentDrive.Provider;
             }
+
             if (context.Drive == null)
             {
                 bool isProviderQualified = LocationGlobber.IsProviderQualifiedPath(parent);
@@ -939,12 +848,14 @@ namespace System.Management.Automation
                     {
                         drive = provider.HiddenDrive;
                     }
+
                     context.Drive = drive;
                 }
                 else
                 {
                     context.Drive = CurrentDrive;
                 }
+
                 result = MakePath(provider, parent, child, context);
 
                 if (isAbsolute)
@@ -961,45 +872,37 @@ namespace System.Management.Automation
                 provider = context.Drive.Provider;
                 result = MakePath(provider, parent, child, context);
             }
+
             return result;
-        } // MakePath
+        }
 
         /// <summary>
-        /// Uses the specified provider to put the two parts of a path together
+        /// Uses the specified provider to put the two parts of a path together.
         /// </summary>
-        ///
         /// <param name="provider">
         /// The provider to use.
         /// </param>
-        ///
         /// <param name="parent">
         /// The parent part of the path to join with the child.
         /// </param>
-        ///
         /// <param name="child">
         /// The child part of the path to join with the parent.
         /// </param>
-        ///
         /// <param name="context">
         /// The context under which the command is running.
         /// </param>
-        ///
         /// <returns>
         /// The combined path.
         /// </returns>
-        ///
         /// <exception cref="NotSupportedException">
         /// If the <paramref name="providerId"/> does not support this operation.
         /// </exception>
-        ///
         /// <exception cref="PipelineStoppedException">
         /// If the pipeline is being stopped while executing the command.
         /// </exception>
-        ///
         /// <exception cref="ProviderInvocationException">
         /// If the provider threw an exception.
         /// </exception>
-        ///
         internal string MakePath(
             ProviderInfo provider,
             string parent,
@@ -1023,41 +926,32 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Uses the specified provider to put the two parts of a path together
+        /// Uses the specified provider to put the two parts of a path together.
         /// </summary>
-        ///
         /// <param name="providerInstance">
         /// The provider instance to use.
         /// </param>
-        ///
         /// <param name="parent">
         /// The parent part of the path to join with the child.
         /// </param>
-        ///
         /// <param name="child">
         /// The child part of the path to join with the parent.
         /// </param>
-        ///
         /// <param name="context">
         /// The context under which the command is running.
         /// </param>
-        ///
         /// <returns>
         /// The combined path.
         /// </returns>
-        ///
         /// <exception cref="NotSupportedException">
         /// If the <paramref name="providerId"/> does not support this operation.
         /// </exception>
-        ///
         /// <exception cref="PipelineStoppedException">
         /// If the pipeline is being stopped while executing the command.
         /// </exception>
-        ///
         /// <exception cref="ProviderInvocationException">
         /// If the provider threw an exception.
         /// </exception>
-        ///
         internal string MakePath(
             CmdletProvider providerInstance,
             string parent,
@@ -1117,7 +1011,7 @@ namespace System.Management.Automation
             }
 
             return result;
-        } // MakePath
+        }
 
         #endregion MakePath
 
@@ -1126,41 +1020,33 @@ namespace System.Management.Automation
         /// <summary>
         /// Gets the name of the leaf element in the specified path.
         /// </summary>
-        ///
         /// <param name="path">
         /// The fully qualified path to the item
         /// </param>
-        ///
         /// <returns>
         /// The leaf element in the path.
         /// </returns>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If <paramref name="path"/> is null.
         /// </exception>
-        ///
         /// <exception cref="ProviderNotFoundException">
         /// If the <paramref name="path"/> refers to a provider that could not be found.
         /// </exception>
-        ///
         /// <exception cref="DriveNotFoundException">
         /// If the <paramref name="path"/> refers to a drive that could not be found.
         /// </exception>
-        ///
         /// <exception cref="NotSupportedException">
         /// If the provider that the <paramref name="path"/> refers to does
         /// not support this operation.
         /// </exception>
-        ///
         /// <exception cref="ProviderInvocationException">
         /// If the provider threw an exception.
         /// </exception>
-        ///
         internal string GetChildName(string path)
         {
             if (path == null)
             {
-                throw PSTraceSource.NewArgumentNullException("path");
+                throw PSTraceSource.NewArgumentNullException(nameof(path));
             }
 
             CmdletProviderContext context = new CmdletProviderContext(this.ExecutionContext);
@@ -1170,45 +1056,36 @@ namespace System.Management.Automation
             context.ThrowFirstErrorOrDoNothing();
 
             return result;
-        } // GetChildName
+        }
 
         /// <summary>
         /// Gets the name of the leaf element in the specified path.
         /// </summary>
-        ///
         /// <param name="path">
         /// The fully qualified path to the item
         /// </param>
-        ///
         /// <param name="context">
         /// The context which the core command is running.
         /// </param>
-        ///
         /// <returns>
         /// The leaf element in the path.
         /// </returns>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If <paramref name="path"/> is null.
         /// </exception>
-        ///
         /// <exception cref="ProviderNotFoundException">
         /// If the <paramref name="path"/> refers to a provider that could not be found.
         /// </exception>
-        ///
         /// <exception cref="DriveNotFoundException">
         /// If the <paramref name="path"/> refers to a drive that could not be found.
         /// </exception>
-        ///
         /// <exception cref="NotSupportedException">
         /// If the provider that the <paramref name="path"/> refers to does
         /// not support this operation.
         /// </exception>
-        ///
         /// <exception cref="ProviderInvocationException">
         /// If the provider threw an exception.
         /// </exception>
-        ///
         internal string GetChildName(
             string path,
             CmdletProviderContext context)
@@ -1221,19 +1098,15 @@ namespace System.Management.Automation
         /// Allow to use FileSystem as the default provider when the
         /// given path is drive-qualified and the drive cannot be found.
         /// </summary>
-        ///
         /// <param name="path">
         /// The fully qualified path to the item
         /// </param>
-        ///
         /// <param name="context">
         /// The context which the core command is running.
         /// </param>
-        ///
         /// <param name="useDefaultProvider">
         /// to use default provider when needed.
         /// </param>
-        ///
         /// <returns>
         /// The leaf element in the path.
         /// </returns>
@@ -1244,7 +1117,7 @@ namespace System.Management.Automation
         {
             if (path == null)
             {
-                throw PSTraceSource.NewArgumentNullException("path");
+                throw PSTraceSource.NewArgumentNullException(nameof(path));
             }
 
             PSDriveInfo drive = null;
@@ -1288,36 +1161,29 @@ namespace System.Management.Automation
             }
 
             return GetChildName(provider, workingPath, context);
-        } // GetChildName
+        }
 
         /// <summary>
         /// Gets the leaf element of the specified path.
         /// </summary>
-        ///
         /// <param name="provider">
         /// The provider to use.
         /// </param>
-        ///
         /// <param name="path">
         /// The path to the item if it was specified on the command line.
         /// </param>
-        ///
         /// <param name="context">
         /// The context which the core command is running.
         /// </param>
-        ///
         /// <exception cref="NotSupportedException">
         /// If the <paramref name="providerInstance"/> does not support this operation.
         /// </exception>
-        ///
         /// <exception cref="PipelineStoppedException">
         /// If the pipeline is being stopped while executing the command.
         /// </exception>
-        ///
         /// <exception cref="ProviderInvocationException">
         /// If the provider threw an exception.
         /// </exception>
-        ///
         private string GetChildName(
             ProviderInfo provider,
             string path,
@@ -1344,36 +1210,28 @@ namespace System.Management.Automation
         /// <summary>
         /// Gets the leaf element of the specified path.
         /// </summary>
-        ///
         /// <param name="providerInstance">
         /// The provider instance to use.
         /// </param>
-        ///
         /// <param name="path">
         /// The path to the item if it was specified on the command line.
         /// </param>
-        ///
         /// <param name="context">
         /// The context which the core command is running.
         /// </param>
-        ///
         /// <param name="acceptNonContainerProviders">
         /// Specify True if the method should just return the Path if the
         /// provider doesn't support container overloads.
         /// </param>
-        ///
         /// <exception cref="NotSupportedException">
         /// If the <paramref name="providerInstance"/> does not support this operation.
         /// </exception>
-        ///
         /// <exception cref="PipelineStoppedException">
         /// If the pipeline is being stopped while executing the command.
         /// </exception>
-        ///
         /// <exception cref="ProviderInvocationException">
         /// If the provider threw an exception.
         /// </exception>
-        ///
         private string GetChildName(
             CmdletProvider providerInstance,
             string path,
@@ -1427,8 +1285,9 @@ namespace System.Management.Automation
                     path,
                     e);
             }
+
             return result;
-        } // GetChildName
+        }
 
         #endregion GetChildName
 
@@ -1437,31 +1296,24 @@ namespace System.Management.Automation
         /// <summary>
         /// Moves the item specified by path to the specified destination.
         /// </summary>
-        ///
         /// <param name="paths">
         /// The path(s) to the item(s) to be moved.
         /// </param>
-        ///
         /// <param name="destination">
         /// The path of the destination container.
         /// </param>
-        ///
         /// <param name="force">
         /// Passed on to providers to force operations.
         /// </param>
-        ///
         /// <param name="literalPath">
         /// If true, globbing is not done on paths.
         /// </param>
-        ///
         /// <returns>
         /// The item(s) that were moved.
         /// </returns>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If <paramref name="path"/> is null.
         /// </exception>
-        ///
         /// <exception cref="ArgumentException">
         /// If <paramref name="destination"/> resolves to multiple paths.
         /// or
@@ -1471,29 +1323,24 @@ namespace System.Management.Automation
         /// If <paramref name="path"/> resolves to multiple paths and <paramref name="destination"/>
         /// is not a container.
         /// </exception>
-        ///
         /// <exception cref="ProviderNotFoundException">
         /// If the <paramref name="path"/> refers to a provider that could not be found.
         /// </exception>
-        ///
         /// <exception cref="DriveNotFoundException">
         /// If the <paramref name="path"/> refers to a drive that could not be found.
         /// </exception>
-        ///
         /// <exception cref="NotSupportedException">
         /// If the provider that the <paramref name="path"/> refers to does
         /// not support this operation.
         /// </exception>
-        ///
         /// <exception cref="ProviderInvocationException">
         /// If the provider threw an exception.
         /// </exception>
-        ///
         internal Collection<PSObject> MoveItem(string[] paths, string destination, bool force, bool literalPath)
         {
             if (paths == null)
             {
-                throw PSTraceSource.NewArgumentNullException("paths");
+                throw PSTraceSource.NewArgumentNullException(nameof(paths));
             }
 
             CmdletProviderContext context = new CmdletProviderContext(this.ExecutionContext);
@@ -1507,54 +1354,43 @@ namespace System.Management.Automation
             // Since there was no errors return the accumulated objects
 
             return context.GetAccumulatedObjects();
-        } // MoveItem
+        }
 
         /// <summary>
         /// Moves the item specified by path to the specified destination.
         /// </summary>
-        ///
         /// <param name="paths">
         /// The path(s) to the item(s) to be moved.
         /// </param>
-        ///
         /// <param name="destination">
         /// The path of the destination container.
         /// </param>
-        ///
         /// <param name="context">
         /// The context which the core command is running.
         /// </param>
-        ///
         /// <returns>
         /// Nothing. All items that are moved are written into the context object.
         /// </returns>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If <paramref name="path"/> is null.
         /// </exception>
-        ///
         /// <exception cref="ProviderNotFoundException">
         /// If the <paramref name="path"/> refers to a provider that could not be found.
         /// </exception>
-        ///
         /// <exception cref="DriveNotFoundException">
         /// If the <paramref name="path"/> refers to a drive that could not be found.
         /// </exception>
-        ///
         /// <exception cref="NotSupportedException">
         /// If the provider that the <paramref name="path"/> refers to does
         /// not support this operation.
         /// </exception>
-        ///
         /// <exception cref="ProviderInvocationException">
         /// If the provider threw an exception.
         /// </exception>
-        ///
         /// <exception cref="ItemNotFoundException">
         /// If <paramref name="path"/> does not contain glob characters and
         /// could not be found.
         /// </exception>
-        ///
         internal void MoveItem(
             string[] paths,
             string destination,
@@ -1562,12 +1398,12 @@ namespace System.Management.Automation
         {
             if (paths == null)
             {
-                throw PSTraceSource.NewArgumentNullException("paths");
+                throw PSTraceSource.NewArgumentNullException(nameof(paths));
             }
 
             if (destination == null)
             {
-                throw PSTraceSource.NewArgumentNullException("destination");
+                throw PSTraceSource.NewArgumentNullException(nameof(destination));
             }
 
             ProviderInfo provider = null;
@@ -1584,7 +1420,7 @@ namespace System.Management.Automation
             {
                 ArgumentException argException =
                     PSTraceSource.NewArgumentException(
-                        "destination",
+                        nameof(destination),
                         SessionStateStrings.MoveItemOneDestination);
 
                 context.WriteError(new ErrorRecord(argException, argException.GetType().FullName, ErrorCategory.InvalidArgument, destination));
@@ -1595,7 +1431,7 @@ namespace System.Management.Automation
                 {
                     if (path == null)
                     {
-                        throw PSTraceSource.NewArgumentNullException("paths");
+                        throw PSTraceSource.NewArgumentNullException(nameof(paths));
                     }
 
                     Collection<string> providerPaths =
@@ -1622,7 +1458,6 @@ namespace System.Management.Automation
                     }
                     else
                     {
-                        PSDriveInfo unusedPSDriveInfo = null;
                         ProviderInfo destinationProvider = null;
 
                         CmdletProviderContext destinationContext = new CmdletProviderContext(this.ExecutionContext);
@@ -1636,7 +1471,7 @@ namespace System.Management.Automation
                                     providerDestinationPaths[0].Path,
                                     destinationContext,
                                     out destinationProvider,
-                                    out unusedPSDriveInfo);
+                                    out _);
                         }
                         else
                         {
@@ -1648,19 +1483,19 @@ namespace System.Management.Automation
                                     destination,
                                     destinationContext,
                                     out destinationProvider,
-                                    out unusedPSDriveInfo);
+                                    out _);
                         }
 
                         // Now verify the providers are the same.
 
-                        if (!String.Equals(
+                        if (!string.Equals(
                                 provider.FullName,
                                 destinationProvider.FullName,
                                 StringComparison.OrdinalIgnoreCase))
                         {
                             ArgumentException argException =
                                 PSTraceSource.NewArgumentException(
-                                    "destination",
+                                    nameof(destination),
                                     SessionStateStrings.MoveItemSourceAndDestinationNotSameProvider);
 
                             context.WriteError(new ErrorRecord(argException, argException.GetType().FullName, ErrorCategory.InvalidArgument, providerPaths));
@@ -1675,40 +1510,32 @@ namespace System.Management.Automation
                     }
                 }
             }
-        } // MoveItem
+        }
 
         /// <summary>
-        /// Moves the item at the specified path to the destination path
+        /// Moves the item at the specified path to the destination path.
         /// </summary>
-        ///
         /// <param name="providerInstance">
         /// The provider instance to use.
         /// </param>
-        ///
         /// <param name="path">
         /// The path to the item if it was specified on the command line.
         /// </param>
-        ///
         /// <param name="destination">
         /// The path to where the item should be moved.
         /// </param>
-        ///
         /// <param name="context">
         /// The context which the core command is running.
         /// </param>
-        ///
         /// <exception cref="NotSupportedException">
         /// If the <paramref name="providerInstance"/> does not support this operation.
         /// </exception>
-        ///
         /// <exception cref="PipelineStoppedException">
         /// If the pipeline is being stopped while executing the command.
         /// </exception>
-        ///
         /// <exception cref="ProviderInvocationException">
         /// If the provider threw an exception.
         /// </exception>
-        ///
         private void MoveItemPrivate(
             CmdletProvider providerInstance,
             string path,
@@ -1756,51 +1583,41 @@ namespace System.Management.Automation
                     path,
                     e);
             }
-        } // MoveItem
+        }
 
         /// <summary>
         /// Gets the dynamic parameters for the move-item cmdlet.
         /// </summary>
-        ///
         /// <param name="path">
         /// The path to the item if it was specified on the command line.
         /// </param>
-        ///
         /// <param name="destination">
         /// The path to move the item to.
         /// </param>
-        ///
         /// <param name="context">
         /// The context which the core command is running.
         /// </param>
-        ///
         /// <returns>
         /// An object that has properties and fields decorated with
         /// parsing attributes similar to a cmdlet class.
         /// </returns>
-        ///
         /// <exception cref="ProviderNotFoundException">
         /// If the <paramref name="path"/> refers to a provider that could not be found.
         /// </exception>
-        ///
         /// <exception cref="DriveNotFoundException">
         /// If the <paramref name="path"/> refers to a drive that could not be found.
         /// </exception>
-        ///
         /// <exception cref="NotSupportedException">
         /// If the provider that the <paramref name="path"/> refers to does
         /// not support this operation.
         /// </exception>
-        ///
         /// <exception cref="ProviderInvocationException">
         /// If the provider threw an exception.
         /// </exception>
-        ///
         /// <exception cref="ItemNotFoundException">
         /// If <paramref name="path"/> does not contain glob characters and
         /// could not be found.
         /// </exception>
-        ///
         internal object MoveItemDynamicParameters(
             string path,
             string destination,
@@ -1835,46 +1652,38 @@ namespace System.Management.Automation
 
                 return MoveItemDynamicParameters(providerInstance, providerPaths[0], destination, newContext);
             }
+
             return null;
-        } // MoveItemDynamicParameters
+        }
 
         /// <summary>
         /// Gets the dynamic parameters for the move-item cmdlet.
         /// </summary>
-        ///
         /// <param name="path">
         /// The path to the item if it was specified on the command line.
         /// </param>
-        ///
         /// <param name="destination">
         /// The path to where the item should be moved.
         /// </param>
-        ///
         /// <param name="providerInstance">
         /// The instance of the provider to use.
         /// </param>
-        ///
         /// <param name="context">
         /// The context which the core command is running.
         /// </param>
-        ///
         /// <returns>
         /// An object that has properties and fields decorated with
         /// parsing attributes similar to a cmdlet class.
         /// </returns>
-        ///
         /// <exception cref="NotSupportedException">
         /// If the <paramref name="providerInstance"/> does not support this operation.
         /// </exception>
-        ///
         /// <exception cref="PipelineStoppedException">
         /// If the pipeline is being stopped while executing the command.
         /// </exception>
-        ///
         /// <exception cref="ProviderInvocationException">
         /// If the provider threw an exception.
         /// </exception>
-        ///
         private object MoveItemDynamicParameters(
             CmdletProvider providerInstance,
             string path,
@@ -1928,14 +1737,14 @@ namespace System.Management.Automation
                     path,
                     e);
             }
+
             return result;
-        } // MoveItemDynamicParameters
+        }
 
         #endregion MoveItem
 
         #endregion NavigationCmdletProvider accessors
-    }           // SessionStateInternal class
+    }
 }
 
 #pragma warning restore 56500
-

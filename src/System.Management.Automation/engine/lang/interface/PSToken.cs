@@ -1,5 +1,6 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
+
 /********************************************************************++
 
     Project:     PowerShell
@@ -68,33 +69,37 @@ namespace System.Management.Automation
             }
         }
 
-        private string _content;
+        private readonly string _content;
 
         #region Token Type
 
         /// <summary>
-        /// Map a V3 token to a V2 PSTokenType
+        /// Map a V3 token to a V2 PSTokenType.
         /// </summary>
-        /// <param name="token">The V3 token</param>
-        /// <returns>The V2 PSTokenType</returns>
+        /// <param name="token">The V3 token.</param>
+        /// <returns>The V2 PSTokenType.</returns>
         public static PSTokenType GetPSTokenType(Token token)
         {
             if ((token.TokenFlags & TokenFlags.CommandName) != 0)
             {
                 return PSTokenType.Command;
             }
+
             if ((token.TokenFlags & TokenFlags.MemberName) != 0)
             {
                 return PSTokenType.Member;
             }
+
             if ((token.TokenFlags & TokenFlags.AttributeName) != 0)
             {
                 return PSTokenType.Attribute;
             }
+
             if ((token.TokenFlags & TokenFlags.TypeName) != 0)
             {
                 return PSTokenType.Type;
             }
+
             return s_tokenKindMapping[(int)token.Kind];
         }
 
@@ -295,7 +300,9 @@ namespace System.Management.Automation
             /*                 Type */ PSTokenType.Keyword,
             /*             Assembly */ PSTokenType.Keyword,
             /*              Command */ PSTokenType.Keyword,
-            /*                  Def */ PSTokenType.Keyword,
+            /*               Hidden */ PSTokenType.Keyword,
+            /*                 Base */ PSTokenType.Keyword,
+            /*              Default */ PSTokenType.Keyword,
 
             #endregion Flags for keywords
 
@@ -361,243 +368,277 @@ namespace System.Management.Automation
     public enum PSTokenType
     {
         /// <summary>
-        /// Unknown token
+        /// Unknown token.
         /// </summary>
-        /// <remarks>
-        /// </remarks>
         Unknown,
 
         /// <summary>
-        /// Command
-        /// </summary>
-        /// <remarks>
+        /// <para>
+        /// Command.
+        /// </para>
+        /// </para>
         /// For example, 'get-process' in
         ///
-        ///     get-process -name foo
-        ///
-        /// </remarks>
+        ///     <c><code>get-process -name foo</code></c>
+        /// </para>
+        /// </summary>
         Command,
 
         /// <summary>
-        /// Command Parameter
-        /// </summary>
-        /// <remarks>
+        /// <para>
+        /// Command Parameter.
+        /// </para>
+        /// <para>
         /// For example, '-name' in
         ///
-        ///     get-process -name foo
-        ///
-        /// </remarks>
+        ///     <c><code>get-process -name foo</code></c>
+        /// </para>
+        /// </summary>
         CommandParameter,
 
         /// <summary>
-        /// Command Argument
-        /// </summary>
-        /// <remarks>
+        /// <para>
+        /// Command Argument.
+        /// </para>
+        /// <para>
         /// For example, 'foo' in
         ///
-        ///     get-process -name foo
-        ///
-        /// </remarks>
+        ///     <c><code>get-process -name foo</code></c>
+        /// </para>
+        /// </summary>
         CommandArgument,
 
         /// <summary>
-        /// Number
-        /// </summary>
-        /// <remarks>
+        /// <para>
+        /// Number.
+        /// </para>
+        /// <para>
         /// For example, 12 in
         ///
-        ///     $a=12
-        ///
-        /// </remarks>
+        ///     <c><code>$a=12</code></c>
+        /// </para>
+        /// </summary>
         Number,
 
         /// <summary>
-        /// String
-        /// </summary>
-        /// <remarks>
+        /// <para>
+        /// String.
+        /// </para>
+        /// <para>
         /// For example, "12" in
         ///
-        ///     $a="12"
-        ///
-        /// </remarks>
+        ///     <c><code>$a="12"</code></c>
+        /// </para>
+        /// </summary>
         String,
 
         /// <summary>
-        /// Variable
-        /// </summary>
+        /// <para>
+        /// Variable.
+        /// </para>
+        /// <para>
         /// <remarks>
         /// For example, $a in
         ///
-        ///     $a="12"
-        ///
-        /// </remarks>
+        ///     <c><code>$a="12"</code></c>
+        /// <para>
+        /// </summary>
         Variable,
 
         /// <summary>
-        /// Property name or method name
-        /// </summary>
-        /// <remarks>
+        /// <para>
+        /// Property name or method name.
+        /// </para>
+        /// <para>
         /// For example, Name in
         ///
-        ///     $a.Name
-        ///
-        /// </remarks>
+        ///     <c><code>$a.Name</code></c>
+        /// </para>
+        /// </summary>
         Member,
 
         /// <summary>
-        /// Loop label
-        /// </summary>
-        /// <remarks>
+        /// <para>
+        /// Loop label.
+        /// </para>
+        /// <para>
         /// For example, :loop in
         ///
+        /// <c><code>
         ///     :loop
         ///     foreach($a in $b)
         ///     {
         ///         $a
         ///     }
-        ///
-        /// </remarks>
+        /// </code></c>
+        /// </summary>
         LoopLabel,
 
         /// <summary>
-        /// Attributes
-        /// </summary>
-        /// <remarks>
+        /// <para>
+        /// Attributes.
+        /// </para>
+        /// <para>
         /// For example, Mandatory in
         ///
-        ///     param([Mandatory] $a)
-        ///
-        /// </remarks>
+        ///     <c><code>param([Mandatory] $a)</code></c>
+        /// </para>
+        /// </summary>
         Attribute,
 
         /// <summary>
-        /// Types
-        /// </summary>
-        /// <remarks>
+        /// <para>
+        /// Types.
+        /// </para>
+        /// <para>
         /// For example, [string] in
         ///
-        ///     $a = [string] 12
-        ///
-        /// </remarks>
+        ///     <c><code>$a = [string] 12</code></c>
+        /// </para>
+        /// </summary>
         Type,
 
         /// <summary>
-        /// Operators
-        /// </summary>
-        /// <remarks>
+        /// <para>
+        /// Operators.
+        /// </para>
+        /// <para>
         /// For example, + in
         ///
-        ///     $a = 1 + 2
-        ///
-        /// </remarks>
+        ///     <c><code>$a = 1 + 2</code></c>
+        /// </para>
+        /// </summary>
         Operator,
 
         /// <summary>
-        /// Group Starter
-        /// </summary>
-        /// <remarks>
+        /// <para>
+        /// Group Starter.
+        /// </para>
+        /// <para>
         /// For example, { in
         ///
+        /// <c><code>
         ///     if ($a -gt 4)
         ///     {
         ///         $a++;
         ///     }
-        ///
-        /// </remarks>
+        /// </code></c>
+        /// </para>
+        /// </summary>
         GroupStart,
 
         /// <summary>
-        /// Group Ender
-        /// </summary>
-        /// <remarks>
+        /// <para>
+        /// Group Ender.
+        /// </para>
+        /// <para>
         /// For example, } in
         ///
+        /// <c><code>
         ///     if ($a -gt 4)
         ///     {
         ///         $a++;
         ///     }
-        ///
-        /// </remarks>
+        /// </code></c>
+        /// </para>
+        /// </summary>
         GroupEnd,
 
         /// <summary>
-        /// Keyword
-        /// </summary>
-        /// <remarks>
+        /// <para>
+        /// Keyword.
+        /// </para>
+        /// <para>
         /// For example, if in
         ///
+        /// <c><code>
         ///     if ($a -gt 4)
         ///     {
         ///         $a++;
         ///     }
-        ///
-        /// </remarks>
+        /// </code></c>
+        /// </para>
+        /// </summary>
         Keyword,
 
         /// <summary>
-        /// Comment
-        /// </summary>
-        /// <remarks>
+        /// <para>
+        /// Comment.
+        /// </para>
+        /// <para>
         /// For example, #here in
         ///
+        /// <c><code>
         ///     #here
         ///     if ($a -gt 4)
         ///     {
         ///         $a++;
         ///     }
-        ///
-        /// </remarks>
+        /// </code></c>
+        /// </para>
+        /// </summary>
         Comment,
 
         /// <summary>
+        /// <para>
         /// Statement separator. This is ';'
-        /// </summary>
-        /// <remarks>
+        /// </para>
+        /// <para>
         /// For example, ; in
         ///
+        /// <c><code>
         ///     #here
         ///     if ($a -gt 4)
         ///     {
         ///         $a++;
         ///     }
-        ///
-        /// </remarks>
+        /// </code></c>
+        /// </para>
+        /// </summary>
         StatementSeparator,
 
         /// <summary>
+        /// <para>
         /// New line. This is '\n'
-        /// </summary>
-        /// <remarks>
+        /// </para>
+        /// <para>
         /// For example, \n in
         ///
+        /// <c><code>
         ///     #here
         ///     if ($a -gt 4)
         ///     {
         ///         $a++;
         ///     }
-        ///
-        /// </remarks>
+        /// </code></c>
+        /// </para>
+        /// </summary>
         NewLine,
 
         /// <summary>
-        /// Line continuation
-        /// </summary>
-        /// <remarks>
+        /// <para>
+        /// Line continuation.
+        /// </para>
+        /// <para>
         /// For example, ` in
         ///
+        /// <c><code>
         ///     get-command -name `
         ///     foo
-        ///
-        /// </remarks>
+        /// </code></c>
+        /// </para>
+        /// </summary>
         LineContinuation,
 
         /// <summary>
-        /// Position token
-        /// </summary>
-        /// <remarks>
-        /// Position token are bogus tokens generated for identifying a location
+        /// <para>
+        /// Position token.
+        /// </para>
+        /// <para>
+        /// Position tokens are bogus tokens generated for identifying a location
         /// in the script.
-        /// </remarks>
+        /// </para>
+        /// </summary>
         Position
     }
 }

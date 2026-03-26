@@ -1,13 +1,12 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 #region Using directives
 
-using System.Collections;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Management.Automation;
 
 #endregion
 
@@ -20,9 +19,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
     internal class CimSetCimInstanceContext : XOperationContextBase
     {
         /// <summary>
-        /// <para>
-        /// Constructor
-        /// </para>
+        /// Initializes a new instance of the <see cref="CimSetCimInstanceContext"/> class.
         /// </summary>
         /// <param name="theNamespace"></param>
         /// <param name="theCollection"></param>
@@ -34,47 +31,26 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
             bool passThru)
         {
             this.proxy = theProxy;
-            this.property = theProperty;
+            this.Property = theProperty;
             this.nameSpace = theNamespace;
-            this.parameterSetName = theParameterSetName;
-            this.passThru = passThru;
+            this.ParameterSetName = theParameterSetName;
+            this.PassThru = passThru;
         }
 
         /// <summary>
         /// <para>property value</para>
         /// </summary>
-        internal IDictionary Property
-        {
-            get
-            {
-                return this.property;
-            }
-        }
-        private IDictionary property;
+        internal IDictionary Property { get; }
 
         /// <summary>
         /// <para>parameter set name</para>
         /// </summary>
-        internal string ParameterSetName
-        {
-            get
-            {
-                return this.parameterSetName;
-            }
-        }
-        private string parameterSetName;
+        internal string ParameterSetName { get; }
 
         /// <summary>
         /// <para>PassThru value</para>
         /// </summary>
-        internal bool PassThru
-        {
-            get
-            {
-                return this.passThru;
-            }
-        }
-        private bool passThru;
+        internal bool PassThru { get; }
     }
 
     /// <summary>
@@ -85,9 +61,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
     internal sealed class CimSetCimInstance : CimGetInstance
     {
         /// <summary>
-        /// <para>
-        /// Constructor
-        /// </para>
+        /// Initializes a new instance of the <see cref="CimSetCimInstance"/> class.
         /// </summary>
         public CimSetCimInstance()
             : base()
@@ -99,12 +73,12 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         /// Base on parametersetName to set ciminstances
         /// </para>
         /// </summary>
-        /// <param name="cmdlet"><see cref="SetCimInstanceCommand"/> object</param>
+        /// <param name="cmdlet"><see cref="SetCimInstanceCommand"/> object.</param>
         public void SetCimInstance(SetCimInstanceCommand cmdlet)
         {
             IEnumerable<string> computerNames = ConstValue.GetComputerNames(
                 GetComputerName(cmdlet));
-            List<CimSessionProxy> proxys = new List<CimSessionProxy>();
+            List<CimSessionProxy> proxys = new();
             switch (cmdlet.ParameterSetName)
             {
                 case CimBaseCommand.CimInstanceComputerSet:
@@ -113,6 +87,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                         // create CimSessionProxySetCimInstance object internally
                         proxys.Add(CreateSessionProxy(computerName, cmdlet.CimInstance, cmdlet, cmdlet.PassThru));
                     }
+
                     break;
                 case CimBaseCommand.CimInstanceSessionSet:
                     foreach (CimSession session in GetCimSession(cmdlet))
@@ -120,10 +95,12 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                         // create CimSessionProxySetCimInstance object internally
                         proxys.Add(CreateSessionProxy(session, cmdlet, cmdlet.PassThru));
                     }
+
                     break;
                 default:
                     break;
             }
+
             switch (cmdlet.ParameterSetName)
             {
                 case CimBaseCommand.CimInstanceComputerSet:
@@ -148,8 +125,10 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                                 return;
                             }
                         }
+
                         proxy.ModifyInstanceAsync(nameSpace, instance);
                     }
+
                     break;
                 case CimBaseCommand.QueryComputerSet:
                 case CimBaseCommand.QuerySessionSet:
@@ -181,6 +160,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                 cmdlet.ThrowTerminatingError(exception, action);
                 return;
             }
+
             CimSessionProxy proxy = CreateCimSessionProxy(context.Proxy, context.PassThru);
             proxy.ModifyInstanceAsync(cimInstance.CimSystemProperties.Namespace, cimInstance);
         }
@@ -205,6 +185,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                 // simply ignore if empty properties was provided
                 return true;
             }
+
             IDictionaryEnumerator enumerator = properties.GetEnumerator();
             while (enumerator.MoveNext())
             {
@@ -221,8 +202,8 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                         if ((property.Flags & CimFlags.ReadOnly) == CimFlags.ReadOnly)
                         {
                             // can not modify ReadOnly property
-                            exception = new CimException(String.Format(CultureInfo.CurrentUICulture,
-                                Strings.CouldNotModifyReadonlyProperty, key, cimInstance));
+                            exception = new CimException(string.Format(CultureInfo.CurrentUICulture,
+                                CimCmdletStrings.CouldNotModifyReadonlyProperty, key, cimInstance));
                             return false;
                         }
                         // allow modify the key property value as long as it is not readonly,
@@ -233,7 +214,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                     else // For dynamic instance, it is valid to add a new property
                     {
                         CimProperty newProperty;
-                        if( value == null )
+                        if (value == null)
                         {
                             newProperty = CimProperty.Create(
                                 key,
@@ -261,6 +242,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                                     CimFlags.Property);
                             }
                         }
+
                         try
                         {
                             cimInstance.CimInstanceProperties.Add(newProperty);
@@ -269,8 +251,8 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                         {
                             if (e.NativeErrorCode == NativeErrorCode.Failed)
                             {
-                                string errorMessage = String.Format(CultureInfo.CurrentUICulture,
-                                    Strings.UnableToAddPropertyToInstance,
+                                string errorMessage = string.Format(CultureInfo.CurrentUICulture,
+                                    CimCmdletStrings.UnableToAddPropertyToInstance,
                                     newProperty.Name,
                                     cimInstance);
                                 exception = new CimException(errorMessage, e);
@@ -279,8 +261,10 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                             {
                                 exception = e;
                             }
+
                             return false;
                         }
+
                         DebugHelper.WriteLog("Add non-key property name '{0}' with value '{1}'.", 3, key, value);
                     }
                 }
@@ -291,6 +275,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                     return false;
                 }
             }
+
             return true;
         }
 
@@ -298,9 +283,9 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
 
         #region const strings
         /// <summary>
-        /// action
+        /// Action.
         /// </summary>
         private const string action = @"Set-CimInstance";
         #endregion
-    }//End Class
-}//End namespace
+    }
+}

@@ -1,13 +1,13 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Text;
 using System.Globalization;
 using System.Management.Automation;
+using System.Text;
 
 namespace Microsoft.PowerShell.Commands.Internal.Format
 {
@@ -24,14 +24,15 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                 expressionResult = res[0];
                 return false;
             }
+
             return LanguagePrimitives.IsTrue(res[0].Result);
         }
     }
 
     /// <summary>
-    /// helper object holding a generic object and the related
+    /// Helper object holding a generic object and the related
     /// "applies to" object.
-    /// It is used in by the inheritance based type match algorithm
+    /// It is used in by the inheritance based type match algorithm.
     /// </summary>
     internal sealed class TypeMatchItem
     {
@@ -40,6 +41,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
             Item = obj;
             AppliesTo = a;
         }
+
         internal TypeMatchItem(object obj, AppliesTo a, PSObject currentObject)
         {
             Item = obj;
@@ -48,13 +50,15 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         }
 
         internal object Item { get; }
+
         internal AppliesTo AppliesTo { get; }
+
         internal PSObject CurrentObject { get; }
     }
 
     /// <summary>
-    /// algorithm to execute a type match on a list of entities
-    /// having an "applies to" associated object
+    /// Algorithm to execute a type match on a list of entities
+    /// having an "applies to" associated object.
     /// </summary>
     internal sealed class TypeMatch
     {
@@ -78,6 +82,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         {
             s_activeTracer = t;
         }
+
         internal static void ResetTracer()
         {
             s_activeTracer = s_classTracer;
@@ -112,6 +117,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                 _bestMatchIndex = match;
                 _bestMatchItem = item;
             }
+
             return _bestMatchIndex == BestMatchIndexPerfect;
         }
 
@@ -137,9 +143,8 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                 }
 
                 int currentMatch = BestMatchIndexUndefined;
-                TypeReference tr = r as TypeReference;
 
-                if (tr != null)
+                if (r is TypeReference tr)
                 {
                     // we have a type
                     currentMatch = MatchTypeIndex(tr.name, currentObject, ex);
@@ -158,6 +163,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                         currentMatch = ComputeBestMatchInGroup(tgd, currentObject, ex);
                     }
                 }
+
                 if (currentMatch == BestMatchIndexPerfect)
                     return currentMatch;
 
@@ -184,8 +190,10 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                 {
                     best = currentMatch;
                 }
+
                 k++;
             }
+
             return best;
         }
 
@@ -201,33 +209,30 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                 {
                     return k;
                 }
+
                 if (k == 0 && !_useInheritance)
                     break;
                 k++;
             }
+
             return BestMatchIndexUndefined;
         }
 
-        private bool MatchCondition(PSObject currentObject, PSPropertyExpression ex)
+        private static bool MatchCondition(PSObject currentObject, PSPropertyExpression ex)
         {
             if (ex == null)
                 return true;
 
             PSPropertyExpressionResult expressionResult;
             bool retVal = DisplayCondition.Evaluate(currentObject, ex, out expressionResult);
-            if (expressionResult != null && expressionResult.Exception != null)
-            {
-                _failedResultsList.Add(expressionResult);
-            }
+
             return retVal;
         }
 
-        private PSPropertyExpressionFactory _expressionFactory;
-        private TypeInfoDataBase _db;
-        private Collection<string> _typeNameHierarchy;
-        private bool _useInheritance;
-
-        private List<PSPropertyExpressionResult> _failedResultsList = new List<PSPropertyExpressionResult>();
+        private readonly PSPropertyExpressionFactory _expressionFactory;
+        private readonly TypeInfoDataBase _db;
+        private readonly Collection<string> _typeNameHierarchy;
+        private readonly bool _useInheritance;
 
         private int _bestMatchIndex = BestMatchIndexUndefined;
         private TypeMatchItem _bestMatchItem;
@@ -258,6 +263,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         {
             s_activeTracer = t;
         }
+
         internal static void ResetTracer()
         {
             s_activeTracer = s_classTracer;
@@ -274,6 +280,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                     return expansionDirective.enumerableExpansion;
                 }
             }
+
             if (match.BestMatch != null)
             {
                 return ((EnumerableExpansionDirective)(match.BestMatch)).enumerableExpansion;
@@ -304,6 +311,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                     return shapeSelOnType.formatShape;
                 }
             }
+
             if (match.BestMatch != null)
             {
                 return ((FormatShapeSelectionOnType)(match.BestMatch)).formatShape;
@@ -360,6 +368,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                 Diagnostics.Assert(false, "unknown shape: this should never happen unless a new shape is added");
                 return null;
             }
+
             return GetView(expressionFactory, db, t, typeNames, viewName);
         }
 
@@ -406,6 +415,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                         ControlBase.GetControlShapeName(vd.mainControl), (vd != null ? vd.name : string.Empty));
                     continue;
                 }
+
                 if (IsOutOfBandView(vd))
                 {
                     ActiveTracer.WriteLine(
@@ -413,6 +423,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                         ControlBase.GetControlShapeName(vd.mainControl), vd.name);
                     continue;
                 }
+
                 if (vd.appliesTo == null)
                 {
                     ActiveTracer.WriteLine(
@@ -445,6 +456,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                 {
                     TypeMatch.ResetTracer();
                 }
+
                 TraceHelper(vd, false);
             }
 
@@ -473,19 +485,27 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                 foreach (TypeOrGroupReference togr in vd.appliesTo.referenceList)
                 {
                     StringBuilder sb = new StringBuilder();
-                    TypeReference tr = togr as TypeReference;
                     sb.Append(isMatched ? "MATCH FOUND" : "NOT MATCH");
-                    if (tr != null)
+                    if (togr is TypeReference tr)
                     {
-                        sb.AppendFormat(CultureInfo.InvariantCulture, " {0} NAME: {1}  TYPE: {2}",
-                            ControlBase.GetControlShapeName(vd.mainControl), vd.name, tr.name);
+                        sb.AppendFormat(
+                            CultureInfo.InvariantCulture,
+                            " {0} NAME: {1}  TYPE: {2}",
+                            ControlBase.GetControlShapeName(vd.mainControl),
+                            vd.name,
+                            tr.name);
                     }
                     else
                     {
                         TypeGroupReference tgr = togr as TypeGroupReference;
-                        sb.AppendFormat(CultureInfo.InvariantCulture, " {0} NAME: {1}  GROUP: {2}",
-                            ControlBase.GetControlShapeName(vd.mainControl), vd.name, tgr.name);
+                        sb.AppendFormat(
+                            CultureInfo.InvariantCulture,
+                            " {0} NAME: {1}  GROUP: {2}",
+                            ControlBase.GetControlShapeName(vd.mainControl),
+                            vd.name,
+                            tgr.name);
                     }
+
                     ActiveTracer.WriteLine(sb.ToString());
                 }
             }
@@ -498,6 +518,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
             {
                 TraceHelper(bestMatchedVD, true);
             }
+
             return bestMatchedVD;
         }
 
@@ -517,6 +538,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                         ControlBase.GetControlShapeName(vd.mainControl), vd.name);
                     continue;
                 }
+
                 if (vd.appliesTo == null)
                 {
                     ActiveTracer.WriteLine(
@@ -524,6 +546,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                         ControlBase.GetControlShapeName(vd.mainControl), vd.name);
                     continue;
                 }
+
                 try
                 {
                     TypeMatch.SetTracer(ActiveTracer);
@@ -537,6 +560,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                 {
                     TypeMatch.ResetTracer();
                 }
+
                 TraceHelper(vd, false);
             }
             // this is the best match we had
@@ -562,31 +586,27 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         }
 
         /// <summary>
-        /// given an appliesTo list, it finds all the types that are contained (following type
+        /// Given an appliesTo list, it finds all the types that are contained (following type
         /// group references)
         /// </summary>
-        /// <param name="db">database to use</param>
-        /// <param name="appliesTo">object to lookup</param>
+        /// <param name="db">Database to use.</param>
+        /// <param name="appliesTo">Object to lookup.</param>
         /// <returns></returns>
         internal static AppliesTo GetAllApplicableTypes(TypeInfoDataBase db, AppliesTo appliesTo)
         {
-            Hashtable allTypes = new Hashtable(StringComparer.OrdinalIgnoreCase);
+            var allTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             foreach (TypeOrGroupReference r in appliesTo.referenceList)
             {
                 // if it is a type reference, just add the type name
-                TypeReference tr = r as TypeReference;
-                if (tr != null)
+                if (r is TypeReference tr)
                 {
-                    if (!allTypes.ContainsKey(tr.name))
-                        allTypes.Add(tr.name, null);
+                    allTypes.Add(tr.name);
                 }
                 else
                 {
                     // check if we have a type group reference
-                    TypeGroupReference tgr = r as TypeGroupReference;
-
-                    if (tgr == null)
+                    if (r is not TypeGroupReference tgr)
                         continue;
 
                     // find the type group definition the reference points to
@@ -598,16 +618,15 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                     // we found the group, go over it
                     foreach (TypeReference x in tgd.typeReferenceList)
                     {
-                        if (!allTypes.ContainsKey(x.name))
-                            allTypes.Add(x.name, null);
+                        allTypes.Add(x.name);
                     }
                 }
             }
 
             AppliesTo retVal = new AppliesTo();
-            foreach (DictionaryEntry x in allTypes)
+            foreach (string x in allTypes)
             {
-                retVal.AddAppliesToType(x.Key as string);
+                retVal.AddAppliesToType(x);
             }
 
             return retVal;
@@ -644,9 +663,10 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
             {
                 if (x.controlBody.GetType() != controlReference.controlType)
                     continue;
-                if (String.Compare(controlReference.name, x.name, StringComparison.OrdinalIgnoreCase) == 0)
+                if (string.Equals(controlReference.name, x.name, StringComparison.OrdinalIgnoreCase))
                     return x.controlBody;
             }
+
             return null;
         }
     }

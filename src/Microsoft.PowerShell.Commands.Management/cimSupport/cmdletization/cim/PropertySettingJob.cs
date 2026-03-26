@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using Microsoft.Management.Infrastructure;
@@ -7,7 +7,7 @@ using Microsoft.PowerShell.Cim;
 namespace Microsoft.PowerShell.Cmdletization.Cim
 {
     /// <summary>
-    /// Job wrapping invocation of a CreateInstance or ModifyInstance intrinsic CIM method
+    /// Job wrapping invocation of a CreateInstance or ModifyInstance intrinsic CIM method.
     /// </summary>
     internal abstract class PropertySettingJob<T> : MethodInvocationJobBase<T>
     {

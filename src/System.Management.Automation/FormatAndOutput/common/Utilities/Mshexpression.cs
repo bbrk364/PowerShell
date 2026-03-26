@@ -1,23 +1,23 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
-using System.Management.Automation;
-using System.Management.Automation.Internal;
-using System.Management.Automation.Language;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
+using System.Management.Automation;
+using System.Management.Automation.Internal;
+using System.Management.Automation.Language;
 using System.Runtime.CompilerServices;
 
 namespace Microsoft.PowerShell.Commands
 {
     /// <summary>
-    /// class that represents the results from evaluating a PSPropertyExpression against an object.
+    /// Class that represents the results from evaluating a PSPropertyExpression against an object.
     /// </summary>
     public class PSPropertyExpressionResult
     {
-
         /// <summary>
         /// Create a property expression result containing the original object, matching property expression
         /// and any exception generated during the match process.
@@ -53,9 +53,9 @@ namespace Microsoft.PowerShell.Commands
     public class PSPropertyExpression
     {
         /// <summary>
-        /// constructor
+        /// Constructor.
         /// </summary>
-        /// <param name="s">expression</param>
+        /// <param name="s">Expression.</param>
         /// <exception cref="ArgumentNullException"></exception>
         public PSPropertyExpression(string s)
             : this(s, false)
@@ -66,20 +66,21 @@ namespace Microsoft.PowerShell.Commands
         /// Create a property expression with a wildcard pattern.
         /// </summary>
         /// <param name="s">Property name pattern to match.</param>
-        /// <param name="isResolved"><c>true</c> if no further attempts should be made to resolve wildcards</param>
+        /// <param name="isResolved"><see langword="true"/> if no further attempts should be made to resolve wildcards.</param>
         /// <exception cref="ArgumentNullException"></exception>
         public PSPropertyExpression(string s, bool isResolved)
         {
             if (string.IsNullOrEmpty(s))
             {
-                throw PSTraceSource.NewArgumentNullException("s");
+                throw PSTraceSource.NewArgumentNullException(nameof(s));
             }
+
             _stringValue = s;
             _isResolved = isResolved;
         }
 
         /// <summary>
-        /// Create a property expression with a ScriptBlock
+        /// Create a property expression with a ScriptBlock.
         /// </summary>
         /// <param name="scriptBlock">ScriptBlock to evaluate when retrieving the property value from an object.</param>
         /// <exception cref="ArgumentNullException"></exception>
@@ -87,8 +88,9 @@ namespace Microsoft.PowerShell.Commands
         {
             if (scriptBlock == null)
             {
-                throw PSTraceSource.NewArgumentNullException("scriptBlock");
+                throw PSTraceSource.NewArgumentNullException(nameof(scriptBlock));
             }
+
             Script = scriptBlock;
         }
 
@@ -109,7 +111,7 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        /// Resolve the names matched by this the expression.
+        /// Resolve the names matched by the expression.
         /// </summary>
         /// <param name="target">The object to apply the expression against.</param>
         public List<PSPropertyExpression> ResolveNames(PSObject target)
@@ -132,7 +134,7 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        /// Resolve the names matched by this the expression.
+        /// Resolve the names matched by the expression.
         /// </summary>
         /// <param name="target">The object to apply the expression against.</param>
         /// <param name="expand">If the matched properties are property sets, expand them.</param>
@@ -158,33 +160,51 @@ namespace Microsoft.PowerShell.Commands
 
             // If the object passed in is a hashtable, then turn it into a PSCustomObject so
             // that property expressions can work on it.
-            target = IfHashtableWrapAsPSCustomObject(target);
+            var wrappedTarget = IfHashtableWrapAsPSCustomObject(target, out bool wasHashtable);
 
             // we have a string value
-            IEnumerable<PSMemberInfo> members = null;
+            IEnumerable<PSMemberInfo> members;
             if (HasWildCardCharacters)
             {
                 // get the members first: this will expand the globbing on each parameter
-                members = target.Members.Match(_stringValue,
-                                            PSMemberTypes.Properties | PSMemberTypes.PropertySet | PSMemberTypes.Dynamic);
+                members = wrappedTarget.Members.Match(
+                    _stringValue,
+                    PSMemberTypes.Properties | PSMemberTypes.PropertySet | PSMemberTypes.Dynamic);
+
+                // if target was a hashtable and no result is found from the keys, then use property value if available
+                if (wasHashtable && !members.Any())
+                {
+                    members = target.Members.Match(
+                        _stringValue,
+                        PSMemberTypes.Properties | PSMemberTypes.PropertySet | PSMemberTypes.Dynamic);
+                }
             }
             else
             {
                 // we have no globbing: try an exact match, because this is quicker.
-                PSMemberInfo x = target.Members[_stringValue];
+                PSMemberInfo x = wrappedTarget.Members[_stringValue];
 
-                if ((x == null) && (target.BaseObject is System.Dynamic.IDynamicMetaObjectProvider))
+                if (x == null)
                 {
-                    // We could check if GetDynamicMemberNames includes the name...  but
-                    // GetDynamicMemberNames is only a hint, not a contract, so we'd want
-                    // to attempt the binding whether it's in there or not.
-                    x = new PSDynamicMember(_stringValue);
+                    if (wasHashtable)
+                    {
+                        x = target.Members[_stringValue];
+                    }
+                    else if (wrappedTarget.BaseObject is System.Dynamic.IDynamicMetaObjectProvider)
+                    {
+                        // We could check if GetDynamicMemberNames includes the name...  but
+                        // GetDynamicMemberNames is only a hint, not a contract, so we'd want
+                        // to attempt the binding whether it's in there or not.
+                        x = new PSDynamicMember(_stringValue);
+                    }
                 }
+
                 List<PSMemberInfo> temp = new List<PSMemberInfo>();
                 if (x != null)
                 {
                     temp.Add(x);
                 }
+
                 members = temp;
             }
 
@@ -195,8 +215,7 @@ namespace Microsoft.PowerShell.Commands
             foreach (PSMemberInfo member in members)
             {
                 // it can be a property set
-                PSPropertySet propertySet = member as PSPropertySet;
-                if (propertySet != null)
+                if (member is PSPropertySet propertySet)
                 {
                     if (expand)
                     {
@@ -228,19 +247,19 @@ namespace Microsoft.PowerShell.Commands
                 }
             }
 
-            Hashtable hash = new Hashtable();
+            var allMembers = new HashSet<string>();
 
             // build the list of unique values: remove the possible duplicates
             // from property set expansion
             foreach (PSMemberInfo m in temporaryMemberList)
             {
-                if (!hash.ContainsKey(m.Name))
+                if (!allMembers.Contains(m.Name))
                 {
                     PSPropertyExpression ex = new PSPropertyExpression(m.Name);
 
                     ex._isResolved = true;
                     retVal.Add(ex);
-                    hash.Add(m.Name, null);
+                    allMembers.Add(m.Name);
                 }
             }
 
@@ -266,10 +285,6 @@ namespace Microsoft.PowerShell.Commands
         {
             List<PSPropertyExpressionResult> retVal = new List<PSPropertyExpressionResult>();
 
-            // If the object passed in is a hashtable, then turn it into a PSCustomObject so
-            // that property expressions can work on it.
-            target = IfHashtableWrapAsPSCustomObject(target);
-
             // process the script case
             if (Script != null)
             {
@@ -279,13 +294,10 @@ namespace Microsoft.PowerShell.Commands
                 return retVal;
             }
 
-            // process the expression
-            List<PSPropertyExpression> resolvedExpressionList = this.ResolveNames(target, expand);
-
-            foreach (PSPropertyExpression re in resolvedExpressionList)
+            foreach (PSPropertyExpression resolvedName in ResolveNames(target, expand))
             {
-                PSPropertyExpressionResult r = re.GetValue(target, eatExceptions);
-                retVal.Add(r);
+                PSPropertyExpressionResult result = resolvedName.GetValue(target, eatExceptions);
+                retVal.Add(result);
             }
 
             return retVal;
@@ -309,19 +321,17 @@ namespace Microsoft.PowerShell.Commands
                         dollarUnder: target,
                         input: AutomationNull.Value,
                         scriptThis: AutomationNull.Value,
-                        args: Utils.EmptyArray<object>());
+                        args: Array.Empty<object>());
                 }
                 else
                 {
-                    if (_getValueDynamicSite == null)
-                    {
-                        _getValueDynamicSite =
-                            CallSite<Func<CallSite, object, object>>.Create(
-                                    PSGetMemberBinder.Get(
-                                        _stringValue,
-                                        classScope: (Type) null,
-                                        @static: false));
-                    }
+                    _getValueDynamicSite ??=
+                        CallSite<Func<CallSite, object, object>>.Create(
+                            PSGetMemberBinder.Get(
+                                _stringValue,
+                                classScope: (Type)null,
+                                @static: false));
+
                     result = _getValueDynamicSite.Target.Invoke(_getValueDynamicSite, target);
                 }
 
@@ -339,23 +349,68 @@ namespace Microsoft.PowerShell.Commands
                 }
             }
         }
-        
-        private PSObject IfHashtableWrapAsPSCustomObject(PSObject target)
+
+        private static PSObject IfHashtableWrapAsPSCustomObject(PSObject target, out bool wrapped)
         {
+            wrapped = false;
+
             // If the object passed in is a hashtable, then turn it into a PSCustomObject so
             // that property expressions can work on it.
             if (PSObject.Base(target) is Hashtable targetAsHash)
             {
-                target = (PSObject)(LanguagePrimitives.ConvertPSObjectToType(targetAsHash, typeof(PSObject), false, null, true));
+                wrapped = true;
+                return (PSObject)(LanguagePrimitives.ConvertPSObjectToType(
+                    targetAsHash,
+                    typeof(PSObject),
+                    recursion: false,
+                    formatProvider: null,
+                    ignoreUnknownMembers: true));
             }
+
             return target;
         }
 
         // private members
-        private string _stringValue;
+        private readonly string _stringValue;
         private bool _isResolved = false;
 
         #endregion Private Members
+
+    }
+
+    /// <summary>
+    /// Helper class to do wildcard matching on PSPropertyExpressions.
+    /// </summary>
+    internal sealed class PSPropertyExpressionFilter
+    {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="PSPropertyExpressionFilter"/> class
+        /// with the specified array of patterns.
+        /// </summary>
+        /// <param name="wildcardPatternsStrings">Array of pattern strings to use.</param>
+        internal PSPropertyExpressionFilter(string[] wildcardPatternsStrings)
+        {
+            ArgumentNullException.ThrowIfNull(wildcardPatternsStrings);
+
+            _wildcardPatterns = new WildcardPattern[wildcardPatternsStrings.Length];
+            for (int k = 0; k < wildcardPatternsStrings.Length; k++)
+            {
+                _wildcardPatterns[k] = WildcardPattern.Get(wildcardPatternsStrings[k], WildcardOptions.IgnoreCase);
+            }
+        }
+
+        /// <summary>
+        /// Try to match the expression against the array of wildcard patterns.
+        /// The first match short-circuits the search.
+        /// </summary>
+        /// <param name="expression">PSPropertyExpression to test against.</param>
+        /// <returns>True if there is a match, else false.</returns>
+        internal bool IsMatch(PSPropertyExpression expression)
+        {
+            string expressionString = expression.ToString();
+            return _wildcardPatterns.Any(pattern => pattern.IsMatch(expressionString));
+        }
+
+        private readonly WildcardPattern[] _wildcardPatterns;
     }
 }
-

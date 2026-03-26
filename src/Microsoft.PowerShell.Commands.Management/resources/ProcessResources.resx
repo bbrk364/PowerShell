@@ -120,6 +120,9 @@
   <data name="NoProcessFoundForGivenName" xml:space="preserve">
     <value>Cannot find a process with the name "{0}". Verify the process name and call the cmdlet again.</value>
   </data>
+  <data name="RecommendIdTagForGivenName" xml:space="preserve">
+    <value>Cannot find a process with the name "{0}". Try running with -Id to search by Id of processes.</value>
+  </data>
   <data name="NoDebuggerFound" xml:space="preserve">
     <value>This command cannot be run because the debugger cannot be attached to the process "{0} ({1})". Specify another process and Run your command.</value>
   </data>
@@ -172,7 +175,7 @@
     <value>This command stopped operation because process "{0} ({1})" is not stopped in the specified time-out.</value>
   </data>
   <data name="InvalidStartProcess" xml:space="preserve">
-    <value>This command cannot be run due to the error: {0}.</value>
+    <value>This command cannot be run due to the error: {0}</value>
   </data>
   <data name="InvalidApplication" xml:space="preserve">
     <value>This command cannot be run because the input "{0}" is not a valid Application.  Give a valid application and run your command again.</value>
@@ -185,6 +188,9 @@
   </data>
   <data name="CannotStarttheProcess" xml:space="preserve">
     <value>This command cannot be run completely because the system cannot find all the information required.</value>
+  </data>
+  <data name="FailedToCreateProcessObject" xml:space="preserve">
+    <value>Failed to retrieve the new process handle: "{0}". The Process object outputted may have some properties and methods that do not work properly.</value>
   </data>
   <data name="InvalidUserError" xml:space="preserve">
     <value>This command cannot be run due to error 1783. The possible cause of this error can be using of a non-existing user "{0}". Please give a valid user and run your command again.</value>
@@ -200,9 +206,6 @@
   </data>
   <data name="ContradictParametersSpecified" xml:space="preserve">
     <value>Parameters "{0}" and "{1}" cannot be specified at the same time.</value>
-  </data>
-  <data name="IncludeUserNameRequiresElevation" xml:space="preserve">
-    <value>The 'IncludeUserName' parameter requires elevated user rights. Try running the command again in a session that has been opened with elevated user rights (that is, Run as Administrator).</value>
   </data>
   <data name="CouldNotDebugProcess" xml:space="preserve">
     <value>Cannot debug process "{0} ({1})" because of the following error: {2}</value>

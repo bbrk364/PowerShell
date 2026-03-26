@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 #region Using directives
@@ -24,18 +24,19 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         /// Returns an Object value for an operation context
         /// </para>
         /// </summary>
-        public Object Context
+        public object Context
         {
             get
             {
                 return context;
             }
         }
-        internal Object context;
+
+        internal object context;
     }
 
     /// <summary>
-    /// Cimindication exception event args, which containing occurred exception
+    /// Cimindication exception event args, which containing occurred exception.
     /// </summary>
     public class CimIndicationEventExceptionEventArgs : CimIndicationEventArgs
     {
@@ -44,25 +45,16 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         /// Returns an exception
         /// </para>
         /// </summary>
-        public Exception Exception
-        {
-            get
-            {
-                return exception;
-            }
-        }
-        private Exception exception;
+        public Exception Exception { get; }
 
         /// <summary>
-        /// <para>
-        /// Constructor
-        /// </para>
+        /// Initializes a new instance of the <see cref="CimIndicationEventExceptionEventArgs"/> class.
         /// </summary>
         /// <param name="result"></param>
         public CimIndicationEventExceptionEventArgs(Exception theException)
         {
             context = null;
-            this.exception = theException;
+            this.Exception = theException;
         }
     }
 
@@ -73,42 +65,40 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
     public class CimIndicationEventInstanceEventArgs : CimIndicationEventArgs
     {
         /// <summary>
-        /// Get ciminstance of the indication object
+        /// Get ciminstance of the indication object.
         /// </summary>
         public CimInstance NewEvent
         {
             get
             {
-                return (result == null) ? null : result.Instance;
+                return result?.Instance;
             }
         }
 
         /// <summary>
-        /// Get MachineId of the indication object
+        /// Get MachineId of the indication object.
         /// </summary>
         public string MachineId
         {
             get
             {
-                return (result == null) ? null : result.MachineId;
+                return result?.MachineId;
             }
         }
 
         /// <summary>
-        /// Get BookMark of the indication object
+        /// Get BookMark of the indication object.
         /// </summary>
         public string Bookmark
         {
             get
             {
-                return (result == null) ? null : result.Bookmark;
+                return result?.Bookmark;
             }
         }
 
         /// <summary>
-        /// <para>
-        /// Constructor
-        /// </para>
+        /// Initializes a new instance of the <see cref="CimIndicationEventInstanceEventArgs"/> class.
         /// </summary>
         /// <param name="result"></param>
         public CimIndicationEventInstanceEventArgs(CimSubscriptionResult result)
@@ -122,7 +112,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         /// subscription result
         /// </para>
         /// </summary>
-        private CimSubscriptionResult result;
+        private readonly CimSubscriptionResult result;
     }
 
     /// <summary>
@@ -135,7 +125,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
     public class CimIndicationWatcher
     {
         /// <summary>
-        /// status of <see cref="CimIndicationWatcher"/> object.
+        /// Status of <see cref="CimIndicationWatcher"/> object.
         /// </summary>
         internal enum Status
         {
@@ -152,9 +142,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         public event EventHandler<CimIndicationEventArgs> CimIndicationArrived;
 
         /// <summary>
-        /// <para>
-        /// Constructor with given computerName, namespace, queryExpression and timeout
-        /// </para>
+        /// Initializes a new instance of the <see cref="CimIndicationWatcher"/> class.
         /// </summary>
         /// <param name="computerName"></param>
         /// <param name="nameSpace"></param>
@@ -165,7 +153,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
             string theNamespace,
             string queryDialect,
             string queryExpression,
-            UInt32 operationTimeout)
+            uint operationTimeout)
         {
             ValidationHelper.ValidateNoNullorWhiteSpaceArgument(queryExpression, queryExpressionParameterName);
             computerName = ConstValue.GetComputerName(computerName);
@@ -174,9 +162,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         }
 
         /// <summary>
-        /// <para>
-        /// Constructor with given cimsession, namespace, queryExpression and timeout
-        /// </para>
+        /// Initializes a new instance of the <see cref="CimIndicationWatcher"/> class.
         /// </summary>
         /// <param name="cimSession"></param>
         /// <param name="nameSpace"></param>
@@ -187,7 +173,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
             string theNamespace,
             string queryDialect,
             string queryExpression,
-            UInt32 operationTimeout)
+            uint operationTimeout)
         {
             ValidationHelper.ValidateNoNullorWhiteSpaceArgument(queryExpression, queryExpressionParameterName);
             ValidationHelper.ValidateNoNullArgument(cimSession, cimSessionParameterName);
@@ -206,7 +192,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
             string theNameSpace,
             string theQueryDialect,
             string theQueryExpression,
-            UInt32 theOperationTimeout)
+            uint theOperationTimeout)
         {
             enableRaisingEvents = false;
             status = Status.Default;
@@ -235,14 +221,11 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
             if (temp != null)
             {
                 // raise the event
-                CimSubscriptionResultEventArgs resultArgs = args as CimSubscriptionResultEventArgs;
-                if (resultArgs != null)
+                if (args is CimSubscriptionResultEventArgs resultArgs)
                     temp(this, new CimIndicationEventInstanceEventArgs(resultArgs.Result));
-                else
+                else if (args is CimSubscriptionExceptionEventArgs exceptionArgs)
                 {
-                    CimSubscriptionExceptionEventArgs exceptionArgs = args as CimSubscriptionExceptionEventArgs;
-                    if (exceptionArgs != null)
-                        temp(this, new CimIndicationEventExceptionEventArgs(exceptionArgs.Exception));
+                    temp(this, new CimIndicationEventExceptionEventArgs(exceptionArgs.Exception));
                 }
             }
         }
@@ -256,13 +239,14 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         /// If set EnableRaisingEvents to false, which will be ignored
         /// </para>
         /// </summary>
-        [BrowsableAttribute(false)]
+        [Browsable(false)]
         public bool EnableRaisingEvents
         {
             get
             {
                 return enableRaisingEvents;
             }
+
             set
             {
                 DebugHelper.WriteLogEx();
@@ -273,6 +257,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                 }
             }
         }
+
         private bool enableRaisingEvents;
 
         /// <summary>
@@ -284,7 +269,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         {
             DebugHelper.WriteLogEx();
 
-            lock(myLock)
+            lock (myLock)
             {
                 if (status == Status.Default)
                 {
@@ -306,6 +291,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                             this.queryExpression,
                             this.operationTimeout);
                     }
+
                     status = Status.Started;
                 }
             }
@@ -329,6 +315,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                         DebugHelper.WriteLog("Dispose CimRegisterCimIndication object", 4);
                         this.cimRegisterCimIndication.Dispose();
                     }
+
                     status = Status.Stopped;
                 }
             }
@@ -337,7 +324,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         #region internal method
         /// <summary>
         /// Set the cmdlet object to throw ThrowTerminatingError
-        /// in case there is a subscription failure
+        /// in case there is a subscription failure.
         /// </summary>
         /// <param name="cmdlet"></param>
         internal void SetCmdlet(Cmdlet cmdlet)
@@ -358,22 +345,22 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         private CimRegisterCimIndication cimRegisterCimIndication;
 
         /// <summary>
-        /// the status of <see cref="CimIndicationWatcher"/> object
+        /// The status of <see cref="CimIndicationWatcher"/> object.
         /// </summary>
         private Status status;
 
         /// <summary>
-        /// lock started field
+        /// Lock started field.
         /// </summary>
         private object myLock;
 
         /// <summary>
-        /// CimSession parameter name
+        /// CimSession parameter name.
         /// </summary>
         private const string cimSessionParameterName = "cimSession";
 
         /// <summary>
-        /// QueryExpression parameter name
+        /// QueryExpression parameter name.
         /// </summary>
         private const string queryExpressionParameterName = "queryExpression";
 
@@ -388,8 +375,8 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         private string nameSpace;
         private string queryDialect;
         private string queryExpression;
-        private UInt32 operationTimeout;
+        private uint operationTimeout;
         #endregion
         #endregion
     }
-}//End namespace
+}

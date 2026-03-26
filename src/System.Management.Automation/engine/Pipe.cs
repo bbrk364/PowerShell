@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Collections;
@@ -16,7 +16,7 @@ namespace System.Management.Automation.Internal
         Error,
         Warning,
         Information
-    };
+    }
 
     /// <summary>
     /// Pipe provides a way to stitch two commands.
@@ -28,7 +28,7 @@ namespace System.Management.Automation.Internal
     /// </remarks>
     internal class Pipe
     {
-        private ExecutionContext _context;
+        private readonly ExecutionContext _context;
 
         // If a pipeline object has been added, then
         // write objects to it, stepping one at a time...
@@ -40,13 +40,18 @@ namespace System.Management.Automation.Internal
         /// </summary>
         internal CommandProcessorBase DownstreamCmdlet
         {
-            get { return _downstreamCmdlet; }
+            get
+            {
+                return _downstreamCmdlet;
+            }
+
             set
             {
                 Diagnostics.Assert(_resultList == null, "Tried to set downstream cmdlet when _resultList not null");
                 _downstreamCmdlet = value;
             }
         }
+
         private CommandProcessorBase _downstreamCmdlet;
 
         /// <summary>
@@ -74,17 +79,22 @@ namespace System.Management.Automation.Internal
         /// </summary>
         internal PipelineWriter ExternalWriter
         {
-            get { return _externalWriter; }
+            get
+            {
+                return _externalWriter;
+            }
+
             set
             {
                 Diagnostics.Assert(_resultList == null, "Tried to set Pipe ExternalWriter when resultList not null");
                 _externalWriter = value;
             }
         }
+
         private PipelineWriter _externalWriter;
 
         /// <summary>
-        /// for diagnostic purposes
+        /// For diagnostic purposes.
         /// </summary>
         /// <returns></returns>
         public override string ToString()
@@ -95,22 +105,34 @@ namespace System.Management.Automation.Internal
         }
 
         /// <summary>
-        /// OutBufferCount configures the number of objects to buffer before calling the downstream Cmdlet
+        /// OutBufferCount configures the number of objects to buffer before calling the downstream Cmdlet.
         /// </summary>
         internal int OutBufferCount { get; set; } = 0;
+
+        /// <summary>
+        /// Gets whether the out variable list should be ignored.
+        /// This is used for scenarios like the `clean` block, where writing to output stream is intentionally
+        /// disabled and thus out variables should also be ignored.
+        /// </summary>
+        internal bool IgnoreOutVariableList { get; set; }
 
         /// <summary>
         /// If true, then all input added to this pipe will simply be discarded...
         /// </summary>
         internal bool NullPipe
         {
-            get { return _nullPipe; }
+            get
+            {
+                return _nullPipe;
+            }
+
             set
             {
                 _isRedirected = true;
                 _nullPipe = value;
             }
         }
+
         private bool _nullPipe;
 
         /// <summary>
@@ -147,6 +169,7 @@ namespace System.Management.Automation.Internal
         {
             get { return _downstreamCmdlet != null || _isRedirected; }
         }
+
         private bool _isRedirected;
 
         /// <summary>
@@ -210,31 +233,23 @@ namespace System.Management.Automation.Internal
             switch (kind)
             {
                 case VariableStreamKind.Error:
-                    if (_errorVariableList == null)
-                    {
-                        _errorVariableList = new List<IList>();
-                    }
+                    _errorVariableList ??= new List<IList>();
+
                     _errorVariableList.Add(list);
                     break;
                 case VariableStreamKind.Warning:
-                    if (_warningVariableList == null)
-                    {
-                        _warningVariableList = new List<IList>();
-                    }
+                    _warningVariableList ??= new List<IList>();
+
                     _warningVariableList.Add(list);
                     break;
                 case VariableStreamKind.Output:
-                    if (_outVariableList == null)
-                    {
-                        _outVariableList = new List<IList>();
-                    }
+                    _outVariableList ??= new List<IList>();
+
                     _outVariableList.Add(list);
                     break;
                 case VariableStreamKind.Information:
-                    if (_informationVariableList == null)
-                    {
-                        _informationVariableList = new List<IList>();
-                    }
+                    _informationVariableList ??= new List<IList>();
+
                     _informationVariableList.Add(list);
                     break;
             }
@@ -288,7 +303,7 @@ namespace System.Management.Automation.Internal
             CopyVariableToTempPipe(VariableStreamKind.Information, _informationVariableList, tempPipe);
         }
 
-        private void CopyVariableToTempPipe(VariableStreamKind streamKind, List<IList> variableList, Pipe tempPipe)
+        private static void CopyVariableToTempPipe(VariableStreamKind streamKind, List<IList> variableList, Pipe tempPipe)
         {
             if (variableList != null && variableList.Count > 0)
             {
@@ -302,7 +317,7 @@ namespace System.Management.Automation.Internal
         #region ctor
 
         /// <summary>
-        /// Default constructor - Creates the object queue
+        /// Default constructor - Creates the object queue.
         /// </summary>
         /// <remarks>
         /// The initial Queue capacity is 1, but it will grow automatically.
@@ -313,7 +328,7 @@ namespace System.Management.Automation.Internal
         }
 
         /// <summary>
-        /// This overload causes output to be written into a List
+        /// This overload causes output to be written into a List.
         /// </summary>
         /// <param name="resultList"></param>
         internal Pipe(List<object> resultList)
@@ -322,27 +337,29 @@ namespace System.Management.Automation.Internal
             _isRedirected = true;
             _resultList = resultList;
         }
+
         private readonly List<object> _resultList;
 
         /// <summary>
         /// This overload causes output to be
         /// written onto an Collection[PSObject] which is more useful
-        /// in many circumstances than arraylist
+        /// in many circumstances than arraylist.
         /// </summary>
-        /// <param name="resultCollection">The collection to write into</param>
+        /// <param name="resultCollection">The collection to write into.</param>
         internal Pipe(System.Collections.ObjectModel.Collection<PSObject> resultCollection)
         {
             Diagnostics.Assert(resultCollection != null, "resultCollection cannot be null");
             _isRedirected = true;
             _resultCollection = resultCollection;
         }
-        private System.Collections.ObjectModel.Collection<PSObject> _resultCollection;
+
+        private readonly System.Collections.ObjectModel.Collection<PSObject> _resultCollection;
 
         /// <summary>
         /// This pipe writes into another pipeline processor allowing
         /// pipelines to be chained together...
         /// </summary>
-        /// <param name="context">The execution context object for this engine instance</param>
+        /// <param name="context">The execution context object for this engine instance.</param>
         /// <param name="outputPipeline">The pipeline to write into...</param>
         internal Pipe(ExecutionContext context, PipelineProcessor outputPipeline)
         {
@@ -366,7 +383,8 @@ namespace System.Management.Automation.Internal
             // assume that there is some stuff to read
             _enumeratorToProcessIsEmpty = false;
         }
-        private IEnumerator _enumeratorToProcess;
+
+        private readonly IEnumerator _enumeratorToProcess;
         private bool _enumeratorToProcessIsEmpty;
 
         #endregion ctor
@@ -375,7 +393,7 @@ namespace System.Management.Automation.Internal
         /// Writes an object to the pipe.  This could recursively call to the
         /// downstream cmdlet, or write the object to the external output.
         /// </summary>
-        /// <param name="obj">The object to add to the pipe</param>
+        /// <param name="obj">The object to add to the pipe.</param>
         /// <remarks>
         /// AutomationNull.Value is ignored
         /// </remarks>
@@ -496,7 +514,7 @@ namespace System.Management.Automation.Internal
                 // If our object came from GetEnumerator (and hence is not IEnumerator), then we need to dispose
                 // Otherwise, we don't own the object, so don't dispose.
                 var disposable = ie as IDisposable;
-                if (disposable != null && !(objects is IEnumerator))
+                if (disposable != null && objects is not IEnumerator)
                 {
                     disposable.Dispose();
                 }
@@ -511,7 +529,7 @@ namespace System.Management.Automation.Internal
             {
                 _downstreamCmdlet.DoExecute();
             }
-        } // internal void AddItems(object objects)
+        }
 
         /// <summary>
         /// Returns an object from the pipe. If pipe is empty returns null.
@@ -529,15 +547,28 @@ namespace System.Management.Automation.Internal
             else if (_enumeratorToProcess != null)
             {
                 if (_enumeratorToProcessIsEmpty)
-                    return AutomationNull.Value;
-
-                if (!ParserOps.MoveNext(_context, null, _enumeratorToProcess))
                 {
-                    _enumeratorToProcessIsEmpty = true;
                     return AutomationNull.Value;
                 }
 
-                return ParserOps.Current(null, _enumeratorToProcess);
+                while (true)
+                {
+                    if (!ParserOps.MoveNext(_context, errorPosition: null, _enumeratorToProcess))
+                    {
+                        _enumeratorToProcessIsEmpty = true;
+                        return AutomationNull.Value;
+                    }
+
+                    object retValue = ParserOps.Current(errorPosition: null, _enumeratorToProcess);
+                    if (retValue == AutomationNull.Value)
+                    {
+                        // 'AutomationNull.Value' from the enumerator won't be sent to the pipeline.
+                        // We try to get the next value in this case.
+                        continue;
+                    }
+
+                    return retValue;
+                }
             }
             else if (ExternalReader != null)
             {
@@ -553,6 +584,7 @@ namespace System.Management.Automation.Internal
                         // again if it already reported completion.
                         ExternalReader = null;
                     }
+
                     return o;
                 }
                 catch (PipelineClosedException)
@@ -571,18 +603,14 @@ namespace System.Management.Automation.Internal
         /// <summary>
         /// Removes all the objects from the Pipe.
         /// </summary>
-        internal void Clear()
-        {
-            if (ObjectQueue != null)
-                ObjectQueue.Clear();
-        }
+        internal void Clear() => ObjectQueue?.Clear();
 
         /// <summary>
         /// Returns the currently queued items in the pipe.  Note that this will
         /// not block on ExternalInput, and it does not modify the contents of
         /// the pipe.
         /// </summary>
-        /// <returns>possibly empty array of objects, but not null</returns>
+        /// <returns>Possibly empty array of objects, but not null.</returns>
         internal object[] ToArray()
         {
             if (ObjectQueue == null || ObjectQueue.Count == 0)
@@ -591,4 +619,4 @@ namespace System.Management.Automation.Internal
             return ObjectQueue.ToArray();
         }
     }
-} // namespace System.Management.Automation.Internal
+}

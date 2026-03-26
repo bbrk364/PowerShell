@@ -1,32 +1,31 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
+
+using System;
+using System.Collections.Generic;
+using System.Management.Automation;
+using System.Management.Automation.Host;
+using System.Management.Automation.Internal;
+
+using Microsoft.PowerShell.Commands.Internal.Format;
 
 namespace Microsoft.PowerShell.Commands
 {
-    using System;
-    using System.Collections;
-    using System.Management.Automation;
-    using System.Management.Automation.Host;
-    using System.Management.Automation.Internal;
-    using Microsoft.PowerShell.Commands.Internal.Format;
-
-    ///
     /// <summary>
-    /// Null sink to absorb pipeline output
+    /// Null sink to absorb pipeline output.
     /// </summary>
-    [CmdletAttribute("Out", "Null", SupportsShouldProcess = false,
-        HelpUri = "https://go.microsoft.com/fwlink/?LinkID=113366", RemotingCapability = RemotingCapability.None)]
+    [Cmdlet("Out", "Null", SupportsShouldProcess = false,
+        HelpUri = "https://go.microsoft.com/fwlink/?LinkID=2096792", RemotingCapability = RemotingCapability.None)]
     public class OutNullCommand : PSCmdlet
     {
         /// <summary>
-        /// This parameter specifies the current pipeline object
+        /// This parameter specifies the current pipeline object.
         /// </summary>
         [Parameter(ValueFromPipeline = true)]
-        public PSObject InputObject { set; get; } = AutomationNull.Value;
+        public PSObject InputObject { get; set; } = AutomationNull.Value;
 
-        ///
         /// <summary>
-        /// Do nothing
+        /// Do nothing.
         /// </summary>
         protected override void ProcessRecord()
         {
@@ -36,12 +35,12 @@ namespace Microsoft.PowerShell.Commands
     }
 
     /// <summary>
-    /// implementation for the out-default command
+    /// Implementation for the out-default command
     /// this command it implicitly inject by the
     /// powershell host at the end of the pipeline as the
     /// default sink (display to console screen)
     /// </summary>
-    [Cmdlet(VerbsData.Out, "Default", HelpUri = "https://go.microsoft.com/fwlink/?LinkID=113362", RemotingCapability = RemotingCapability.None)]
+    [Cmdlet(VerbsData.Out, "Default", HelpUri = "https://go.microsoft.com/fwlink/?LinkID=2096486", RemotingCapability = RemotingCapability.None)]
     public class OutDefaultCommand : FrontEndCommandBase
     {
         /// <summary>
@@ -50,11 +49,11 @@ namespace Microsoft.PowerShell.Commands
         /// invoked via API. This ensures that the objects pass through the formatting and output
         /// system, but can still make it to the API consumer.
         /// </summary>
-        [Parameter()]
+        [Parameter]
         public SwitchParameter Transcript { get; set; }
 
         /// <summary>
-        /// set inner command
+        /// Set inner command.
         /// </summary>
         public OutDefaultCommand()
         {
@@ -62,18 +61,15 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        /// just hook up the LineOutput interface
+        /// Just hook up the LineOutput interface.
         /// </summary>
         protected override void BeginProcessing()
         {
-            PSHostUserInterface console = this.Host.UI;
-            ConsoleLineOutput lineOutput = new ConsoleLineOutput(console, false, new TerminatingErrorContext(this));
+            var lineOutput = new ConsoleLineOutput(Host, false, new TerminatingErrorContext(this));
 
             ((OutputManagerInner)this.implementation).LineOutput = lineOutput;
 
-            MshCommandRuntime mrt = this.CommandRuntime as MshCommandRuntime;
-
-            if (mrt != null)
+            if (this.CommandRuntime is MshCommandRuntime mrt)
             {
                 mrt.MergeUnclaimedPreviousErrorResults = true;
             }
@@ -89,12 +85,12 @@ namespace Microsoft.PowerShell.Commands
 
             if (Context.CurrentCommandProcessor.CommandRuntime.OutVarList != null)
             {
-                _outVarResults = new ArrayList();
+                _outVarResults = new List<PSObject>();
             }
         }
 
         /// <summary>
-        /// Process the OutVar, if set
+        /// Process the OutVar, if set.
         /// </summary>
         protected override void ProcessRecord()
         {
@@ -107,14 +103,13 @@ namespace Microsoft.PowerShell.Commands
             // doesn't actually write pipeline objects.
             if (_outVarResults != null)
             {
-                Object inputObjectBase = PSObject.Base(InputObject);
+                object inputObjectBase = PSObject.Base(InputObject);
 
                 // Ignore errors and formatting records, as those can't be captured
-                if (
-                    (inputObjectBase != null) &&
-                    (!(inputObjectBase is ErrorRecord)) &&
-                    (!inputObjectBase.GetType().FullName.StartsWith(
-                        "Microsoft.PowerShell.Commands.Internal.Format", StringComparison.OrdinalIgnoreCase)))
+                if (inputObjectBase != null &&
+                    inputObjectBase is not ErrorRecord &&
+                    !inputObjectBase.GetType().FullName.StartsWith(
+                        "Microsoft.PowerShell.Commands.Internal.Format", StringComparison.OrdinalIgnoreCase))
                 {
                     _outVarResults.Add(InputObject);
                 }
@@ -133,10 +128,11 @@ namespace Microsoft.PowerShell.Commands
             if ((_outVarResults != null) && (_outVarResults.Count > 0))
             {
                 Context.CurrentCommandProcessor.CommandRuntime.OutVarList.Clear();
-                foreach (Object item in _outVarResults)
+                foreach (object item in _outVarResults)
                 {
                     Context.CurrentCommandProcessor.CommandRuntime.OutVarList.Add(item);
                 }
+
                 _outVarResults = null;
             }
 
@@ -144,7 +140,7 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        /// Revert transcription state on Dispose
+        /// Revert transcription state on Dispose.
         /// </summary>
         protected override void InternalDispose()
         {
@@ -162,27 +158,27 @@ namespace Microsoft.PowerShell.Commands
             }
         }
 
-        private ArrayList _outVarResults = null;
+        private List<PSObject> _outVarResults = null;
         private IDisposable _transcribeOnlyCookie = null;
     }
 
     /// <summary>
-    /// implementation for the out-host command
+    /// Implementation for the out-host command.
     /// </summary>
-    [Cmdlet(VerbsData.Out, "Host", HelpUri = "https://go.microsoft.com/fwlink/?LinkID=113365", RemotingCapability = RemotingCapability.None)]
+    [Cmdlet(VerbsData.Out, "Host", HelpUri = "https://go.microsoft.com/fwlink/?LinkID=2096863", RemotingCapability = RemotingCapability.None)]
     public class OutHostCommand : FrontEndCommandBase
     {
         #region Command Line Parameters
 
         /// <summary>
-        /// non positional parameter to specify paging
+        /// Non positional parameter to specify paging.
         /// </summary>
         private bool _paging;
 
         #endregion
 
         /// <summary>
-        /// constructor of OutHostCommand
+        /// Constructor of OutHostCommand.
         /// </summary>
         public OutHostCommand()
         {
@@ -190,24 +186,24 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        /// optional, non positional parameter to specify paging
+        /// Optional, non positional parameter to specify paging
         /// FALSE: names only
-        /// TRUE: full info
+        /// TRUE: full info.
         /// </summary>
         [Parameter]
         public SwitchParameter Paging
         {
             get { return _paging; }
+
             set { _paging = value; }
         }
 
         /// <summary>
-        /// just hook up the LineOutput interface
+        /// Just hook up the LineOutput interface.
         /// </summary>
         protected override void BeginProcessing()
         {
-            PSHostUserInterface console = this.Host.UI;
-            ConsoleLineOutput lineOutput = new ConsoleLineOutput(console, _paging, new TerminatingErrorContext(this));
+            var lineOutput = new ConsoleLineOutput(Host, _paging, new TerminatingErrorContext(this));
 
             ((OutputManagerInner)this.implementation).LineOutput = lineOutput;
             base.BeginProcessing();

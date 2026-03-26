@@ -1,22 +1,31 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Management.Automation.Internal;
 using System.Text;
 using System.Threading;
+
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using System.Management.Automation.Internal;
 
 namespace System.Management.Automation.Configuration
 {
-    internal enum ConfigScope
+    /// <summary>
+    /// The scope of the configuration file.
+    /// </summary>
+    public enum ConfigScope
     {
-        // SystemWide configuration applies to all users.
-        SystemWide = 0,
+        /// <summary>
+        /// AllUsers configuration applies to all users.
+        /// </summary>
+        AllUsers = 0,
 
-        // CurrentUser configuration applies to the current user.
+        /// <summary>
+        /// CurrentUser configuration applies to the current user.
+        /// </summary>
         CurrentUser = 1
     }
 
@@ -24,43 +33,72 @@ namespace System.Management.Automation.Configuration
     /// Reads from and writes to the JSON configuration files.
     /// The config values were originally stored in the Windows registry.
     /// </summary>
+    /// <remarks>
+    /// The config file access APIs are designed to avoid hitting the disk as much as possible.
+    /// - For the first read request targeting a config file, the config data is read from the file and then cached as a 'JObject' instance;
+    ///     * the first read request happens very early during the startup of 'pwsh'.
+    /// - For the subsequent read requests targeting the same config file, they will then work with that 'JObject' instance;
+    /// - For the write request targeting a config file, the cached config data corresponding to that config file will be refreshed after the write operation is successfully done.
+    ///
+    /// To summarize the expected behavior:
+    /// Once a 'pwsh' process starts up -
+    ///   1. any changes made to the config file from outside this 'pwsh' process is not guaranteed to be seen by it (most likely won't be seen).
+    ///   2. any changes to the config file by this 'pwsh' process via the config file access APIs will be seen by it, if it chooses to read those changes afterwards.
+    /// </remarks>
     internal sealed class PowerShellConfig
     {
+        private const string ConfigFileName = "powershell.config.json";
+        private const string ExecutionPolicyDefaultShellKey = "Microsoft.PowerShell:ExecutionPolicy";
+        private const string DisableImplicitWinCompatKey = "DisableImplicitWinCompat";
+        private const string WindowsPowerShellCompatibilityModuleDenyListKey = "WindowsPowerShellCompatibilityModuleDenyList";
+        private const string WindowsPowerShellCompatibilityNoClobberModuleListKey = "WindowsPowerShellCompatibilityNoClobberModuleList";
+
         // Provide a singleton
-        private static readonly PowerShellConfig s_instance = new PowerShellConfig();
-        internal static PowerShellConfig Instance => s_instance;
+        internal static readonly PowerShellConfig Instance = new PowerShellConfig();
 
         // The json file containing system-wide configuration settings.
-        // When passed as a pwsh command-line option,
-        // overrides the system wide configuration file.
+        // When passed as a pwsh command-line option, overrides the system wide configuration file.
         private string systemWideConfigFile;
         private string systemWideConfigDirectory;
 
         // The json file containing the per-user configuration settings.
-        private string perUserConfigFile;
-        private string perUserConfigDirectory;
+        private readonly string perUserConfigFile;
+        private readonly string perUserConfigDirectory;
 
-        private const string configFileName = "powershell.config.json";
+        // Note: JObject and JsonSerializer are thread safe.
+        // Root Json objects corresponding to the configuration file for 'AllUsers' and 'CurrentUser' respectively.
+        // They are used as a cache to avoid hitting the disk for every read operation.
+        private readonly JObject[] configRoots;
+        private readonly JObject emptyConfig;
+        private readonly JsonSerializer serializer;
 
         /// <summary>
         /// Lock used to enable multiple concurrent readers and singular write locks within a single process.
         /// TODO: This solution only works for IO from a single process.
         ///       A more robust solution is needed to enable ReaderWriterLockSlim behavior between processes.
         /// </summary>
-        private ReaderWriterLockSlim fileLock = new ReaderWriterLockSlim();
+        private readonly ReaderWriterLockSlim fileLock;
 
         private PowerShellConfig()
         {
             // Sets the system-wide configuration file.
             systemWideConfigDirectory = Utils.DefaultPowerShellAppBase;
-            systemWideConfigFile = Path.Combine(systemWideConfigDirectory, configFileName);
+            systemWideConfigFile = Path.Combine(systemWideConfigDirectory, ConfigFileName);
 
             // Sets the per-user configuration directory
-            // Note: This directory may or may not exist depending upon the
-            // execution scenario. Writes will attempt to create the directory
-            // if it does not already exist.
-            perUserConfigDirectory = Utils.GetUserConfigurationDirectory();
-            perUserConfigFile = Path.Combine(perUserConfigDirectory, configFileName);
+            // Note: This directory may or may not exist depending upon the execution scenario.
+            // Writes will attempt to create the directory if it does not already exist.
+            perUserConfigDirectory = Platform.ConfigDirectory;
+            if (!string.IsNullOrEmpty(perUserConfigDirectory))
+            {
+                perUserConfigFile = Path.Combine(perUserConfigDirectory, ConfigFileName);
+            }
+
+            emptyConfig = new JObject();
+            configRoots = new JObject[2];
+            serializer = JsonSerializer.Create(new JsonSerializerSettings { TypeNameHandling = TypeNameHandling.None, MaxDepth = 10 });
+
+            fileLock = new ReaderWriterLockSlim();
         }
 
         private string GetConfigFilePath(ConfigScope scope)
@@ -82,6 +120,7 @@ namespace System.Management.Automation.Configuration
             {
                 throw new FileNotFoundException(value);
             }
+
             FileInfo info = new FileInfo(value);
             systemWideConfigFile = info.FullName;
             systemWideConfigDirectory = info.Directory.FullName;
@@ -101,6 +140,7 @@ namespace System.Management.Automation.Configuration
             {
                 modulePath = Environment.ExpandEnvironmentVariables(modulePath);
             }
+
             return modulePath;
         }
 
@@ -116,85 +156,94 @@ namespace System.Management.Automation.Configuration
         /// TODO: In a single config file, it might be better to nest this. It is unnecessary complexity until a need arises for more nested values.
         /// </summary>
         /// <param name="scope">Whether this is a system-wide or per-user setting.</param>
-        /// <param name="shellId">The shell associated with this policy. Typically, it is "Microsoft.PowerShell"</param>
+        /// <param name="shellId">The shell associated with this policy. Typically, it is "Microsoft.PowerShell".</param>
         /// <returns>The execution policy if found. Null otherwise.</returns>
         internal string GetExecutionPolicy(ConfigScope scope, string shellId)
         {
-            string execPolicy = null;
-
-            string valueName = string.Concat(shellId, ":", "ExecutionPolicy");
-            string rawExecPolicy = ReadValueFromFile<string>(scope, valueName);
-
-            if (!String.IsNullOrEmpty(rawExecPolicy))
-            {
-                execPolicy = rawExecPolicy;
-            }
-            return execPolicy;
+            string key = GetExecutionPolicySettingKey(shellId);
+            string execPolicy = ReadValueFromFile<string>(scope, key);
+            return string.IsNullOrEmpty(execPolicy) ? null : execPolicy;
         }
 
         internal void RemoveExecutionPolicy(ConfigScope scope, string shellId)
         {
-            string valueName = string.Concat(shellId, ":", "ExecutionPolicy");
-            RemoveValueFromFile<string>(scope, valueName);
+            string key = GetExecutionPolicySettingKey(shellId);
+            RemoveValueFromFile<string>(scope, key);
         }
 
         internal void SetExecutionPolicy(ConfigScope scope, string shellId, string executionPolicy)
         {
-            // Defaults to system wide.
-            if (ConfigScope.CurrentUser == scope)
+            string key = GetExecutionPolicySettingKey(shellId);
+            WriteValueToFile<string>(scope, key, executionPolicy);
+        }
+
+        private static string GetExecutionPolicySettingKey(string shellId)
+        {
+            return string.Equals(shellId, Utils.DefaultPowerShellShellID, StringComparison.Ordinal)
+                ? ExecutionPolicyDefaultShellKey
+                : string.Concat(shellId, ":", "ExecutionPolicy");
+        }
+
+        /// <summary>
+        /// Get the names of experimental features enabled in the config file.
+        /// </summary>
+        internal string[] GetExperimentalFeatures()
+        {
+            string[] features = ReadValueFromFile(ConfigScope.CurrentUser, "ExperimentalFeatures", Array.Empty<string>());
+
+            if (features.Length == 0)
             {
-                // Exceptions are not caught so that they will propagate to the
-                // host for display to the user.
-                // CreateDirectory will succeed if the directory already exists
-                // so there is no reason to check Directory.Exists().
-                Directory.CreateDirectory(perUserConfigDirectory);
+                features = ReadValueFromFile(ConfigScope.AllUsers, "ExperimentalFeatures", Array.Empty<string>());
             }
-            string valueName = string.Concat(shellId, ":", "ExecutionPolicy");
-            WriteValueToFile<string>(scope, valueName, executionPolicy);
+
+            return features;
         }
 
         /// <summary>
-        /// Existing Key = HKLM\SOFTWARE\Microsoft\PowerShell\1\ShellIds
-        /// Proposed value = existing default. Probably "1"
-        ///
-        /// Schema:
-        /// {
-        ///     "ConsolePrompting" : bool
-        /// }
+        /// Set the enabled list of experimental features in the config file.
         /// </summary>
-        /// <returns>Whether console prompting should happen. If the value cannot be read it defaults to false.</returns>
-        internal bool GetConsolePrompting()
+        /// <param name="scope">The ConfigScope of the configuration file to update.</param>
+        /// <param name="featureName">The name of the experimental feature to change in the configuration.</param>
+        /// <param name="setEnabled">If true, add to configuration; otherwise, remove from configuration.</param>
+        internal void SetExperimentalFeatures(ConfigScope scope, string featureName, bool setEnabled)
         {
-            return ReadValueFromFile<bool>(ConfigScope.SystemWide, "ConsolePrompting");
+            var features = new List<string>(GetExperimentalFeatures());
+            bool containsFeature = features.Contains(featureName);
+            if (setEnabled && !containsFeature)
+            {
+                features.Add(featureName);
+                WriteValueToFile<string[]>(scope, "ExperimentalFeatures", features.ToArray());
+            }
+            else if (!setEnabled && containsFeature)
+            {
+                features.Remove(featureName);
+                WriteValueToFile<string[]>(scope, "ExperimentalFeatures", features.ToArray());
+            }
         }
 
-        internal void SetConsolePrompting(bool shouldPrompt)
+        internal bool IsImplicitWinCompatEnabled()
         {
-            WriteValueToFile<bool>(ConfigScope.SystemWide, "ConsolePrompting", shouldPrompt);
+            bool settingValue = ReadValueFromFile<bool?>(ConfigScope.CurrentUser, DisableImplicitWinCompatKey)
+                ?? ReadValueFromFile<bool?>(ConfigScope.AllUsers, DisableImplicitWinCompatKey)
+                ?? false;
+
+            return !settingValue;
+        }
+
+        internal string[] GetWindowsPowerShellCompatibilityModuleDenyList()
+        {
+            return ReadValueFromFile<string[]>(ConfigScope.CurrentUser, WindowsPowerShellCompatibilityModuleDenyListKey)
+                ?? ReadValueFromFile<string[]>(ConfigScope.AllUsers, WindowsPowerShellCompatibilityModuleDenyListKey);
+        }
+
+        internal string[] GetWindowsPowerShellCompatibilityNoClobberModuleList()
+        {
+            return ReadValueFromFile<string[]>(ConfigScope.CurrentUser, WindowsPowerShellCompatibilityNoClobberModuleListKey)
+                ?? ReadValueFromFile<string[]>(ConfigScope.AllUsers, WindowsPowerShellCompatibilityNoClobberModuleListKey);
         }
 
         /// <summary>
-        /// Existing Key = HKLM\SOFTWARE\Microsoft\PowerShell
-        /// Proposed value = Existing default. Probably "0"
-        ///
-        /// Schema:
-        /// {
-        ///     "DisablePromptToUpdateHelp" : bool
-        /// }
-        /// </summary>
-        /// <returns>Boolean indicating whether Update-Help should prompt. If the value cannot be read, it defaults to false.</returns>
-        internal bool GetDisablePromptToUpdateHelp()
-        {
-            return ReadValueFromFile<bool>(ConfigScope.SystemWide, "DisablePromptToUpdateHelp");
-        }
-
-        internal void SetDisablePromptToUpdateHelp(bool prompt)
-        {
-            WriteValueToFile<bool>(ConfigScope.SystemWide, "DisablePromptToUpdateHelp", prompt);
-        }
-
-        /// <summary>
-        /// Corresponding settings of the original Group Policies
+        /// Corresponding settings of the original Group Policies.
         /// </summary>
         internal PowerShellPolicies GetPowerShellPolicies(ConfigScope scope)
         {
@@ -210,13 +259,14 @@ namespace System.Management.Automation.Configuration
         /// </returns>
         internal string GetSysLogIdentity()
         {
-            string identity = ReadValueFromFile<string>(ConfigScope.SystemWide, "LogIdentity");
+            string identity = ReadValueFromFile<string>(ConfigScope.AllUsers, "LogIdentity");
 
             if (string.IsNullOrEmpty(identity) ||
                 identity.Equals(LogDefaultValue, StringComparison.OrdinalIgnoreCase))
             {
                 identity = "powershell";
             }
+
             return identity;
         }
 
@@ -228,7 +278,7 @@ namespace System.Management.Automation.Configuration
         /// </returns>
         internal PSLevel GetLogLevel()
         {
-            string levelName = ReadValueFromFile<string>(ConfigScope.SystemWide, "LogLevel");
+            string levelName = ReadValueFromFile<string>(ConfigScope.AllUsers, "LogLevel");
             PSLevel level;
 
             if (string.IsNullOrEmpty(levelName) ||
@@ -237,18 +287,19 @@ namespace System.Management.Automation.Configuration
             {
                 level = PSLevel.Informational;
             }
+
             return level;
         }
 
         /// <summary>
         /// The supported separator characters for listing channels and keywords in configuration.
         /// </summary>
-        static readonly char[] s_valueSeparators = new char[] {' ', ',', '|'};
+        private static readonly char[] s_valueSeparators = new char[] {' ', ',', '|'};
 
         /// <summary>
         /// Provides a string name to indicate the default for a configuration setting.
         /// </summary>
-        const string LogDefaultValue = "default";
+        private const string LogDefaultValue = "default";
 
         /// <summary>
         /// Gets the bitmask of the PSChannel values to log.
@@ -258,7 +309,7 @@ namespace System.Management.Automation.Configuration
         /// </returns>
         internal PSChannel GetLogChannels()
         {
-            string values = ReadValueFromFile<string>(ConfigScope.SystemWide, "LogChannels");
+            string values = ReadValueFromFile<string>(ConfigScope.AllUsers, "LogChannels");
 
             PSChannel result = 0;
             if (!string.IsNullOrEmpty(values))
@@ -297,7 +348,7 @@ namespace System.Management.Automation.Configuration
         /// </returns>
         internal PSKeyword GetLogKeywords()
         {
-            string values = ReadValueFromFile<string>(ConfigScope.SystemWide, "LogKeywords");
+            string values = ReadValueFromFile<string>(ConfigScope.AllUsers, "LogKeywords");
 
             PSKeyword result = 0;
             if (!string.IsNullOrEmpty(values))
@@ -336,36 +387,81 @@ namespace System.Management.Automation.Configuration
         /// <param name="scope">The ConfigScope of the configuration file to update.</param>
         /// <param name="key">The string key of the value.</param>
         /// <param name="defaultValue">The default value to return if the key is not present.</param>
-        /// <param name="readImpl"></param>
-        private T ReadValueFromFile<T>(ConfigScope scope, string key, T defaultValue = default(T),
-                                       Func<JToken, JsonSerializer, T, T> readImpl = null)
+        private T ReadValueFromFile<T>(ConfigScope scope, string key, T defaultValue = default)
         {
             string fileName = GetConfigFilePath(scope);
-            if (!File.Exists(fileName)) { return defaultValue; }
-
-            // Open file for reading, but allow multiple readers
-            fileLock.EnterReadLock();
-            try
+            if (string.IsNullOrEmpty(fileName))
             {
-                using (var streamReader = new StreamReader(fileName))
-                using (var jsonReader = new JsonTextReader(streamReader))
-                {
-                    var settings = new JsonSerializerSettings() { TypeNameHandling = TypeNameHandling.None, MaxDepth = 10 };
-                    var serializer = JsonSerializer.Create(settings);
+                return defaultValue;
+            }
 
-                    var configData = serializer.Deserialize<JObject>(jsonReader);
-                    if (configData != null && configData.TryGetValue(key, StringComparison.OrdinalIgnoreCase, out JToken jToken))
+            JObject configData = configRoots[(int)scope];
+
+            if (configData == null)
+            {
+                if (File.Exists(fileName))
+                {
+                    try
                     {
-                        return readImpl != null ? readImpl(jToken, serializer, defaultValue) : jToken.ToObject<T>(serializer);
+                        // Open file for reading, but allow multiple readers
+                        fileLock.EnterReadLock();
+
+                        using var stream = OpenFileStreamWithRetry(fileName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                        using var jsonReader = new JsonTextReader(new StreamReader(stream));
+
+                        configData = serializer.Deserialize<JObject>(jsonReader) ?? emptyConfig;
+                    }
+                    catch (Exception exc)
+                    {
+                        throw PSTraceSource.NewInvalidOperationException(exc, PSConfigurationStrings.CanNotConfigurationFile, args: fileName);
+                    }
+                    finally
+                    {
+                        fileLock.ExitReadLock();
                     }
                 }
+                else
+                {
+                    configData = emptyConfig;
+                }
+
+                // Set the configuration cache.
+                JObject originalValue = Interlocked.CompareExchange(ref configRoots[(int)scope], configData, null);
+                if (originalValue != null)
+                {
+                    configData = originalValue;
+                }
             }
-            finally
+
+            if (configData != emptyConfig && configData.TryGetValue(key, StringComparison.OrdinalIgnoreCase, out JToken jToken))
             {
-                fileLock.ExitReadLock();
+                return jToken.ToObject<T>(serializer) ?? defaultValue;
             }
 
             return defaultValue;
+        }
+
+        private static FileStream OpenFileStreamWithRetry(string fullPath, FileMode mode, FileAccess access, FileShare share)
+        {
+            const int MaxTries = 5;
+            for (int numTries = 0; numTries < MaxTries; numTries++)
+            {
+                try
+                {
+                    return new FileStream(fullPath, mode, access, share);
+                }
+                catch (IOException)
+                {
+                    if (numTries == (MaxTries - 1))
+                    {
+                        throw;
+                    }
+
+                    Thread.Sleep(50);
+                }
+            }
+
+            throw new IOException(nameof(OpenFileStreamWithRetry));
         }
 
         /// <summary>
@@ -375,97 +471,94 @@ namespace System.Management.Automation.Configuration
         /// <param name="scope">The ConfigScope of the configuration file to update.</param>
         /// <param name="key">The string key of the value.</param>
         /// <param name="value">The value to set.</param>
-        /// <param name="addValue">Whether the key-value pair should be added to or removed from the file</param>
+        /// <param name="addValue">Whether the key-value pair should be added to or removed from the file.</param>
         private void UpdateValueInFile<T>(ConfigScope scope, string key, T value, bool addValue)
         {
-            string fileName = GetConfigFilePath(scope);
-            fileLock.EnterWriteLock();
             try
             {
-                // Since multiple properties can be in a single file, replacement
-                // is required instead of overwrite if a file already exists.
-                // Handling the read and write operations within a single FileStream
-                // prevents other processes from reading or writing the file while
-                // the update is in progress. It also locks out readers during write
-                // operations.
-                using (FileStream fs = new FileStream(fileName, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
+                string fileName = GetConfigFilePath(scope);
+                fileLock.EnterWriteLock();
+
+                // Since multiple properties can be in a single file, replacement is required instead of overwrite if a file already exists.
+                // Handling the read and write operations within a single FileStream prevents other processes from reading or writing the file while
+                // the update is in progress. It also locks out readers during write operations.
+
+                JObject jsonObject = null;
+                using FileStream fs = OpenFileStreamWithRetry(fileName, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+
+                // UTF8, BOM detection, and bufferSize are the same as the basic stream constructor.
+                // The most important parameter here is the last one, which keeps underlying stream open after StreamReader is disposed
+                // so that it can be reused for the subsequent write operation.
+                using (StreamReader streamRdr = new StreamReader(fs, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: true))
+                using (JsonTextReader jsonReader = new JsonTextReader(streamRdr))
                 {
-                    JObject jsonObject = null;
-
-                    // UTF8, BOM detection, and bufferSize are the same as the basic stream constructor.
-                    // The most important parameter here is the last one, which keeps the StreamReader
-                    // (and FileStream) open during Dispose so that it can be reused for the write
-                    // operation.
-                    using (StreamReader streamRdr = new StreamReader(fs, Encoding.UTF8, true, 1024, true))
-                    using (JsonTextReader jsonReader = new JsonTextReader(streamRdr))
+                    // Safely determines whether there is content to read from the file
+                    bool isReadSuccess = jsonReader.Read();
+                    if (isReadSuccess)
                     {
-                        // Safely determines whether there is content to read from the file
-                        bool isReadSuccess = jsonReader.Read();
-                        if (isReadSuccess)
-                        {
-                            // Read the stream into a root JObject for manipulation
-                            jsonObject = (JObject) JToken.ReadFrom(jsonReader);
-                            JProperty propertyToModify = jsonObject.Property(key);
+                        // Read the stream into a root JObject for manipulation
+                        jsonObject = serializer.Deserialize<JObject>(jsonReader);
+                        JProperty propertyToModify = jsonObject.Property(key);
 
-                            if (propertyToModify == null)
+                        if (propertyToModify == null)
+                        {
+                            // The property doesn't exist, so add it
+                            if (addValue)
                             {
-                                // The property doesn't exist, so add it
-                                if (addValue)
-                                {
-                                    jsonObject.Add(new JProperty(key, value));
-                                }
-                                // else the property doesn't exist so there is nothing to remove
+                                jsonObject.Add(new JProperty(key, value));
                             }
-                            // The property exists
-                            else
-                            {
-                                if (addValue)
-                                {
-                                    propertyToModify.Replace(new JProperty(key, value));
-                                }
-                                else
-                                {
-                                    propertyToModify.Remove();
-                                }
-                            }
+                            // else the property doesn't exist so there is nothing to remove
                         }
                         else
                         {
-                            // The file doesn't already exist and we want to write to it
-                            // or it exists with no content.
-                            // A new file will be created that contains only this value.
-                            // If the file doesn't exist and a we don't want to write to it, no
-                            // action is necessary.
+                            // The property exists
                             if (addValue)
                             {
-                                jsonObject = new JObject(new JProperty(key, value));
+                                propertyToModify.Replace(new JProperty(key, value));
                             }
                             else
                             {
-                                return;
+                                propertyToModify.Remove();
                             }
                         }
                     }
-
-                    // Reset the stream position to the beginning so that the
-                    // changes to the file can be written to disk
-                    fs.Seek(0, SeekOrigin.Begin);
-
-                    // Update the file with new content
-                    using (StreamWriter streamWriter = new StreamWriter(fs))
-                    using (JsonTextWriter jsonWriter = new JsonTextWriter(streamWriter))
+                    else
                     {
-                        // The entire document exists within the root JObject.
-                        // I just need to write that object to produce the document.
-                        jsonObject.WriteTo(jsonWriter);
-
-                        // This trims the file if the file shrank. If the file grew,
-                        // it is a no-op. The purpose is to trim extraneous characters
-                        // from the file stream when the resultant JObject is smaller
-                        // than the input JObject.
-                        fs.SetLength(fs.Position);
+                        // The file doesn't already exist and we want to write to it or it exists with no content.
+                        // A new file will be created that contains only this value.
+                        // If the file doesn't exist and a we don't want to write to it, no action is needed.
+                        if (addValue)
+                        {
+                            jsonObject = new JObject(new JProperty(key, value));
+                        }
+                        else
+                        {
+                            return;
+                        }
                     }
                 }
+
+                // Reset the stream position to the beginning so that the
+                // changes to the file can be written to disk
+                fs.Seek(0, SeekOrigin.Begin);
+
+                // Update the file with new content
+                using (StreamWriter streamWriter = new StreamWriter(fs))
+                using (JsonTextWriter jsonWriter = new JsonTextWriter(streamWriter))
+                {
+                    // The entire document exists within the root JObject.
+                    // I just need to write that object to produce the document.
+                    jsonObject.WriteTo(jsonWriter);
+
+                    // This trims the file if the file shrank. If the file grew,
+                    // it is a no-op. The purpose is to trim extraneous characters
+                    // from the file stream when the resultant JObject is smaller
+                    // than the input JObject.
+                    fs.SetLength(fs.Position);
+                }
+
+                // Refresh the configuration cache.
+                Interlocked.Exchange(ref configRoots[(int)scope], jsonObject);
             }
             finally
             {
@@ -482,6 +575,11 @@ namespace System.Management.Automation.Configuration
         /// <param name="value">The value to write.</param>
         private void WriteValueToFile<T>(ConfigScope scope, string key, T value)
         {
+            if (scope == ConfigScope.CurrentUser && !Directory.Exists(perUserConfigDirectory))
+            {
+                Directory.CreateDirectory(perUserConfigDirectory);
+            }
+
             UpdateValueInFile<T>(scope, key, value, true);
         }
 
@@ -551,77 +649,91 @@ namespace System.Management.Automation.Configuration
     internal sealed class PowerShellPolicies
     {
         public ScriptExecution ScriptExecution { get; set; }
+
         public ScriptBlockLogging ScriptBlockLogging { get; set; }
+
         public ModuleLogging ModuleLogging { get; set; }
+
         public ProtectedEventLogging ProtectedEventLogging { get; set; }
+
         public Transcription Transcription { get; set; }
+
         public UpdatableHelp UpdatableHelp { get; set; }
+
         public ConsoleSessionConfiguration ConsoleSessionConfiguration { get; set; }
     }
 
     internal abstract class PolicyBase { }
 
     /// <summary>
-    /// Setting about ScriptExecution
+    /// Setting about ScriptExecution.
     /// </summary>
     internal sealed class ScriptExecution : PolicyBase
     {
         public string ExecutionPolicy { get; set; }
+
         public bool? EnableScripts { get; set; }
     }
 
     /// <summary>
-    /// Setting about ScriptBlockLogging
+    /// Setting about ScriptBlockLogging.
     /// </summary>
     internal sealed class ScriptBlockLogging : PolicyBase
     {
         public bool? EnableScriptBlockInvocationLogging { get; set; }
+
         public bool? EnableScriptBlockLogging { get; set; }
     }
 
     /// <summary>
-    /// Setting about ModuleLogging
+    /// Setting about ModuleLogging.
     /// </summary>
     internal sealed class ModuleLogging : PolicyBase
     {
         public bool? EnableModuleLogging { get; set; }
+
         public string[] ModuleNames { get; set; }
     }
 
     /// <summary>
-    /// Setting about Transcription
+    /// Setting about Transcription.
     /// </summary>
     internal sealed class Transcription : PolicyBase
     {
         public bool? EnableTranscripting { get; set; }
+
         public bool? EnableInvocationHeader { get; set; }
+
         public string OutputDirectory { get; set; }
     }
 
     /// <summary>
-    /// Setting about UpdatableHelp
+    /// Setting about UpdatableHelp.
     /// </summary>
     internal sealed class UpdatableHelp : PolicyBase
     {
         public bool? EnableUpdateHelpDefaultSourcePath { get; set; }
+
         public string DefaultSourcePath { get; set; }
     }
 
     /// <summary>
-    /// Setting about ConsoleSessionConfiguration
+    /// Setting about ConsoleSessionConfiguration.
     /// </summary>
     internal sealed class ConsoleSessionConfiguration : PolicyBase
     {
         public bool? EnableConsoleSessionConfiguration { get; set; }
+
         public string ConsoleSessionConfigurationName { get; set; }
     }
 
     /// <summary>
-    /// Setting about ProtectedEventLogging
+    /// Setting about ProtectedEventLogging.
     /// </summary>
     internal sealed class ProtectedEventLogging : PolicyBase
     {
         public bool? EnableProtectedEventLogging { get; set; }
+
         public string[] EncryptionCertificate { get; set; }
     }
 

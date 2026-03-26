@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 #pragma warning disable 1634, 1691
@@ -7,14 +7,13 @@
 using System.Runtime.InteropServices;
 using System.Security.Cryptography.X509Certificates;
 using System.Management.Automation.Internal;
-using System.Runtime.ConstrainedExecution;
 using DWORD = System.UInt32;
 using BOOL = System.UInt32;
 
 namespace System.Management.Automation.Security
 {
     // Crypto API native constants
-    internal partial class NativeConstants
+    internal static partial class NativeConstants
     {
         internal const int CRYPT_OID_INFO_OID_KEY = 1;
         internal const int CRYPT_OID_INFO_NAME_KEY = 2;
@@ -25,52 +24,52 @@ namespace System.Management.Automation.Security
     internal partial class NativeConstants
     {
         /// <Summary>
-        /// SAFER_TOKEN_NULL_IF_EQUAL -> 0x00000001
+        /// SAFER_TOKEN_NULL_IF_EQUAL -> 0x00000001.
         /// </Summary>
         public const int SAFER_TOKEN_NULL_IF_EQUAL = 1;
 
         /// <Summary>
-        /// SAFER_TOKEN_COMPARE_ONLY -> 0x00000002
+        /// SAFER_TOKEN_COMPARE_ONLY -> 0x00000002.
         /// </Summary>
         public const int SAFER_TOKEN_COMPARE_ONLY = 2;
 
         /// <Summary>
-        /// SAFER_TOKEN_MAKE_INERT -> 0x00000004
+        /// SAFER_TOKEN_MAKE_INERT -> 0x00000004.
         /// </Summary>
         public const int SAFER_TOKEN_MAKE_INERT = 4;
 
         /// <Summary>
-        /// SAFER_CRITERIA_IMAGEPATH -> 0x00001
+        /// SAFER_CRITERIA_IMAGEPATH -> 0x00001.
         /// </Summary>
         public const int SAFER_CRITERIA_IMAGEPATH = 1;
 
         /// <Summary>
-        /// SAFER_CRITERIA_NOSIGNEDHASH -> 0x00002
+        /// SAFER_CRITERIA_NOSIGNEDHASH -> 0x00002.
         /// </Summary>
         public const int SAFER_CRITERIA_NOSIGNEDHASH = 2;
 
         /// <Summary>
-        /// SAFER_CRITERIA_IMAGEHASH -> 0x00004
+        /// SAFER_CRITERIA_IMAGEHASH -> 0x00004.
         /// </Summary>
         public const int SAFER_CRITERIA_IMAGEHASH = 4;
 
         /// <Summary>
-        /// SAFER_CRITERIA_AUTHENTICODE -> 0x00008
+        /// SAFER_CRITERIA_AUTHENTICODE -> 0x00008.
         /// </Summary>
         public const int SAFER_CRITERIA_AUTHENTICODE = 8;
 
         /// <Summary>
-        /// SAFER_CRITERIA_URLZONE -> 0x00010
+        /// SAFER_CRITERIA_URLZONE -> 0x00010.
         /// </Summary>
         public const int SAFER_CRITERIA_URLZONE = 16;
 
         /// <Summary>
-        /// SAFER_CRITERIA_IMAGEPATH_NT -> 0x01000
+        /// SAFER_CRITERIA_IMAGEPATH_NT -> 0x01000.
         /// </Summary>
         public const int SAFER_CRITERIA_IMAGEPATH_NT = 4096;
 
         /// <Summary>
-        /// WTD_UI_NONE -> 0x00002
+        /// WTD_UI_NONE -> 0x00002.
         /// </Summary>
         public const int WTD_UI_NONE = 2;
 
@@ -85,22 +84,22 @@ namespace System.Management.Automation.Security
         public const int S_FALSE = 1;
 
         /// <Summary>
-        /// ERROR_MORE_DATA -> 234L
+        /// ERROR_MORE_DATA -> 234L.
         /// </Summary>
         public const int ERROR_MORE_DATA = 234;
 
         /// <Summary>
-        /// ERROR_ACCESS_DISABLED_BY_POLICY -> 1260L
+        /// ERROR_ACCESS_DISABLED_BY_POLICY -> 1260L.
         /// </Summary>
         public const int ERROR_ACCESS_DISABLED_BY_POLICY = 1260;
 
         /// <Summary>
-        /// ERROR_ACCESS_DISABLED_NO_SAFER_UI_BY_POLICY -> 786L
+        /// ERROR_ACCESS_DISABLED_NO_SAFER_UI_BY_POLICY -> 786L.
         /// </Summary>
         public const int ERROR_ACCESS_DISABLED_NO_SAFER_UI_BY_POLICY = 786;
 
         /// <Summary>
-        /// SAFER_MAX_HASH_SIZE -> 64
+        /// SAFER_MAX_HASH_SIZE -> 64.
         /// </Summary>
         public const int SAFER_MAX_HASH_SIZE = 64;
 
@@ -110,33 +109,33 @@ namespace System.Management.Automation.Security
         public const string SRP_POLICY_SCRIPT = "SCRIPT";
 
         /// <Summary>
-        /// SIGNATURE_DISPLAYNAME_LENGTH -> MAX_PATH
+        /// SIGNATURE_DISPLAYNAME_LENGTH -> MAX_PATH.
         /// </Summary>
         internal const int SIGNATURE_DISPLAYNAME_LENGTH = NativeConstants.MAX_PATH;
 
         /// <Summary>
-        /// SIGNATURE_PUBLISHER_LENGTH -> 128
+        /// SIGNATURE_PUBLISHER_LENGTH -> 128.
         /// </Summary>
         internal const int SIGNATURE_PUBLISHER_LENGTH = 128;
 
         /// <Summary>
-        /// SIGNATURE_HASH_LENGTH -> 64
+        /// SIGNATURE_HASH_LENGTH -> 64.
         /// </Summary>
         internal const int SIGNATURE_HASH_LENGTH = 64;
 
         /// <Summary>
-        /// MAX_PATH -> 260
+        /// MAX_PATH -> 260.
         /// </Summary>
         internal const int MAX_PATH = 260;
 
         /// <Summary>
-        /// This function is not supported on this system
+        /// This function is not supported on this system.
         /// </Summary>
         internal const int FUNCTION_NOT_SUPPORTED = 120;
     }
 
     /// <summary>
-    /// pinvoke methods from crypt32.dll
+    /// Pinvoke methods from crypt32.dll.
     /// </summary>
     internal static partial class NativeMethods
     {
@@ -152,7 +151,7 @@ namespace System.Management.Automation.Security
                                  CertEnumSystemStoreCallBackProto fn);
 
         /// <summary>
-        /// signature of call back function used by CertEnumSystemStore
+        /// Signature of call back function used by CertEnumSystemStore.
         /// </summary>
         internal delegate
         bool CertEnumSystemStoreCallBackProto([MarshalAs(UnmanagedType.LPWStr)]
@@ -163,7 +162,7 @@ namespace System.Management.Automation.Security
                                                IntPtr notUsed3);
 
         /// <summary>
-        /// signature of cert enumeration function
+        /// Signature of cert enumeration function.
         /// </summary>
         [DllImport("crypt32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
         internal static extern
@@ -171,7 +170,7 @@ namespace System.Management.Automation.Security
                                             IntPtr certContext);
 
         /// <summary>
-        /// signature of cert find function
+        /// Signature of cert find function.
         /// </summary>
         [DllImport("crypt32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
         internal static extern
@@ -194,7 +193,6 @@ namespace System.Management.Automation.Security
             CERT_FIND_HASH_STR = 20 << 16,        // thumbprint
         }
 
-        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
         [DllImport("crypt32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
         internal static extern
         bool CertCloseStore(IntPtr hCertStore, int dwFlags);
@@ -472,7 +470,6 @@ namespace System.Management.Automation.Security
                                               DWORD dwAddDisposition,
                                               ref IntPtr ppStoreContext);
 
-        [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
         [DllImport("crypt32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
         internal static extern
         bool CertFreeCertificateContext(IntPtr certContext);
@@ -498,8 +495,8 @@ namespace System.Management.Automation.Security
         [DllImport(PinvokeDllNames.CryptAcquireContextDllName, SetLastError = true, CharSet = CharSet.Unicode)]
         internal static extern
         bool CryptAcquireContext(ref IntPtr hProv,
-                                 String strContainerName,
-                                 String strProviderName,
+                                 string strContainerName,
+                                 string strProviderName,
                                  int nProviderType,
                                  uint uiProviderFlags);
 
@@ -514,19 +511,20 @@ namespace System.Management.Automation.Security
         [DllImport("ncrypt.dll", CharSet = CharSet.Unicode)]
         internal static extern
         int NCryptOpenStorageProvider(ref IntPtr hProv,
-                                      String strProviderName,
+                                      string strProviderName,
                                       uint dwFlags);
 
         [DllImport("ncrypt.dll", CharSet = CharSet.Unicode)]
         internal static extern
         int NCryptOpenKey(IntPtr hProv,
                           ref IntPtr hKey,
-                          String strKeyName,
+                          string strKeyName,
                           uint dwLegacySpec,
                           uint dwFlags);
+
         [DllImport("ncrypt.dll", CharSet = CharSet.Unicode)]
         internal static extern unsafe
-        int NCryptSetProperty(IntPtr hProv, String pszProperty, void* pbInput, int cbInput, int dwFlags);
+        int NCryptSetProperty(IntPtr hProv, string pszProperty, void* pbInput, int cbInput, int dwFlags);
 
         [DllImport("ncrypt.dll", CharSet = CharSet.Unicode)]
         internal static extern
@@ -558,54 +556,61 @@ namespace System.Management.Automation.Security
         {
             CRYPTUI_WIZ_NO_UI = 0x0001
             // other flags not used
-        };
+        }
 
         [StructLayout(LayoutKind.Sequential)]
         internal struct CRYPTUI_WIZ_DIGITAL_SIGN_INFO
         {
             internal DWORD dwSize;
             internal DWORD dwSubjectChoice;
+
             [MarshalAs(UnmanagedType.LPWStr)]
             internal string pwszFileName;
+
             internal DWORD dwSigningCertChoice;
             internal IntPtr pSigningCertContext; // PCCERT_CONTEXT
+
             [MarshalAs(UnmanagedType.LPWStr)]
             internal string pwszTimestampURL;
+
             internal DWORD dwAdditionalCertChoice;
             internal IntPtr pSignExtInfo; // PCCRYPTUI_WIZ_DIGITAL_SIGN_EXTENDED_INFO
-        };
+        }
 
         [Flags]
         internal enum SignInfoSubjectChoice
         {
             CRYPTUI_WIZ_DIGITAL_SIGN_SUBJECT_FILE = 0x01
-            //CRYPTUI_WIZ_DIGITAL_SIGN_SUBJECT_BLOB = 0x02 NotUsed
-        };
+            // CRYPTUI_WIZ_DIGITAL_SIGN_SUBJECT_BLOB = 0x02 NotUsed
+        }
 
         [Flags]
         internal enum SignInfoCertChoice
         {
             CRYPTUI_WIZ_DIGITAL_SIGN_CERT = 0x01
-            //CRYPTUI_WIZ_DIGITAL_SIGN_STORE = 0x02, NotUsed
-            //CRYPTUI_WIZ_DIGITAL_SIGN_PVK = 0x03, NotUsed
-        };
+            // CRYPTUI_WIZ_DIGITAL_SIGN_STORE = 0x02, NotUsed
+            // CRYPTUI_WIZ_DIGITAL_SIGN_PVK = 0x03, NotUsed
+        }
 
         [Flags]
         internal enum SignInfoAdditionalCertChoice
         {
             CRYPTUI_WIZ_DIGITAL_SIGN_ADD_CHAIN = 1,
             CRYPTUI_WIZ_DIGITAL_SIGN_ADD_CHAIN_NO_ROOT = 2
-        };
+        }
 
         [StructLayout(LayoutKind.Sequential)]
         internal struct CRYPTUI_WIZ_DIGITAL_SIGN_EXTENDED_INFO
         {
             internal DWORD dwSize;
             internal DWORD dwAttrFlagsNotUsed;
+
             [MarshalAs(UnmanagedType.LPWStr)]
             internal string pwszDescription;
+
             [MarshalAs(UnmanagedType.LPWStr)]
             internal string pwszMoreInfoLocation;
+
             [MarshalAs(UnmanagedType.LPStr)]
             internal string pszHashAlg;
 
@@ -613,9 +618,8 @@ namespace System.Management.Automation.Security
             internal IntPtr hAdditionalCertStoreNotUsed; // HCERTSTORE
             internal IntPtr psAuthenticatedNotUsed;      // PCRYPT_ATTRIBUTES
             internal IntPtr psUnauthenticatedNotUsed;    // PCRYPT_ATTRIBUTES
-        };
+        }
 
-        [ArchitectureSensitive]
         internal static CRYPTUI_WIZ_DIGITAL_SIGN_EXTENDED_INFO
             InitSignInfoExtendedStruct(string description,
                                        string moreInfoUrl,
@@ -649,11 +653,11 @@ namespace System.Management.Automation.Security
             public uint cbSize;
 
             /// LPCSTR->CHAR*
-            [MarshalAsAttribute(UnmanagedType.LPStr)]
+            [MarshalAs(UnmanagedType.LPStr)]
             public string pszOID;
 
             /// LPCWSTR->WCHAR*
-            [MarshalAsAttribute(UnmanagedType.LPWStr)]
+            [MarshalAs(UnmanagedType.LPWStr)]
             public string pwszName;
 
             /// DWORD->unsigned int
@@ -719,7 +723,6 @@ namespace System.Management.Automation.Security
             System.IntPtr pvKey,
             uint dwGroupId);
 
-        [ArchitectureSensitive]
         internal static DWORD GetCertChoiceFromSigningOption(
             SigningOption option)
         {
@@ -747,7 +750,6 @@ namespace System.Management.Automation.Security
             return cc;
         }
 
-        [ArchitectureSensitive]
         internal static CRYPTUI_WIZ_DIGITAL_SIGN_INFO
             InitSignInfoStruct(string fileName,
                                X509Certificate2 signingCert,
@@ -774,443 +776,41 @@ namespace System.Management.Automation.Security
             return si;
         }
 
-        // -----------------------------------------------------------------
-        // wintrust.dll stuff
-        //
-
-        //
-        // WinVerifyTrust() function and associated structures/enums
-        //
-
-        [DllImport("wintrust.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-        internal static extern
-        DWORD WinVerifyTrust(
-            IntPtr hWndNotUsed, // HWND
-            IntPtr pgActionID, // GUID*
-            IntPtr pWinTrustData // WINTRUST_DATA*
-        );
-
-        [StructLayout(LayoutKind.Sequential)]
-        internal struct WINTRUST_FILE_INFO
-        {
-            internal DWORD cbStruct;               // = sizeof(WINTRUST_FILE_INFO)
-            [MarshalAs(UnmanagedType.LPWStr)]
-            internal string pcwszFilePath;         // LPCWSTR
-            internal IntPtr hFileNotUsed;          // optional, HANDLE to pcwszFilePath
-            internal IntPtr pgKnownSubjectNotUsed; // optional: GUID* : fill if the
-                                                   // subject type is known
-        };
-
-        [StructLayoutAttribute(LayoutKind.Sequential)]
-        internal struct WINTRUST_BLOB_INFO
-        {
-            /// DWORD->unsigned int
-            internal uint cbStruct;
-
-            /// GUID->_GUID
-            internal GUID gSubject;
-
-            /// LPCWSTR->WCHAR*
-            [MarshalAsAttribute(UnmanagedType.LPWStr)]
-            internal string pcwszDisplayName;
-
-            /// DWORD->unsigned int
-            internal uint cbMemObject;
-
-            /// BYTE*
-            internal System.IntPtr pbMemObject;
-
-            /// DWORD->unsigned int
-            internal uint cbMemSignedMsg;
-
-            /// BYTE*
-            internal System.IntPtr pbMemSignedMsg;
-        }
-
-        [StructLayoutAttribute(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
-        internal struct GUID
-        {
-            /// unsigned int
-            internal uint Data1;
-
-            /// unsigned short
-            internal ushort Data2;
-
-            /// unsigned short
-            internal ushort Data3;
-
-            /// unsigned char[8]
-            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
-            internal byte[] Data4;
-        }
-
-        [ArchitectureSensitive]
-        internal static WINTRUST_FILE_INFO InitWintrustFileInfoStruct(string fileName)
-        {
-            WINTRUST_FILE_INFO fi = new WINTRUST_FILE_INFO();
-
-            fi.cbStruct = (DWORD)Marshal.SizeOf(fi);
-            fi.pcwszFilePath = fileName;
-            fi.hFileNotUsed = IntPtr.Zero;
-            fi.pgKnownSubjectNotUsed = IntPtr.Zero;
-
-            return fi;
-        }
-
-        [ArchitectureSensitive]
-        internal static WINTRUST_BLOB_INFO InitWintrustBlobInfoStruct(string fileName, string content)
-        {
-            WINTRUST_BLOB_INFO bi = new WINTRUST_BLOB_INFO();
-            byte[] contentBytes = System.Text.Encoding.Unicode.GetBytes(content);
-
-            // The GUID of the PowerShell SIP
-            bi.gSubject.Data1 = 0x603bcc1f;
-            bi.gSubject.Data2 = 0x4b59;
-            bi.gSubject.Data3 = 0x4e08;
-            bi.gSubject.Data4 = new byte[] { 0xb7, 0x24, 0xd2, 0xc6, 0x29, 0x7e, 0xf3, 0x51 };
-
-            bi.cbStruct = (DWORD)Marshal.SizeOf(bi);
-            bi.pcwszDisplayName = fileName;
-            bi.cbMemObject = (uint)contentBytes.Length;
-            bi.pbMemObject = Marshal.AllocCoTaskMem(contentBytes.Length);
-            Marshal.Copy(contentBytes, 0, bi.pbMemObject, contentBytes.Length);
-
-            return bi;
-        }
-
-        [Flags]
-        internal enum WintrustUIChoice
-        {
-            WTD_UI_ALL = 1,
-            WTD_UI_NONE = 2,
-            WTD_UI_NOBAD = 3,
-            WTD_UI_NOGOOD = 4
-        };
-
-        [Flags]
-        internal enum WintrustUnionChoice
-        {
-            WTD_CHOICE_FILE = 1,
-            //WTD_CHOICE_CATALOG = 2,
-            WTD_CHOICE_BLOB = 3,
-            //WTD_CHOICE_SIGNER = 4,
-            //WTD_CHOICE_CERT = 5,
-        };
-
-        [Flags]
-        internal enum WintrustProviderFlags
-        {
-            WTD_PROV_FLAGS_MASK = 0x0000FFFF,
-            WTD_USE_IE4_TRUST_FLAG = 0x00000001,
-            WTD_NO_IE4_CHAIN_FLAG = 0x00000002,
-            WTD_NO_POLICY_USAGE_FLAG = 0x00000004,
-            WTD_REVOCATION_CHECK_NONE = 0x00000010,
-            WTD_REVOCATION_CHECK_END_CERT = 0x00000020,
-            WTD_REVOCATION_CHECK_CHAIN = 0x00000040,
-            WTD_REVOCATION_CHECK_CHAIN_EXCLUDE_ROOT = 0x00000080,
-            WTD_SAFER_FLAG = 0x00000100,
-            WTD_HASH_ONLY_FLAG = 0x00000200,
-            WTD_USE_DEFAULT_OSVER_CHECK = 0x00000400,
-            WTD_LIFETIME_SIGNING_FLAG = 0x00000800,
-            WTD_CACHE_ONLY_URL_RETRIEVAL = 0x00001000
-        };
-
-        [Flags]
-        internal enum WintrustAction
-        {
-            WTD_STATEACTION_IGNORE = 0x00000000,
-            WTD_STATEACTION_VERIFY = 0x00000001,
-            WTD_STATEACTION_CLOSE = 0x00000002,
-            WTD_STATEACTION_AUTO_CACHE = 0x00000003,
-            WTD_STATEACTION_AUTO_CACHE_FLUSH = 0x00000004
-        };
-
-        [StructLayoutAttribute(LayoutKind.Explicit)]
-        internal struct WinTrust_Choice
-        {
-            /// WINTRUST_FILE_INFO_*
-            [FieldOffsetAttribute(0)]
-            internal System.IntPtr pFile;
-
-            /// WINTRUST_CATALOG_INFO_*
-            [FieldOffsetAttribute(0)]
-            internal System.IntPtr pCatalog;
-
-            /// WINTRUST_BLOB_INFO_*
-            [FieldOffsetAttribute(0)]
-            internal System.IntPtr pBlob;
-
-            /// WINTRUST_SGNR_INFO_*
-            [FieldOffsetAttribute(0)]
-            internal System.IntPtr pSgnr;
-
-            /// WINTRUST_CERT_INFO_*
-            [FieldOffsetAttribute(0)]
-            internal System.IntPtr pCert;
-        }
-
-        [StructLayoutAttribute(LayoutKind.Sequential)]
-        internal struct WINTRUST_DATA
-        {
-            /// DWORD->unsigned int
-            internal uint cbStruct;
-
-            /// LPVOID->void*
-            internal System.IntPtr pPolicyCallbackData;
-
-            /// LPVOID->void*
-            internal System.IntPtr pSIPClientData;
-
-            /// DWORD->unsigned int
-            internal uint dwUIChoice;
-
-            /// DWORD->unsigned int
-            internal uint fdwRevocationChecks;
-
-            /// DWORD->unsigned int
-            internal uint dwUnionChoice;
-
-            /// WinTrust_Choice struct
-            internal WinTrust_Choice Choice;
-
-            /// DWORD->unsigned int
-            internal uint dwStateAction;
-
-            /// HANDLE->void*
-            internal System.IntPtr hWVTStateData;
-
-            /// WCHAR*
-            [MarshalAsAttribute(UnmanagedType.LPWStr)]
-            internal string pwszURLReference;
-
-            /// DWORD->unsigned int
-            internal uint dwProvFlags;
-
-            /// DWORD->unsigned int
-            internal uint dwUIContext;
-        }
-
-        [ArchitectureSensitive]
-        internal static WINTRUST_DATA InitWintrustDataStructFromFile(WINTRUST_FILE_INFO wfi)
-        {
-            WINTRUST_DATA wtd = new WINTRUST_DATA();
-
-            wtd.cbStruct = (DWORD)Marshal.SizeOf(wtd);
-            wtd.pPolicyCallbackData = IntPtr.Zero;
-            wtd.pSIPClientData = IntPtr.Zero;
-            wtd.dwUIChoice = (DWORD)WintrustUIChoice.WTD_UI_NONE;
-            wtd.fdwRevocationChecks = 0;
-            wtd.dwUnionChoice = (DWORD)WintrustUnionChoice.WTD_CHOICE_FILE;
-
-            IntPtr pFileBuffer = Marshal.AllocCoTaskMem(Marshal.SizeOf(wfi));
-            Marshal.StructureToPtr(wfi, pFileBuffer, false);
-            wtd.Choice.pFile = pFileBuffer;
-
-            wtd.dwStateAction = (DWORD)WintrustAction.WTD_STATEACTION_VERIFY;
-            wtd.hWVTStateData = IntPtr.Zero;
-            wtd.pwszURLReference = null;
-            wtd.dwProvFlags = 0;
-
-            return wtd;
-        }
-
-        [ArchitectureSensitive]
-        internal static WINTRUST_DATA InitWintrustDataStructFromBlob(WINTRUST_BLOB_INFO wbi)
-        {
-            WINTRUST_DATA wtd = new WINTRUST_DATA();
-
-            wtd.cbStruct = (DWORD)Marshal.SizeOf(wbi);
-            wtd.pPolicyCallbackData = IntPtr.Zero;
-            wtd.pSIPClientData = IntPtr.Zero;
-            wtd.dwUIChoice = (DWORD)WintrustUIChoice.WTD_UI_NONE;
-            wtd.fdwRevocationChecks = 0;
-            wtd.dwUnionChoice = (DWORD)WintrustUnionChoice.WTD_CHOICE_BLOB;
-
-            IntPtr pBlob = Marshal.AllocCoTaskMem(Marshal.SizeOf(wbi));
-            Marshal.StructureToPtr(wbi, pBlob, false);
-            wtd.Choice.pBlob = pBlob;
-
-            wtd.dwStateAction = (DWORD)WintrustAction.WTD_STATEACTION_VERIFY;
-            wtd.hWVTStateData = IntPtr.Zero;
-            wtd.pwszURLReference = null;
-            wtd.dwProvFlags = 0;
-
-            return wtd;
-        }
-
-        [ArchitectureSensitive]
-        internal static DWORD DestroyWintrustDataStruct(WINTRUST_DATA wtd)
-        {
-            DWORD dwResult = Win32Errors.E_FAIL;
-            IntPtr WINTRUST_ACTION_GENERIC_VERIFY_V2 = IntPtr.Zero;
-            IntPtr wtdBuffer = IntPtr.Zero;
-
-            Guid actionVerify =
-                new Guid("00AAC56B-CD44-11d0-8CC2-00C04FC295EE");
-
-            try
-            {
-                WINTRUST_ACTION_GENERIC_VERIFY_V2 =
-                    Marshal.AllocCoTaskMem(Marshal.SizeOf(actionVerify));
-                Marshal.StructureToPtr(actionVerify,
-                                       WINTRUST_ACTION_GENERIC_VERIFY_V2,
-                                       false);
-
-                wtd.dwStateAction = (DWORD)WintrustAction.WTD_STATEACTION_CLOSE;
-                wtdBuffer = Marshal.AllocCoTaskMem(Marshal.SizeOf(wtd));
-                Marshal.StructureToPtr(wtd, wtdBuffer, false);
-
-                // The GetLastWin32Error of this is checked, but PreSharp doesn't seem to be
-                // able to see that.
-#pragma warning disable 56523
-                dwResult = WinVerifyTrust(
-                    IntPtr.Zero,
-                    WINTRUST_ACTION_GENERIC_VERIFY_V2,
-                    wtdBuffer);
-#pragma warning enable 56523
-
-                wtd = Marshal.PtrToStructure<WINTRUST_DATA>(wtdBuffer);
-            }
-            finally
-            {
-                Marshal.DestroyStructure<WINTRUST_DATA>(wtdBuffer);
-                Marshal.FreeCoTaskMem(wtdBuffer);
-                Marshal.DestroyStructure<Guid>(WINTRUST_ACTION_GENERIC_VERIFY_V2);
-                Marshal.FreeCoTaskMem(WINTRUST_ACTION_GENERIC_VERIFY_V2);
-            }
-
-            // Clear the blob or file info, depending on the type of
-            // verification that was done.
-            if (wtd.dwUnionChoice == (DWORD)WintrustUnionChoice.WTD_CHOICE_BLOB)
-            {
-                WINTRUST_BLOB_INFO originalBlob =
-                    (WINTRUST_BLOB_INFO)Marshal.PtrToStructure<WINTRUST_BLOB_INFO>(wtd.Choice.pBlob);
-                Marshal.FreeCoTaskMem(originalBlob.pbMemObject);
-
-                Marshal.DestroyStructure<WINTRUST_BLOB_INFO>(wtd.Choice.pBlob);
-                Marshal.FreeCoTaskMem(wtd.Choice.pBlob);
-            }
-            else
-            {
-                Marshal.DestroyStructure<WINTRUST_FILE_INFO>(wtd.Choice.pFile);
-                Marshal.FreeCoTaskMem(wtd.Choice.pFile);
-            }
-
-            return dwResult;
-        }
-
         [StructLayout(LayoutKind.Sequential)]
         internal struct CRYPT_PROVIDER_CERT
         {
+#pragma warning disable IDE0044
             private DWORD _cbStruct;
+#pragma warning restore IDE0044
             internal IntPtr pCert; // PCCERT_CONTEXT
-            private BOOL _fCommercial;
-            private BOOL _fTrustedRoot;
-            private BOOL _fSelfSigned;
-            private BOOL _fTestCert;
-            private DWORD _dwRevokedReason;
-            private DWORD _dwConfidence;
-            private DWORD _dwError;
-            private IntPtr _pTrustListContext; // CTL_CONTEXT*
-            private BOOL _fTrustListSignerCert;
-            private IntPtr _pCtlContext; // PCCTL_CONTEXT
-            private DWORD _dwCtlError;
-            private BOOL _fIsCyclic;
-            private IntPtr _pChainElement; // PCERT_CHAIN_ELEMENT
-        };
+            private readonly BOOL _fCommercial;
+            private readonly BOOL _fTrustedRoot;
+            private readonly BOOL _fSelfSigned;
+            private readonly BOOL _fTestCert;
+            private readonly DWORD _dwRevokedReason;
+            private readonly DWORD _dwConfidence;
+            private readonly DWORD _dwError;
+            private readonly IntPtr _pTrustListContext; // CTL_CONTEXT*
+            private readonly BOOL _fTrustListSignerCert;
+            private readonly IntPtr _pCtlContext; // PCCTL_CONTEXT
+            private readonly DWORD _dwCtlError;
+            private readonly BOOL _fIsCyclic;
+            private readonly IntPtr _pChainElement; // PCERT_CHAIN_ELEMENT
+        }
 
         [StructLayout(LayoutKind.Sequential)]
         internal struct CRYPT_PROVIDER_SGNR
         {
-            private DWORD _cbStruct;
+            private readonly DWORD _cbStruct;
             private FILETIME _sftVerifyAsOf;
-            private DWORD _csCertChain;
-            private IntPtr _pasCertChain; // CRYPT_PROVIDER_CERT*
-            private DWORD _dwSignerType;
-            private IntPtr _psSigner; // CMSG_SIGNER_INFO*
-            private DWORD _dwError;
+            private readonly DWORD _csCertChain;
+            private readonly IntPtr _pasCertChain; // CRYPT_PROVIDER_CERT*
+            private readonly DWORD _dwSignerType;
+            private readonly IntPtr _psSigner; // CMSG_SIGNER_INFO*
+            private readonly DWORD _dwError;
             internal DWORD csCounterSigners;
             internal IntPtr pasCounterSigners; // CRYPT_PROVIDER_SGNR*
-            private IntPtr _pChainContext; // PCCERT_CHAIN_CONTEXT
-        };
-
-        [DllImport("wintrust.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-        internal static extern
-            IntPtr // CRYPT_PROVIDER_DATA*
-            WTHelperProvDataFromStateData(IntPtr hStateData);
-
-        [DllImport("wintrust.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-        internal static extern
-            IntPtr // CRYPT_PROVIDER_SGNR*
-            WTHelperGetProvSignerFromChain(
-                IntPtr pProvData, // CRYPT_PROVIDER_DATA*
-                DWORD idxSigner,
-                BOOL fCounterSigner,
-                DWORD idxCounterSigner
-            );
-
-        [DllImport("wintrust.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-        internal static extern
-            IntPtr // CRYPT_PROVIDER_CERT*
-            WTHelperGetProvCertFromChain(
-                IntPtr pSgnr, // CRYPT_PROVIDER_SGNR*
-                DWORD idxCert
-            );
-
-        /// Return Type: HRESULT->LONG->int
-        ///pszFile: PCWSTR->WCHAR*
-        ///hFile: HANDLE->void*
-        ///sigInfoFlags: SIGNATURE_INFO_FLAGS->Anonymous_5157c654_2076_48e7_9241_84ac648615e9
-        ///psiginfo: SIGNATURE_INFO*
-        ///ppCertContext: void**
-        ///phWVTStateData: HANDLE*
-        [DllImportAttribute("wintrust.dll", EntryPoint = "WTGetSignatureInfo", CallingConvention = CallingConvention.StdCall)]
-        internal static extern int WTGetSignatureInfo([InAttribute()] [MarshalAsAttribute(UnmanagedType.LPWStr)] string pszFile, [InAttribute()] System.IntPtr hFile, SIGNATURE_INFO_FLAGS sigInfoFlags, ref SIGNATURE_INFO psiginfo, ref System.IntPtr ppCertContext, ref System.IntPtr phWVTStateData);
-
-        internal static void FreeWVTStateData(System.IntPtr phWVTStateData)
-        {
-            WINTRUST_DATA wtd = new WINTRUST_DATA();
-            DWORD dwResult = Win32Errors.E_FAIL;
-            IntPtr WINTRUST_ACTION_GENERIC_VERIFY_V2 = IntPtr.Zero;
-            IntPtr wtdBuffer = IntPtr.Zero;
-
-            Guid actionVerify =
-                new Guid("00AAC56B-CD44-11d0-8CC2-00C04FC295EE");
-
-            try
-            {
-                WINTRUST_ACTION_GENERIC_VERIFY_V2 =
-                    Marshal.AllocCoTaskMem(Marshal.SizeOf(actionVerify));
-                Marshal.StructureToPtr(actionVerify,
-                                       WINTRUST_ACTION_GENERIC_VERIFY_V2,
-                                       false);
-
-                wtd.cbStruct = (DWORD)Marshal.SizeOf(wtd);
-                wtd.dwUIChoice = (DWORD)WintrustUIChoice.WTD_UI_NONE;
-                wtd.fdwRevocationChecks = 0;
-                wtd.dwUnionChoice = (DWORD)WintrustUnionChoice.WTD_CHOICE_BLOB;
-                wtd.dwStateAction = (DWORD)WintrustAction.WTD_STATEACTION_CLOSE;
-                wtd.hWVTStateData = phWVTStateData;
-
-                wtdBuffer = Marshal.AllocCoTaskMem(Marshal.SizeOf(wtd));
-                Marshal.StructureToPtr(wtd, wtdBuffer, false);
-
-                // The GetLastWin32Error of this is checked, but PreSharp doesn't seem to be
-                // able to see that.
-#pragma warning disable 56523
-                dwResult = WinVerifyTrust(
-                    IntPtr.Zero,
-                    WINTRUST_ACTION_GENERIC_VERIFY_V2,
-                    wtdBuffer);
-#pragma warning enable 56523
-            }
-            finally
-            {
-                Marshal.DestroyStructure<WINTRUST_DATA>(wtdBuffer);
-                Marshal.FreeCoTaskMem(wtdBuffer);
-                Marshal.DestroyStructure<Guid>(WINTRUST_ACTION_GENERIC_VERIFY_V2);
-                Marshal.FreeCoTaskMem(WINTRUST_ACTION_GENERIC_VERIFY_V2);
-            }
+            private readonly IntPtr _pChainContext; // PCCERT_CHAIN_CONTEXT
         }
 
         //
@@ -1221,10 +821,10 @@ namespace System.Management.Automation.Security
         internal struct CERT_ENHKEY_USAGE
         {
             internal DWORD cUsageIdentifier;
-            //[MarshalAs(UnmanagedType.LPArray, ArraySubType=UnmanagedType.LPStr, SizeParamIndex=0)]
-            //internal string[] rgpszUsageIdentifier; // LPSTR*
+            // [MarshalAs(UnmanagedType.LPArray, ArraySubType=UnmanagedType.LPStr, SizeParamIndex=0)]
+            // internal string[] rgpszUsageIdentifier; // LPSTR*
             internal IntPtr rgpszUsageIdentifier;
-        };
+        }
 
         internal enum SIGNATURE_STATE
         {
@@ -1298,7 +898,7 @@ namespace System.Management.Automation.Security
             SIT_CATALOG,
         }
 
-        [StructLayoutAttribute(LayoutKind.Sequential)]
+        [StructLayout(LayoutKind.Sequential)]
         internal struct SIGNATURE_INFO
         {
             /// DWORD->unsigned int
@@ -1317,21 +917,21 @@ namespace System.Management.Automation.Security
             internal uint dwInfoAvailability;
 
             /// PWSTR->WCHAR*
-            [MarshalAsAttribute(UnmanagedType.LPWStr)]
+            [MarshalAs(UnmanagedType.LPWStr)]
             internal string pszDisplayName;
 
             /// DWORD->unsigned int
             internal uint cchDisplayName;
 
             /// PWSTR->WCHAR*
-            [MarshalAsAttribute(UnmanagedType.LPWStr)]
+            [MarshalAs(UnmanagedType.LPWStr)]
             internal string pszPublisherName;
 
             /// DWORD->unsigned int
             internal uint cchPublisherName;
 
             /// PWSTR->WCHAR*
-            [MarshalAsAttribute(UnmanagedType.LPWStr)]
+            [MarshalAs(UnmanagedType.LPWStr)]
             internal string pszMoreInfoURL;
 
             /// DWORD->unsigned int
@@ -1347,7 +947,7 @@ namespace System.Management.Automation.Security
             internal int fOSBinary;
         }
 
-        [StructLayoutAttribute(LayoutKind.Sequential)]
+        [StructLayout(LayoutKind.Sequential)]
         internal struct CERT_INFO
         {
             /// DWORD->unsigned int
@@ -1387,18 +987,18 @@ namespace System.Management.Automation.Security
             internal System.IntPtr rgExtension;
         }
 
-        [StructLayoutAttribute(LayoutKind.Sequential)]
+        [StructLayout(LayoutKind.Sequential)]
         internal struct CRYPT_ALGORITHM_IDENTIFIER
         {
             /// LPSTR->CHAR*
-            [MarshalAsAttribute(UnmanagedType.LPStr)]
+            [MarshalAs(UnmanagedType.LPStr)]
             internal string pszObjId;
 
             /// CRYPT_OBJID_BLOB->_CRYPTOAPI_BLOB
             internal CRYPT_ATTR_BLOB Parameters;
         }
 
-        [StructLayoutAttribute(LayoutKind.Sequential)]
+        [StructLayout(LayoutKind.Sequential)]
         internal struct FILETIME
         {
             /// DWORD->unsigned int
@@ -1408,7 +1008,7 @@ namespace System.Management.Automation.Security
             internal uint dwHighDateTime;
         }
 
-        [StructLayoutAttribute(LayoutKind.Sequential)]
+        [StructLayout(LayoutKind.Sequential)]
         internal struct CERT_PUBLIC_KEY_INFO
         {
             /// CRYPT_ALGORITHM_IDENTIFIER->_CRYPT_ALGORITHM_IDENTIFIER
@@ -1418,7 +1018,7 @@ namespace System.Management.Automation.Security
             internal CRYPT_BIT_BLOB PublicKey;
         }
 
-        [StructLayoutAttribute(LayoutKind.Sequential)]
+        [StructLayout(LayoutKind.Sequential)]
         internal struct CRYPT_BIT_BLOB
         {
             /// DWORD->unsigned int
@@ -1431,11 +1031,11 @@ namespace System.Management.Automation.Security
             internal uint cUnusedBits;
         }
 
-        [StructLayoutAttribute(LayoutKind.Sequential)]
+        [StructLayout(LayoutKind.Sequential)]
         internal struct CERT_EXTENSION
         {
             /// LPSTR->CHAR*
-            [MarshalAsAttribute(UnmanagedType.LPStr)]
+            [MarshalAs(UnmanagedType.LPStr)]
             internal string pszObjId;
 
             /// BOOL->int
@@ -1447,7 +1047,7 @@ namespace System.Management.Automation.Security
     }
 
     /// <summary>
-    /// pinvoke methods from certca.dll
+    /// Pinvoke methods from certca.dll.
     /// </summary>
     internal static partial class NativeMethods
     {
@@ -1476,25 +1076,6 @@ namespace System.Management.Automation.Security
         }
     }
 
-    #region Check_UI_Allowed
-
-    /// <summary>
-    /// Used in CertificateProvider to detect if UI is allowed.
-    /// </summary>
-    internal static partial class NativeMethods
-    {
-        [DllImport("kernel32.dll")]
-        internal static extern bool ProcessIdToSessionId(uint dwProcessId, out uint pSessionId);
-
-        [DllImport("kernel32.dll")]
-        internal static extern IntPtr GetConsoleWindow();
-
-        [DllImport("user32.dll")]
-        internal static extern IntPtr GetDesktopWindow();
-    }
-
-    #endregion Check_UI_Allowed
-
     #region SAFER_APIs
 
     // SAFER native methods
@@ -1505,15 +1086,15 @@ namespace System.Management.Automation.Security
         ///pCodeProperties: PSAFER_CODE_PROPERTIES->_SAFER_CODE_PROPERTIES*
         ///pLevelHandle: SAFER_LEVEL_HANDLE*
         ///lpReserved: LPVOID->void*
-        [DllImportAttribute("advapi32.dll", EntryPoint = "SaferIdentifyLevel", SetLastError = true)]
-        [return: MarshalAsAttribute(UnmanagedType.Bool)]
+        [DllImport("advapi32.dll", EntryPoint = "SaferIdentifyLevel", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool SaferIdentifyLevel(
             uint dwNumProperties,
-            [InAttribute()]
+            [In]
             ref SAFER_CODE_PROPERTIES pCodeProperties,
             out IntPtr pLevelHandle,
-            [InAttribute()]
-            [MarshalAsAttribute(UnmanagedType.LPWStr)]
+            [In]
+            [MarshalAs(UnmanagedType.LPWStr)]
             string bucket);
 
         /// Return Type: BOOL->int
@@ -1522,12 +1103,12 @@ namespace System.Management.Automation.Security
         ///OutAccessToken: PHANDLE->HANDLE*
         ///dwFlags: DWORD->unsigned int
         ///lpReserved: LPVOID->void*
-        [DllImportAttribute("advapi32.dll", EntryPoint = "SaferComputeTokenFromLevel", SetLastError = true)]
-        [return: MarshalAsAttribute(UnmanagedType.Bool)]
+        [DllImport("advapi32.dll", EntryPoint = "SaferComputeTokenFromLevel", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool SaferComputeTokenFromLevel(
-            [InAttribute()]
+            [In]
             IntPtr LevelHandle,
-            [InAttribute()]
+            [In]
             System.IntPtr InAccessToken,
             ref System.IntPtr OutAccessToken,
             uint dwFlags,
@@ -1535,18 +1116,18 @@ namespace System.Management.Automation.Security
 
         /// Return Type: BOOL->int
         ///hLevelHandle: SAFER_LEVEL_HANDLE->SAFER_LEVEL_HANDLE__*
-        [DllImportAttribute("advapi32.dll", EntryPoint = "SaferCloseLevel")]
-        [return: MarshalAsAttribute(UnmanagedType.Bool)]
-        internal static extern bool SaferCloseLevel([InAttribute()] IntPtr hLevelHandle);
+        [DllImport("advapi32.dll", EntryPoint = "SaferCloseLevel")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool SaferCloseLevel([In] IntPtr hLevelHandle);
 
         /// Return Type: BOOL->int
         ///hObject: HANDLE->void*
-        [DllImportAttribute(PinvokeDllNames.CloseHandleDllName, EntryPoint = "CloseHandle")]
-        [return: MarshalAsAttribute(UnmanagedType.Bool)]
-        internal static extern bool CloseHandle([InAttribute()] System.IntPtr hObject);
+        [DllImport(PinvokeDllNames.CloseHandleDllName, EntryPoint = "CloseHandle")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool CloseHandle([In] System.IntPtr hObject);
     }
 
-    [StructLayoutAttribute(LayoutKind.Sequential)]
+    [StructLayout(LayoutKind.Sequential)]
     internal struct SAFER_CODE_PROPERTIES
     {
         /// DWORD->unsigned int
@@ -1556,7 +1137,7 @@ namespace System.Management.Automation.Security
         public uint dwCheckFlags;
 
         /// LPCWSTR->WCHAR*
-        [MarshalAsAttribute(UnmanagedType.LPWStr)]
+        [MarshalAs(UnmanagedType.LPWStr)]
         public string ImagePath;
 
         /// HANDLE->void*
@@ -1566,7 +1147,7 @@ namespace System.Management.Automation.Security
         public uint UrlZoneId;
 
         /// BYTE[SAFER_MAX_HASH_SIZE]
-        [MarshalAsAttribute(
+        [MarshalAs(
             UnmanagedType.ByValArray,
             SizeConst = NativeConstants.SAFER_MAX_HASH_SIZE,
             ArraySubType = UnmanagedType.I1)]
@@ -1591,30 +1172,30 @@ namespace System.Management.Automation.Security
         public uint dwWVTUIChoice;
     }
 
-    [StructLayoutAttribute(LayoutKind.Explicit)]
+    [StructLayout(LayoutKind.Explicit)]
     internal struct LARGE_INTEGER
     {
         /// Anonymous_9320654f_2227_43bf_a385_74cc8c562686
-        [FieldOffsetAttribute(0)]
+        [FieldOffset(0)]
         public Anonymous_9320654f_2227_43bf_a385_74cc8c562686 Struct1;
 
         /// Anonymous_947eb392_1446_4e25_bbd4_10e98165f3a9
-        [FieldOffsetAttribute(0)]
+        [FieldOffset(0)]
         public Anonymous_947eb392_1446_4e25_bbd4_10e98165f3a9 u;
 
         /// LONGLONG->__int64
-        [FieldOffsetAttribute(0)]
+        [FieldOffset(0)]
         public long QuadPart;
     }
 
-    [StructLayoutAttribute(LayoutKind.Sequential)]
+    [StructLayout(LayoutKind.Sequential)]
     internal struct HWND__
     {
         /// int
         public int unused;
     }
 
-    [StructLayoutAttribute(LayoutKind.Sequential)]
+    [StructLayout(LayoutKind.Sequential)]
     internal struct Anonymous_9320654f_2227_43bf_a385_74cc8c562686
     {
         /// DWORD->unsigned int
@@ -1624,7 +1205,7 @@ namespace System.Management.Automation.Security
         public int HighPart;
     }
 
-    [StructLayoutAttribute(LayoutKind.Sequential)]
+    [StructLayout(LayoutKind.Sequential)]
     internal struct Anonymous_947eb392_1446_4e25_bbd4_10e98165f3a9
     {
         /// DWORD->unsigned int
@@ -1637,7 +1218,7 @@ namespace System.Management.Automation.Security
     #endregion SAFER_APIs
 
     /// <summary>
-    /// pinvoke methods from advapi32.dll
+    /// Pinvoke methods from advapi32.dll.
     /// </summary>
     internal static partial class NativeMethods
     {
@@ -1706,28 +1287,28 @@ namespace System.Management.Automation.Security
             UNPROTECTED_SACL_SECURITY_INFORMATION = 0x10000000
         }
 
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        [StructLayout(LayoutKind.Sequential)]
         internal struct LUID
         {
             internal uint LowPart;
             internal uint HighPart;
         }
 
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        [StructLayout(LayoutKind.Sequential)]
         internal struct LUID_AND_ATTRIBUTES
         {
             internal LUID Luid;
             internal uint Attributes;
         }
 
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        [StructLayout(LayoutKind.Sequential)]
         internal struct TOKEN_PRIVILEGE
         {
             internal uint PrivilegeCount;
             internal LUID_AND_ATTRIBUTES Privilege;
         }
 
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        [StructLayout(LayoutKind.Sequential)]
         internal struct ACL
         {
             internal byte AclRevision;
@@ -1737,7 +1318,7 @@ namespace System.Management.Automation.Security
             internal ushort Sbz2;
         }
 
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        [StructLayout(LayoutKind.Sequential)]
         internal struct ACE_HEADER
         {
             internal byte AceType;
@@ -1745,7 +1326,7 @@ namespace System.Management.Automation.Security
             internal ushort AceSize;
         }
 
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        [StructLayout(LayoutKind.Sequential)]
         internal struct SYSTEM_AUDIT_ACE
         {
             internal ACE_HEADER Header;
@@ -1753,7 +1334,7 @@ namespace System.Management.Automation.Security
             internal uint SidStart;
         }
 
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        [StructLayout(LayoutKind.Sequential)]
         internal struct LSA_UNICODE_STRING
         {
             internal ushort Length;
@@ -1761,7 +1342,7 @@ namespace System.Management.Automation.Security
             internal IntPtr Buffer;
         }
 
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        [StructLayout(LayoutKind.Sequential)]
         internal struct CENTRAL_ACCESS_POLICY
         {
             internal IntPtr CAPID;
@@ -1796,11 +1377,13 @@ namespace System.Management.Automation.Security
             IntPtr pSacl);
 
         [DllImport(PinvokeDllNames.ConvertStringSidToSidDllName, CharSet = CharSet.Unicode, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool ConvertStringSidToSid(
             string StringSid,
             out IntPtr Sid);
 
         [DllImport(PinvokeDllNames.IsValidSidDllName, CharSet = CharSet.Unicode, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool IsValidSid(IntPtr pSid);
 
         [DllImport(PinvokeDllNames.GetLengthSidDllName, CharSet = CharSet.Unicode)]
@@ -1817,6 +1400,7 @@ namespace System.Management.Automation.Security
         internal static extern uint LsaFreeMemory(IntPtr Buffer);
 
         [DllImport(PinvokeDllNames.InitializeAclDllName, CharSet = CharSet.Unicode, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool InitializeAcl(
             IntPtr pAcl,
             uint nAclLength,
@@ -1837,12 +1421,14 @@ namespace System.Management.Automation.Security
         internal static extern IntPtr GetCurrentThread();
 
         [DllImport(PinvokeDllNames.OpenProcessTokenDllName, CharSet = CharSet.Unicode, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool OpenProcessToken(
             IntPtr ProcessHandle,
             uint DesiredAccess,
             out IntPtr TokenHandle);
 
         [DllImport(PinvokeDllNames.OpenThreadTokenDllName, CharSet = CharSet.Unicode, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool OpenThreadToken(
             IntPtr ThreadHandle,
             uint DesiredAccess,
@@ -1850,12 +1436,14 @@ namespace System.Management.Automation.Security
             out IntPtr TokenHandle);
 
         [DllImport(PinvokeDllNames.LookupPrivilegeValueDllName, CharSet = CharSet.Unicode, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool LookupPrivilegeValue(
             string lpSystemName,
             string lpName,
             ref LUID lpLuid);
 
         [DllImport(PinvokeDllNames.AdjustTokenPrivilegesDllName, CharSet = CharSet.Unicode, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool AdjustTokenPrivileges(
             IntPtr TokenHandle,
             bool DisableAllPrivileges,
@@ -1879,40 +1467,6 @@ namespace System.Management.Automation.Security
         internal const uint LOAD_LIBRARY_SEARCH_USER_DIRS = 0x00000400;
         internal const uint LOAD_LIBRARY_SEARCH_SYSTEM32 = 0x00000800;
         internal const uint LOAD_LIBRARY_SEARCH_DEFAULT_DIRS = 0x00001000;
-
-        [DllImport(PinvokeDllNames.LoadLibraryEx, CharSet = CharSet.Unicode, SetLastError = true)]
-        internal static extern IntPtr LoadLibraryExW(
-            string DllName,
-            IntPtr reserved,
-            uint Flags);
-
-        [DllImport(PinvokeDllNames.FreeLibrary, CharSet = CharSet.Unicode, SetLastError = true)]
-        internal static extern bool FreeLibrary(
-            IntPtr Module);
-
-        internal static bool IsSystem32DllPresent(string DllName)
-        {
-            bool DllExists = false;
-
-            try
-            {
-                IntPtr module = LoadLibraryExW(
-                                        DllName,
-                                        IntPtr.Zero,
-                                        NativeMethods.LOAD_LIBRARY_AS_DATAFILE |
-                                            NativeMethods.LOAD_LIBRARY_AS_IMAGE_RESOURCE |
-                                            NativeMethods.LOAD_LIBRARY_SEARCH_SYSTEM32);
-                if (IntPtr.Zero != module)
-                {
-                    FreeLibrary(module);
-                    DllExists = true;
-                }
-            }
-            catch (Exception)
-            {
-            }
-            return DllExists;
-        }
     }
 
     // Constants needed for Catalog Error Handling
@@ -1953,219 +1507,6 @@ namespace System.Management.Automation.Security
 
         // CRYPTCAT_E_CDF_ATTR_TYPECOMBO = "0x00020004";
         public const int CRYPTCAT_E_CDF_ATTR_TYPECOMBO = 131076;
-    }
-
-    /// <summary>
-    /// pinvoke methods from wintrust.dll
-    /// These are added to Generate and Validate Window Catalog Files
-    /// </summary>
-    internal static partial class NativeMethods
-    {
-        [StructLayout(LayoutKind.Sequential)]
-        internal struct CRYPT_ATTRIBUTE_TYPE_VALUE
-        {
-            [MarshalAs(UnmanagedType.LPStr)]
-            internal string pszObjId;
-            internal CRYPT_ATTR_BLOB Value;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        internal struct SIP_INDIRECT_DATA
-        {
-            internal CRYPT_ATTRIBUTE_TYPE_VALUE Data;
-            internal CRYPT_ALGORITHM_IDENTIFIER DigestAlgorithm;
-            internal CRYPT_ATTR_BLOB Digest;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        internal struct CRYPTCATCDF
-        {
-            private DWORD _cbStruct;
-            private IntPtr _hFile;
-            private DWORD _dwCurFilePos;
-            private DWORD _dwLastMemberOffset;
-            private BOOL _fEOF;
-            [MarshalAs(UnmanagedType.LPWStr)]
-            private string _pwszResultDir;
-            private IntPtr _hCATStore;
-        };
-
-        [StructLayout(LayoutKind.Sequential)]
-        internal struct CRYPTCATMEMBER
-        {
-            internal DWORD cbStruct;
-            [MarshalAs(UnmanagedType.LPWStr)]
-            internal string pwszReferenceTag;
-            [MarshalAs(UnmanagedType.LPWStr)]
-            internal string pwszFileName;
-            internal GUID gSubjectType;
-            internal DWORD fdwMemberFlags;
-            internal IntPtr pIndirectData;
-            internal DWORD dwCertVersion;
-            internal DWORD dwReserved;
-            internal IntPtr hReserved;
-            internal CRYPT_ATTR_BLOB sEncodedIndirectData;
-            internal CRYPT_ATTR_BLOB sEncodedMemberInfo;
-        };
-
-        [StructLayout(LayoutKind.Sequential)]
-        internal struct CRYPTCATATTRIBUTE
-        {
-            private DWORD _cbStruct;
-            [MarshalAs(UnmanagedType.LPWStr)]
-            internal string pwszReferenceTag;
-            private DWORD _dwAttrTypeAndAction;
-            internal DWORD cbValue;
-            internal System.IntPtr pbValue;
-            private DWORD _dwReserved;
-        };
-
-        [StructLayout(LayoutKind.Sequential)]
-        internal struct CRYPTCATSTORE
-        {
-            private DWORD _cbStruct;
-            internal DWORD dwPublicVersion;
-            [MarshalAs(UnmanagedType.LPWStr)]
-            internal string pwszP7File;
-            private IntPtr _hProv;
-            private DWORD _dwEncodingType;
-            private DWORD _fdwStoreFlags;
-            private IntPtr _hReserved;
-            private IntPtr _hAttrs;
-            private IntPtr _hCryptMsg;
-            private IntPtr _hSorted;
-        };
-
-        [DllImport("wintrust.dll", CharSet = CharSet.Unicode)]
-        internal static extern IntPtr CryptCATCDFOpen(
-            [MarshalAs(UnmanagedType.LPWStr)]
-            string pwszFilePath,
-            CryptCATCDFOpenCallBack pfnParseError
-        );
-
-        [DllImport("wintrust.dll")]
-        internal static extern BOOL CryptCATCDFClose(
-            IntPtr pCDF
-        );
-
-        [DllImport("wintrust.dll", CharSet = CharSet.Unicode)]
-        internal static extern IntPtr CryptCATCDFEnumCatAttributes(
-            IntPtr pCDF,
-            IntPtr pPrevAttr,
-            CryptCATCDFOpenCallBack pfnParseError
-        );
-
-        [DllImport("wintrust.dll", CharSet = CharSet.Unicode)]
-        internal static extern IntPtr CryptCATCDFEnumMembersByCDFTagEx(
-            IntPtr pCDF,
-            IntPtr pwszPrevCDFTag,
-            CryptCATCDFEnumMembersByCDFTagExErrorCallBack fn,
-            ref IntPtr ppMember,
-            bool fContinueOnError,
-            IntPtr pvReserved
-        );
-
-        [DllImport("wintrust.dll", CharSet = CharSet.Unicode)]
-        internal static extern IntPtr CryptCATCDFEnumAttributesWithCDFTag(
-            IntPtr pCDF,
-            IntPtr pwszMemberTag,
-            IntPtr pMember,
-            IntPtr pPrevAttr,
-            CryptCATCDFEnumMembersByCDFTagExErrorCallBack fn
-        );
-
-        [DllImport("wintrust.dll", CharSet = CharSet.Unicode)]
-        internal static extern IntPtr CryptCATOpen(
-            [MarshalAs(UnmanagedType.LPWStr)]
-            string pwszFilePath,
-            DWORD fdwOpenFlags,
-            IntPtr hProv,
-            DWORD dwPublicVersion,
-            DWORD dwEncodingType
-         );
-
-        [DllImport("wintrust.dll")]
-        internal static extern BOOL CryptCATClose(
-          IntPtr hCatalog
-        );
-
-        [DllImport("wintrust.dll", CharSet = CharSet.Unicode)]
-        internal static extern IntPtr CryptCATStoreFromHandle(
-            IntPtr hCatalog
-        );
-
-        [DllImport("wintrust.dll", CharSet = CharSet.Unicode)]
-        internal static extern bool CryptCATAdminAcquireContext2(
-          ref IntPtr phCatAdmin,
-          IntPtr pgSubsystem,
-          [MarshalAs(UnmanagedType.LPWStr)]
-          string pwszHashAlgorithm,
-          IntPtr pStrongHashPolicy,
-          DWORD dwFlags
-      );
-
-        [DllImport("wintrust.dll", CharSet = CharSet.Unicode)]
-        internal static extern bool CryptCATAdminReleaseContext(
-            IntPtr phCatAdmin,
-            DWORD dwFlags
-        );
-
-        [DllImport("kernel32", SetLastError = true, CharSet = CharSet.Unicode)]
-        internal static extern unsafe IntPtr CreateFile(
-            string lpFileName,
-            DWORD dwDesiredAccess,
-            DWORD dwShareMode,
-            DWORD lpSecurityAttributes,
-            DWORD dwCreationDisposition,
-            DWORD dwFlagsAndAttributes,
-            IntPtr hTemplateFile
-           );
-
-        [DllImport("wintrust.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-        internal static extern bool CryptCATAdminCalcHashFromFileHandle2(
-            IntPtr hCatAdmin,
-            IntPtr hFile,
-            [In, Out] ref DWORD pcbHash,
-            IntPtr pbHash,
-            DWORD dwFlags
-        );
-
-        [DllImport("wintrust.dll", CharSet = CharSet.Unicode)]
-        internal static extern IntPtr CryptCATEnumerateCatAttr(
-            IntPtr hCatalog,
-            IntPtr pPrevAttr
-        );
-
-        [DllImport("wintrust.dll", CharSet = CharSet.Unicode)]
-        internal static extern IntPtr CryptCATEnumerateMember(
-                IntPtr hCatalog,
-                IntPtr pPrevMember
-        );
-
-        [DllImport("wintrust.dll", CharSet = CharSet.Unicode)]
-        internal static extern IntPtr CryptCATEnumerateAttr(
-            IntPtr hCatalog,
-            IntPtr pCatMember,
-            IntPtr pPrevAttr
-        );
-
-        /// <summary>
-        /// signature of call back function used by CryptCATCDFOpen
-        /// </summary>
-        internal delegate
-        void CryptCATCDFOpenCallBack(DWORD NotUsedDWORD1,
-                                      DWORD NotUsedDWORD2,
-                                      [MarshalAs(UnmanagedType.LPWStr)]
-                                      string NotUsedString);
-
-        /// <summary>
-        /// signature of call back function used by CryptCATCDFEnumMembersByCDFTagEx
-        /// </summary>
-        internal delegate
-        void CryptCATCDFEnumMembersByCDFTagExErrorCallBack(DWORD NotUsedDWORD1,
-                                      DWORD NotUsedDWORD2,
-                                      [MarshalAs(UnmanagedType.LPWStr)]
-                                      string NotUsedString);
     }
 }
 

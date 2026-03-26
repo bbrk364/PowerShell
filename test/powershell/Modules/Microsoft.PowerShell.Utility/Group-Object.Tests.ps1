@@ -1,4 +1,4 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 Describe "Group-Object DRT Unit Tests" -Tags "CI" {
     It "Test for CaseSensitive switch" {
@@ -9,7 +9,7 @@ Describe "Group-Object DRT Unit Tests" -Tags "CI" {
         $results.Group.Count | Should -Be 4
         $results.Name | Should -Be aA,AA
         $results.Group | Should -Be aA,aA,AA,AA
-        ,$results | Should -BeOfType "System.Array"
+        ,$results | Should -BeOfType System.Array
     }
 }
 
@@ -46,13 +46,13 @@ Describe "Group-Object" -Tags "CI" {
 
     It "Should return object of 'GroupInfo' type" {
         $actualParam = Group-Object -InputObject $testObject
-        $actualParam | Should -BeOfType "Microsoft.PowerShell.Commands.GroupInfo"
+        $actualParam | Should -BeOfType Microsoft.PowerShell.Commands.GroupInfo
     }
 
     It "Should output an array when piped input is used" {
         $actual = $testObject | Group-Object
 
-        ,$actual | Should -BeOfType "System.Array"
+        ,$actual | Should -BeOfType System.Array
     }
 
     It "Should have the same output between the group alias and the group-object cmdlet" {
@@ -89,7 +89,7 @@ Describe "Group-Object" -Tags "CI" {
         $actual = $testObject | Group-Object -AsHashTable
 
         $actual | Should -Not -BeNullOrEmpty
-        $actual | Should -BeOfType "System.Collections.Hashtable"
+        $actual | Should -BeOfType System.Collections.Hashtable
     }
 
     It "Should be able to access when output as hash table" {
@@ -108,20 +108,35 @@ Describe "Group-Object" -Tags "CI" {
 
     It "Should be able to retrieve objects by key when using -AsHashTable without -AsString" {
         $testObject = [pscustomobject] @{a="one"; b=2}, [pscustomobject] @{a="two"; b=10}
-        $result = $testObject | Group-Object -AsHashtable -Property a
+        $result = $testObject | Group-Object -AsHashTable -Property a
         $result.one.b | Should -Be 2
         $result["two"].b | Should -Be 10
     }
 
     It "User's scenario should work (see issue #6933 for link to stackoverflow question)" {
         # Sort numbers into two groups even succeeded, odd failed.
-        $result = 1..9 | foreach {[PSCustomObject]@{ErrorMessage = if ($_ % 2) {'SomeError'} else {''}}} |
+        $result = 1..9 | ForEach-Object {[PSCustomObject]@{ErrorMessage = if ($_ % 2) {'SomeError'} else {''}}} |
             Group-Object -Property {if ($_.ErrorMessage) {'Failed'} else {'Successful'}} -AsHashTable
 
         $result['Failed'].ErrorMessage.Count | Should -Be 5
         $result['Failed'].ErrorMessage[0] | Should -Be 'SomeError'
         $result['Successful'].ErrorMessage.Count | Should -Be 4
         $result['Successful'].ErrorMessage[0] | Should -Be ''
+    }
+
+    It "Should understand empty NoteProperty" {
+        $result = "dummy" | Select-Object -Property @{Name = 'X'; Expression = {}} | Group-Object X
+        $result.Count | Should -Be 1
+        $result[0].Name | Should -Be ""
+        $result[0].Group | Should -Be '@{X=}'
+    }
+
+    It "Should handle format-like strings with curly braces like normal strings" {
+        $result = '{', '}', '{0}' | Group-Object
+        $result.Count | Should -Be 3
+        $result[0].Name | Should -BeExactly '{'
+        $result[1].Name | Should -BeExactly '{0}'
+        $result[2].Name | Should -BeExactly '}'
     }
 }
 
@@ -166,6 +181,21 @@ Describe "Check 'Culture' parameter in order object cmdlets (Group-Object, Sort-
             $testCulture = "1049"
         }
 
-        {$testObject | Group-Object -Culture $testCulture } | Should -Not -Throw
+        { $testObject | Group-Object -Culture $testCulture } | Should -Not -Throw
+    }
+
+    It 'should not throw a key duplication error with -CaseSensitive -AsHashtable' {
+        $capitonyms = @(
+            [PSCustomObject]@{
+                Capitonym = 'Bill'
+            }
+            [PSCustomObject]@{
+                Capitonym = 'bill'
+            }
+        )
+
+        $Result = $capitonyms | Group-Object -Property Capitonym -AsHashTable -CaseSensitive
+        $Result | Should -BeOfType HashTable
+        $Result.Keys | Should -BeIn @( 'Bill', 'bill' )
     }
 }

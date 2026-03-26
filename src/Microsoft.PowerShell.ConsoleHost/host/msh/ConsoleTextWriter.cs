@@ -1,14 +1,10 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
-using System.Text;
 using System.IO;
+using System.Text;
 using Dbg = System.Management.Automation.Diagnostics;
-using ConsoleHandle = Microsoft.Win32.SafeHandles.SafeFileHandle;
-using HRESULT = System.UInt32;
-using DWORD = System.UInt32;
-using NakedWin32Handle = System.IntPtr;
 
 namespace Microsoft.PowerShell
 {
@@ -17,8 +13,7 @@ namespace Microsoft.PowerShell
     {
         internal
         ConsoleTextWriter(ConsoleHostUserInterface ui)
-            :
-            base(System.Globalization.CultureInfo.CurrentCulture)
+            : base(System.Globalization.CultureInfo.CurrentCulture)
         {
             Dbg.Assert(ui != null, "ui needs a value");
 
@@ -39,38 +34,59 @@ namespace Microsoft.PowerShell
         void
         Write(string value)
         {
-            _ui.WriteToConsole(value, true);
+            _ui.WriteToConsole(value, transcribeResult: true);
+        }
+
+        public override
+        void
+        Write(ReadOnlySpan<char> value)
+        {
+            _ui.WriteToConsole(value, transcribeResult: true);
         }
 
         public override
         void
         WriteLine(string value)
         {
-            this.Write(value + ConsoleHostUserInterface.Crlf);
+            _ui.WriteLineToConsole(value, transcribeResult: true);
         }
 
         public override
         void
-        Write(Boolean b)
+        WriteLine(ReadOnlySpan<char> value)
         {
-            this.Write(b.ToString());
+            _ui.WriteLineToConsole(value, transcribeResult: true);
         }
 
         public override
         void
-        Write(Char c)
+        Write(bool b)
         {
-            this.Write(new String(c, 1));
+            if (b)
+            {
+                _ui.WriteToConsole(bool.TrueString, transcribeResult: true);
+            }
+            else
+            {
+                _ui.WriteToConsole(bool.FalseString, transcribeResult: true);
+            }
         }
 
         public override
         void
-        Write(Char[] a)
+        Write(char c)
         {
-            this.Write(new String(a));
+            ReadOnlySpan<char> value = [c];
+            _ui.WriteToConsole(value, transcribeResult: true);
         }
 
-        private ConsoleHostUserInterface _ui;
+        public override
+        void
+        Write(char[] a)
+        {
+            _ui.WriteToConsole(a, transcribeResult: true);
+        }
+
+        private readonly ConsoleHostUserInterface _ui;
     }
-}   // namespace
-
+}

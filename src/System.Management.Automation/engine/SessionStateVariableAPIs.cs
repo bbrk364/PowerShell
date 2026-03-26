@@ -1,12 +1,13 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Management.Automation.Provider;
 using System.Management.Automation.Internal;
+using System.Management.Automation.Provider;
 using System.Management.Automation.Runspaces;
+
 using Dbg = System.Management.Automation;
 
 #pragma warning disable 1634, 1691 // Stops compiler from warning about unknown warnings
@@ -15,7 +16,7 @@ using Dbg = System.Management.Automation;
 namespace System.Management.Automation
 {
     /// <summary>
-    /// Holds the state of a Monad Shell session
+    /// Holds the state of a Monad Shell session.
     /// </summary>
     internal sealed partial class SessionStateInternal
     {
@@ -24,7 +25,7 @@ namespace System.Management.Automation
         /// <summary>
         /// Add an new SessionStateVariable entry to this session state object...
         /// </summary>
-        /// <param name="entry">The entry to add</param>
+        /// <param name="entry">The entry to add.</param>
         internal void AddSessionStateEntry(SessionStateVariableEntry entry)
         {
             PSVariable v = new PSVariable(entry.Name, entry.Value,
@@ -35,30 +36,25 @@ namespace System.Management.Automation
 
         /// <summary>
         /// Get a variable out of session state. This interface supports
-        /// the scope specifiers like "global:foobar"
+        /// the scope specifiers like "global:example"
         /// </summary>
-        ///
         /// <param name="name">
         /// name of variable to look up
         /// </param>
-        ///
         /// <param name="origin">
         /// Origin of the command making this request.
         /// </param>
-        ///
         /// <returns>
         /// The specified variable.
         /// </returns>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If <paramref name="name"/> is null.
         /// </exception>
-        ///
         internal PSVariable GetVariable(string name, CommandOrigin origin)
         {
             if (name == null)
             {
-                throw PSTraceSource.NewArgumentNullException("name");
+                throw PSTraceSource.NewArgumentNullException(nameof(name));
             }
 
             VariablePath variablePath = new VariablePath(name, VariablePathFlags.Variable | VariablePathFlags.Unqualified);
@@ -67,70 +63,58 @@ namespace System.Management.Automation
             PSVariable resultItem = GetVariableItem(variablePath, out scope, origin);
 
             return resultItem;
-        } // GetVariable
+        }
 
         /// <summary>
         /// Get a variable out of session state. This interface supports
-        /// the scope specifiers like "global:foobar"
+        /// the scope specifiers like "global:example"
         /// </summary>
-        ///
         /// <param name="name">
         /// name of variable to look up
         /// </param>
-        ///
         /// <returns>
         /// The specified variable.
         /// </returns>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If <paramref name="name"/> is null.
         /// </exception>
-        ///
         internal PSVariable GetVariable(string name)
         {
             return GetVariable(name, CommandOrigin.Internal);
-        } // GetVariable
+        }
 
         /// <summary>
         /// Get a variable out of session state. This interface supports
         /// the "namespace:name" syntax so you can do things like
-        /// "env:PATH" or "global:foobar"
+        /// "env:PATH" or "global:example"
         /// </summary>
-        ///
         /// <param name="name">
         /// name of variable to look up
         /// </param>
-        ///
         /// <returns>
         /// The value of the specified variable.
         /// </returns>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If <paramref name="name"/> is null.
         /// </exception>
-        ///
         /// <exception cref="ProviderNotFoundException">
         /// If the <paramref name="name"/> refers to a provider that could not be found.
         /// </exception>
-        ///
         /// <exception cref="DriveNotFoundException">
         /// If the <paramref name="name"/> refers to a drive that could not be found.
         /// </exception>
-        ///
         /// <exception cref="NotSupportedException">
         /// If the provider that the <paramref name="name"/> refers to does
         /// not support this operation.
         /// </exception>
-        ///
         /// <exception cref="ProviderInvocationException">
         /// If the provider threw an exception.
         /// </exception>
-        ///
         internal object GetVariableValue(string name)
         {
             if (name == null)
             {
-                throw PSTraceSource.NewArgumentNullException("name");
+                throw PSTraceSource.NewArgumentNullException(nameof(name));
             }
 
             VariablePath variablePath = new VariablePath(name);
@@ -140,47 +124,38 @@ namespace System.Management.Automation
             object resultItem = GetVariableValue(variablePath, out context, out scope);
 
             return resultItem;
-        } // GetVariableValue
+        }
 
         /// <summary>
         /// Get a variable out of session state. This interface supports
         /// the "namespace:name" syntax so you can do things like
-        /// "env:PATH" or "global:foobar"
+        /// "env:PATH" or "global:example"
         /// </summary>
-        ///
         /// <param name="name">
         /// name of variable to look up
         /// </param>
-        ///
         /// <param name="defaultValue">
         /// value to return if you can't find Name or it returns null.
         /// </param>
-        ///
         /// <returns>
         /// The value of the specified variable.
         /// </returns>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If <paramref name="name"/> is null.
         /// </exception>
-        ///
         /// <exception cref="ProviderNotFoundException">
         /// If the <paramref name="name"/> refers to a provider that could not be found.
         /// </exception>
-        ///
         /// <exception cref="DriveNotFoundException">
         /// If the <paramref name="name"/> refers to a drive that could not be found.
         /// </exception>
-        ///
         /// <exception cref="NotSupportedException">
         /// If the provider that the <paramref name="name"/> refers to does
         /// not support this operation.
         /// </exception>
-        ///
         /// <exception cref="ProviderInvocationException">
         /// If the provider threw an exception.
         /// </exception>
-        ///
         internal object GetVariableValue(string name, object defaultValue)
         {
             object returnObject = GetVariableValue(name) ?? defaultValue;
@@ -191,27 +166,22 @@ namespace System.Management.Automation
         /// Looks up the specified variable and returns the context under which
         /// the variable was found as well as the variable itself.
         /// </summary>
-        ///
         /// <param name="variablePath">
         /// The VariablePath helper for the variable.
         /// </param>
-        ///
         /// <param name="scope">
         /// The scope the variable was found in. Null if the variable wasn't found.
         /// </param>
-        ///
         /// <param name="context">
         /// Returns the context under which the variable was found. The context will
         /// have the drive data already set. This will be null if the variable was
         /// not found.
         /// </param>
-        ///
         /// <returns>
         /// The variable if it was found or null if it was not.
         /// </returns>
-        ///
         /// <remarks>
-        /// The <paramref name="variablePath" /> is first parsed to see if it contains a drive
+        /// The <paramref name="variablePath"/> is first parsed to see if it contains a drive
         /// specifier or special scope.  If a special scope is found ("LOCAL" or "GLOBAL")
         /// then only that scope is searched for the variable. If any other drive specifier
         /// is found the lookup goes in the following order.
@@ -219,28 +189,22 @@ namespace System.Management.Automation
         ///     - each consecutive parent scope until the variable is found.
         ///     - global scope
         /// </remarks>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If <paramref name="variablePath"/> is null.
         /// </exception>
-        ///
         /// <exception cref="ProviderNotFoundException">
         /// If the <paramref name="variablePath"/> refers to a provider that could not be found.
         /// </exception>
-        ///
         /// <exception cref="DriveNotFoundException">
         /// If the <paramref name="variablePath"/> refers to a drive that could not be found.
         /// </exception>
-        ///
         /// <exception cref="NotSupportedException">
         /// If the provider that the <paramref name="variablePath"/> refers to does
         /// not support this operation.
         /// </exception>
-        ///
         /// <exception cref="ProviderInvocationException">
         /// If the provider threw an exception.
         /// </exception>
-        ///
         internal object GetVariableValue(
             VariablePath variablePath,
             out CmdletProviderContext context,
@@ -270,31 +234,25 @@ namespace System.Management.Automation
         /// Looks up the specified variable and returns the context under which
         /// the variable was found as well as the variable itself.
         /// </summary>
-        ///
         /// <param name="variablePath">
         /// The VariablePath helper for the variable.
         /// </param>
-        ///
         /// <param name="scope">
         /// The scope the variable was found in. Null if the variable wasn't found.
         /// </param>
-        ///
         /// <param name="context">
         /// Returns the context under which the variable was found. The context will
         /// have the drive data already set. This will be null if the variable was
         /// not found.
         /// </param>
-        ///
         /// <param name="origin">
         /// The origin of the caller of this API
         /// </param>
-        ///
         /// <returns>
         /// The variable if it was found or null if it was not.
         /// </returns>
-        ///
         /// <remarks>
-        /// The <paramref name="variablePath" /> is first parsed to see if it contains a drive
+        /// The <paramref name="variablePath"/> is first parsed to see if it contains a drive
         /// specifier or special scope.  If a special scope is found ("LOCAL" or "GLOBAL")
         /// then only that scope is searched for the variable. If any other drive specifier
         /// is found the lookup goes in the following order.
@@ -302,28 +260,22 @@ namespace System.Management.Automation
         ///     - each consecutive parent scope until the variable is found.
         ///     - global scope
         /// </remarks>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If <paramref name="variablePath"/> is null.
         /// </exception>
-        ///
         /// <exception cref="ProviderNotFoundException">
         /// If the <paramref name="variablePath"/> refers to a provider that could not be found.
         /// </exception>
-        ///
         /// <exception cref="DriveNotFoundException">
         /// If the <paramref name="variablePath"/> refers to a drive that could not be found.
         /// </exception>
-        ///
         /// <exception cref="NotSupportedException">
         /// If the provider that the <paramref name="variablePath"/> refers to does
         /// not support this operation.
         /// </exception>
-        ///
         /// <exception cref="ProviderInvocationException">
         /// If the provider threw an exception.
         /// </exception>
-        ///
 #pragma warning disable 0162
         internal object GetVariableValueFromProvider(
             VariablePath variablePath,
@@ -335,7 +287,7 @@ namespace System.Management.Automation
 
             if (variablePath == null)
             {
-                throw PSTraceSource.NewArgumentNullException("variablePath");
+                throw PSTraceSource.NewArgumentNullException(nameof(variablePath));
             }
 
             Dbg.Diagnostics.Assert(
@@ -400,8 +352,7 @@ namespace System.Management.Automation
                     // First get the provider for the path.
 
                     ProviderInfo providerInfo = null;
-                    string unused =
-                        this.Globber.GetProviderPath(variablePath.QualifiedName, out providerInfo);
+                    _ = this.Globber.GetProviderPath(variablePath.QualifiedName, out providerInfo);
 
                     throw NewProviderInvocationException(
                         "ProviderCannotBeUsedAsVariable",
@@ -416,8 +367,7 @@ namespace System.Management.Automation
                     // First get the provider for the path.
 
                     ProviderInfo providerInfo = null;
-                    string unused =
-                        this.Globber.GetProviderPath(variablePath.QualifiedName, out providerInfo);
+                    _ = this.Globber.GetProviderPath(variablePath.QualifiedName, out providerInfo);
 
                     throw NewProviderInvocationException(
                         "ProviderCannotBeUsedAsVariable",
@@ -440,7 +390,7 @@ namespace System.Management.Automation
                 {
                     // Since more than one path was resolved, this is an error.
 
-                    //Before throwing exception. Close the readers to avoid sharing violation.
+                    // Before throwing exception. Close the readers to avoid sharing violation.
                     foreach (IContentReader r in readers)
                     {
                         r.Close();
@@ -455,8 +405,7 @@ namespace System.Management.Automation
                     // First get the provider for the path.
 
                     ProviderInfo providerInfo = null;
-                    string unused =
-                        this.Globber.GetProviderPath(variablePath.QualifiedName, out providerInfo);
+                    _ = this.Globber.GetProviderPath(variablePath.QualifiedName, out providerInfo);
 
                     throw NewProviderInvocationException(
                         "ProviderVariableSyntaxInvalid",
@@ -493,8 +442,7 @@ namespace System.Management.Automation
                 {
                     // First get the provider for the path.
                     ProviderInfo providerInfo = null;
-                    string unused =
-                        this.Globber.GetProviderPath(variablePath.QualifiedName, out providerInfo);
+                    _ = this.Globber.GetProviderPath(variablePath.QualifiedName, out providerInfo);
 
                     ProviderInvocationException providerException =
                         new ProviderInvocationException(
@@ -551,43 +499,36 @@ namespace System.Management.Automation
             } while (false);
 
             return result;
-        } // GetVariableFromProvider
+        }
 #pragma warning restore 0162
 
         /// <summary>
         /// Looks up the specified variable and returns the context under which
         /// the variable was found as well as the variable itself.
         /// </summary>
-        ///
         /// <param name="variablePath">
         /// The VariablePath helper for the variable.
         /// </param>
-        ///
         /// <param name="scope">
         /// The scope the variable was found in. Null if the variable wasn't found.
         /// </param>
-        ///
         /// <param name="origin">
         /// Origin of the command requesting this variable
         /// </param>
-        ///
         /// <returns>
         /// The variable if it was found or null if it was not.
         /// </returns>
-        ///
         /// <remarks>
-        /// The <paramref name="variablePath" /> is first parsed to see if it contains a drive
+        /// The <paramref name="variablePath"/> is first parsed to see if it contains a drive
         /// specifier or special scope.  If a special scope is found ("LOCAL" or "GLOBAL")
         /// then only that scope is searched for the variable.
         ///     - current scope
         ///     - each consecutive parent scope until the variable is found.
         ///     - global scope
         /// </remarks>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If <paramref name="variablePath"/> is null.
         /// </exception>
-        ///
         internal PSVariable GetVariableItem(
             VariablePath variablePath,
             out SessionStateScope scope,
@@ -597,7 +538,7 @@ namespace System.Management.Automation
 
             if (variablePath == null)
             {
-                throw PSTraceSource.NewArgumentNullException("variablePath");
+                throw PSTraceSource.NewArgumentNullException(nameof(variablePath));
             }
 
             Dbg.Diagnostics.Assert(variablePath.IsVariable, "Can't get variable w/ non-variable path");
@@ -612,83 +553,71 @@ namespace System.Management.Automation
                 result = ((IEnumerator<PSVariable>)searcher).Current;
                 scope = searcher.CurrentLookupScope;
             }
+
             return result;
-        } // GetVariableItem
+        }
 
         /// <summary>
         /// Looks up the specified variable and returns the context under which
         /// the variable was found as well as the variable itself.
         /// </summary>
-        ///
         /// <param name="variablePath">
         /// The VariablePath helper for the variable.
         /// </param>
-        ///
         /// <param name="scope">
         /// The scope the variable was found in. Null if the variable wasn't found.
         /// </param>
-        ///
         /// <returns>
         /// The variable if it was found or null if it was not.
         /// </returns>
-        ///
         /// <remarks>
-        /// The <paramref name="variablePath" /> is first parsed to see if it contains a drive
+        /// The <paramref name="variablePath"/> is first parsed to see if it contains a drive
         /// specifier or special scope.  If a special scope is found ("LOCAL" or "GLOBAL")
         /// then only that scope is searched for the variable.
         ///     - current scope
         ///     - each consecutive parent scope until the variable is found.
         ///     - global scope
         /// </remarks>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If <paramref name="variablePath"/> is null.
         /// </exception>
-        ///
         internal PSVariable GetVariableItem(
             VariablePath variablePath,
             out SessionStateScope scope)
         {
             return GetVariableItem(variablePath, out scope, CommandOrigin.Internal);
-        } // GetVariableItem
+        }
 
         /// <summary>
         /// Get a variable out of session state. This interface supports
         /// the "namespace:name" syntax so you can do things like
-        /// "env:PATH" or "global:foobar"
+        /// "env:PATH" or "global:example"
         /// </summary>
-        ///
         /// <param name="name">
         /// name of variable to look up
         /// </param>
-        ///
         /// <param name="scopeID">
         /// The ID of the scope to lookup the variable in.
         /// </param>
-        ///
         /// <returns>
         /// The value of the specified variable.
         /// </returns>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If <paramref name="name"/> is null.
         /// </exception>
-        ///
         /// <exception cref="ArgumentException">
         /// If <paramref name="scopeID"/> is less than zero, or not
         /// a number and not "script", "global", "local", or "private"
         /// </exception>
-        ///
         /// <exception cref="ArgumentOutOfRangeException">
         /// If <paramref name="scopeID"/> is less than zero or greater than the number of currently
         /// active scopes.
         /// </exception>
-        ///
         internal PSVariable GetVariableAtScope(string name, string scopeID)
         {
             if (name == null)
             {
-                throw PSTraceSource.NewArgumentNullException("name");
+                throw PSTraceSource.NewArgumentNullException(nameof(name));
             }
 
             VariablePath variablePath = new VariablePath(name);
@@ -708,62 +637,51 @@ namespace System.Management.Automation
             }
 
             return resultItem;
-        } // GetVariable
+        }
 
         /// <summary>
         /// Get a variable out of session state. This interface supports
         /// the "namespace:name" syntax so you can do things like
-        /// "env:PATH" or "global:foobar"
+        /// "env:PATH" or "global:example"
         /// </summary>
-        ///
         /// <param name="name">
         /// name of variable to look up
         /// </param>
-        ///
         /// <param name="scopeID">
         /// The ID of the scope to lookup the variable in.
         /// </param>
-        ///
         /// <returns>
         /// The value of the specified variable.
         /// </returns>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If <paramref name="name"/> is null.
         /// </exception>
-        ///
         /// <exception cref="ArgumentException">
         /// If <paramref name="scopeID"/> is less than zero, or not
         /// a number and not "script", "global", "local", or "private"
         /// </exception>
-        ///
         /// <exception cref="ArgumentOutOfRangeException">
         /// If <paramref name="scopeID"/> is less than zero or greater than the number of currently
         /// active scopes.
         /// </exception>
-        ///
         /// <exception cref="ProviderNotFoundException">
         /// If the <paramref name="name"/> refers to a provider that could not be found.
         /// </exception>
-        ///
         /// <exception cref="DriveNotFoundException">
         /// If the <paramref name="name"/> refers to a drive that could not be found.
         /// </exception>
-        ///
         /// <exception cref="NotSupportedException">
         /// If the provider that the <paramref name="name"/> refers to does
         /// not support this operation.
         /// </exception>
-        ///
         /// <exception cref="ProviderInvocationException">
         /// If the provider threw an exception.
         /// </exception>
-        ///
         internal object GetVariableValueAtScope(string name, string scopeID)
         {
             if (name == null)
             {
-                throw PSTraceSource.NewArgumentNullException("name");
+                throw PSTraceSource.NewArgumentNullException(nameof(name));
             }
 
             VariablePath variablePath = new VariablePath(name);
@@ -819,8 +737,7 @@ namespace System.Management.Automation
                         // First get the provider for the path.
 
                         ProviderInfo providerInfo = null;
-                        string unused =
-                            this.Globber.GetProviderPath(variablePath.QualifiedName, out providerInfo);
+                        _ = this.Globber.GetProviderPath(variablePath.QualifiedName, out providerInfo);
 
                         throw NewProviderInvocationException(
                             "ProviderCannotBeUsedAsVariable",
@@ -835,8 +752,7 @@ namespace System.Management.Automation
                         // First get the provider for the path.
 
                         ProviderInfo providerInfo = null;
-                        string unused =
-                            this.Globber.GetProviderPath(variablePath.QualifiedName, out providerInfo);
+                        _ = this.Globber.GetProviderPath(variablePath.QualifiedName, out providerInfo);
 
                         throw NewProviderInvocationException(
                             "ProviderCannotBeUsedAsVariable",
@@ -874,8 +790,7 @@ namespace System.Management.Automation
                         // First get the provider for the path.
 
                         ProviderInfo providerInfo = null;
-                        string unused =
-                            this.Globber.GetProviderPath(variablePath.QualifiedName, out providerInfo);
+                        _ = this.Globber.GetProviderPath(variablePath.QualifiedName, out providerInfo);
 
                         throw NewProviderInvocationException(
                             "ProviderVariableSyntaxInvalid",
@@ -913,8 +828,7 @@ namespace System.Management.Automation
                         // First get the provider for the path.
 
                         ProviderInfo providerInfo = null;
-                        string unused =
-                            this.Globber.GetProviderPath(variablePath.QualifiedName, out providerInfo);
+                        _ = this.Globber.GetProviderPath(variablePath.QualifiedName, out providerInfo);
 
                         ProviderInvocationException providerException =
                             new ProviderInvocationException(
@@ -976,10 +890,10 @@ namespace System.Management.Automation
                     {
                     }
                 }
-            } // if resultItem != null
+            }
 
             return resultItem;
-        } // GetVariableValueAtScope
+        }
 
         internal object GetAutomaticVariableValue(AutomaticVariable variable)
         {
@@ -1000,51 +914,41 @@ namespace System.Management.Automation
         /// <summary>
         /// Set a variable in session state. This interface supports
         /// the "namespace:name" syntax so you can do things like
-        /// "$env:PATH = 'c:\windows'" or "$global:foobar = 13"
+        /// "$env:PATH = 'c:\windows'" or "$global:example = 13"
         /// </summary>
-        ///
         /// <param name="name">
         /// The name of the item to set.
         /// </param>
-        ///
         /// <param name="newValue">
         /// The new value of the item being set.
         /// </param>
-        ///
         /// <param name="origin">
         /// The origin of the caller of this API...
         /// </param>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If <paramref name="name"/> is null.
         /// </exception>
-        ///
         /// <exception cref="SessionStateUnauthorizedAccessException">
         /// If the variable is read-only or constant.
         /// </exception>
-        ///
         /// <exception cref="ProviderNotFoundException">
         /// If the <paramref name="name"/> refers to a provider that could not be found.
         /// </exception>
-        ///
         /// <exception cref="DriveNotFoundException">
         /// If the <paramref name="name"/> refers to a drive that could not be found.
         /// </exception>
-        ///
         /// <exception cref="NotSupportedException">
         /// If the provider that the <paramref name="name"/> refers to does
         /// not support this operation.
         /// </exception>
-        ///
         /// <exception cref="ProviderInvocationException">
         /// If the provider threw an exception.
         /// </exception>
-        ///
         internal void SetVariableValue(string name, object newValue, CommandOrigin origin)
         {
             if (name == null)
             {
-                throw PSTraceSource.NewArgumentNullException("name");
+                throw PSTraceSource.NewArgumentNullException(nameof(name));
             }
 
             VariablePath variablePath = new VariablePath(name);
@@ -1055,46 +959,37 @@ namespace System.Management.Automation
         /// <summary>
         /// Set a variable in session state. This interface supports
         /// the "namespace:name" syntax so you can do things like
-        /// "$env:PATH = 'c:\windows'" or "$global:foobar = 13"
+        /// "$env:PATH = 'c:\windows'" or "$global:example = 13"
         ///
         /// BUGBUG: this overload exists because a lot of tests in the
         /// testsuite use it. Those tests should eventually be fixed and this overload
         /// should be removed.
         /// </summary>
-        ///
         /// <param name="name">
         /// The name of the item to set.
         /// </param>
-        ///
         /// <param name="newValue">
         /// The new value of the item being set.
         /// </param>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If <paramref name="name"/> is null.
         /// </exception>
-        ///
         /// <exception cref="SessionStateUnauthorizedAccessException">
         /// If the variable is read-only or constant.
         /// </exception>
-        ///
         /// <exception cref="ProviderNotFoundException">
         /// If the <paramref name="name"/> refers to a provider that could not be found.
         /// </exception>
-        ///
         /// <exception cref="DriveNotFoundException">
         /// If the <paramref name="name"/> refers to a drive that could not be found.
         /// </exception>
-        ///
         /// <exception cref="NotSupportedException">
         /// If the provider that the <paramref name="name"/> refers to does
         /// not support this operation.
         /// </exception>
-        ///
         /// <exception cref="ProviderInvocationException">
         /// If the provider threw an exception.
         /// </exception>
-        ///
         internal void SetVariableValue(string name, object newValue)
         {
             SetVariableValue(name, newValue, CommandOrigin.Internal);
@@ -1102,39 +997,32 @@ namespace System.Management.Automation
 
         /// <summary>
         /// Set a variable in session state. This interface supports
-        /// the scope specifiers like "$global:foobar = 13"
+        /// the scope specifiers like "$global:example = 13"
         /// </summary>
-        ///
         /// <param name="variable">
         /// The variable to be set.
         /// </param>
-        ///
         /// <param name="force">
         /// If true, the variable is set even if it is ReadOnly.
         /// </param>
-        ///
         /// <param name="origin">
         /// The origin of the caller of this API
         /// </param>
-        ///
         /// <returns>
         /// A PSVariable object if <paramref name="variablePath"/> refers to a variable.
         /// An PSObject if <paramref name="variablePath"/> refers to a provider path.
         /// </returns>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If <paramref name="variable"/> is null.
         /// </exception>
-        ///
         /// <exception cref="SessionStateUnauthorizedAccessException">
         /// If the variable is read-only or constant.
         /// </exception>
-        ///
         internal object SetVariable(PSVariable variable, bool force, CommandOrigin origin)
         {
-            if (variable == null || String.IsNullOrEmpty(variable.Name))
+            if (variable == null || string.IsNullOrEmpty(variable.Name))
             {
-                throw PSTraceSource.NewArgumentException("variable");
+                throw PSTraceSource.NewArgumentException(nameof(variable));
             }
 
             VariablePath variablePath = new VariablePath(variable.Name, VariablePathFlags.Variable | VariablePathFlags.Unqualified);
@@ -1145,54 +1033,42 @@ namespace System.Management.Automation
         /// <summary>
         /// Set a variable using a pre-parsed variablePath object instead of a string.
         /// </summary>
-        ///
         /// <param name="variablePath">
         /// A pre-parsed variable path object for the variable in question.
         /// </param>
-        ///
         /// <param name="newValue">
         /// The value to set.
         /// </param>
-        ///
         /// <param name="asValue">
         /// If true, sets the variable value to newValue. If false, newValue must
         /// be a PSVariable object and the item will be set rather than the value.
         /// </param>
-        ///
         /// <param name="origin">
         /// The origin of the caller
         /// </param>
-        ///
         /// <returns>
         /// A PSVariable object if <paramref name="variablePath"/> refers to a variable.
         /// An PSObject if <paramref name="variablePath"/> refers to a provider path.
         /// </returns>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If <paramref name="variablePath"/> is null.
         /// </exception>
-        ///
         /// <exception cref="SessionStateUnauthorizedAccessException">
         /// If the variable is read-only or constant.
         /// </exception>
-        ///
         /// <exception cref="ProviderNotFoundException">
         /// If the <paramref name="variablePath"/> refers to a provider that could not be found.
         /// </exception>
-        ///
         /// <exception cref="DriveNotFoundException">
         /// If the <paramref name="variablePath"/> refers to a drive that could not be found.
         /// </exception>
-        ///
         /// <exception cref="NotSupportedException">
         /// If the provider that the <paramref name="variablePath"/> refers to does
         /// not support this operation.
         /// </exception>
-        ///
         /// <exception cref="ProviderInvocationException">
         /// If the provider threw an exception.
         /// </exception>
-        ///
         internal object SetVariable(
             VariablePath variablePath,
             object newValue,
@@ -1205,58 +1081,45 @@ namespace System.Management.Automation
         /// <summary>
         /// Set a variable using a pre-parsed variablePath object instead of a string.
         /// </summary>
-        ///
         /// <param name="variablePath">
         /// A pre-parsed variable path object for the variable in question.
         /// </param>
-        ///
         /// <param name="newValue">
         /// The value to set.
         /// </param>
-        ///
         /// <param name="asValue">
         /// If true, sets the variable value to newValue. If false, newValue must
         /// be a PSVariable object and the item will be set rather than the value.
         /// </param>
-        ///
         /// <param name="force">
         /// If true, the variable is set even if it is ReadOnly.
         /// </param>
-        ///
         /// <param name="origin">
         /// The origin of the caller
         /// </param>
-        ///
         /// <returns>
         /// A PSVariable object if <paramref name="variablePath"/> refers to a variable.
         /// An PSObject if <paramref name="variablePath"/> refers to a provider path.
         /// </returns>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If <paramref name="variablePath"/> is null.
         /// </exception>
-        ///
         /// <exception cref="SessionStateUnauthorizedAccessException">
         /// If the variable is read-only or constant.
         /// </exception>
-        ///
         /// <exception cref="ProviderNotFoundException">
         /// If the <paramref name="variablePath"/> refers to a provider that could not be found.
         /// </exception>
-        ///
         /// <exception cref="DriveNotFoundException">
         /// If the <paramref name="variablePath"/> refers to a drive that could not be found.
         /// </exception>
-        ///
         /// <exception cref="NotSupportedException">
         /// If the provider that the <paramref name="variablePath"/> refers to does
         /// not support this operation.
         /// </exception>
-        ///
         /// <exception cref="ProviderInvocationException">
         /// If the provider threw an exception.
         /// </exception>
-        ///
         internal object SetVariable(
             VariablePath variablePath,
             object newValue,
@@ -1267,8 +1130,9 @@ namespace System.Management.Automation
             object result = null;
             if (variablePath == null)
             {
-                throw PSTraceSource.NewArgumentNullException("variablePath");
+                throw PSTraceSource.NewArgumentNullException(nameof(variablePath));
             }
+
             CmdletProviderContext context = null;
             SessionStateScope scope = null;
 
@@ -1307,8 +1171,9 @@ namespace System.Management.Automation
 
                 if (variablePath.IsPrivate && varResult != null)
                 {
-                    varResult.Options = varResult.Options | ScopedItemOptions.Private;
+                    varResult.Options |= ScopedItemOptions.Private;
                 }
+
                 result = varResult;
             }
             else
@@ -1372,8 +1237,7 @@ namespace System.Management.Automation
                     // First get the provider for the path.
 
                     ProviderInfo providerInfo = null;
-                    string unused =
-                        this.Globber.GetProviderPath(variablePath.QualifiedName, out providerInfo);
+                    _ = this.Globber.GetProviderPath(variablePath.QualifiedName, out providerInfo);
 
                     throw NewProviderInvocationException(
                         "ProviderCannotBeUsedAsVariable",
@@ -1388,8 +1252,7 @@ namespace System.Management.Automation
                     // First get the provider for the path.
 
                     ProviderInfo providerInfo = null;
-                    string unused =
-                        this.Globber.GetProviderPath(variablePath.QualifiedName, out providerInfo);
+                    _ = this.Globber.GetProviderPath(variablePath.QualifiedName, out providerInfo);
 
                     throw NewProviderInvocationException(
                         "ProviderCannotBeUsedAsVariable",
@@ -1428,8 +1291,7 @@ namespace System.Management.Automation
                     // First get the provider for the path.
 
                     ProviderInfo providerInfo = null;
-                    string unused =
-                        this.Globber.GetProviderPath(variablePath.QualifiedName, out providerInfo);
+                    _ = this.Globber.GetProviderPath(variablePath.QualifiedName, out providerInfo);
 
                     throw NewProviderInvocationException(
                         "ProviderVariableSyntaxInvalid",
@@ -1452,8 +1314,7 @@ namespace System.Management.Automation
                     // First get the provider for the path.
 
                     ProviderInfo providerInfo = null;
-                    string unused =
-                        this.Globber.GetProviderPath(variablePath.QualifiedName, out providerInfo);
+                    _ = this.Globber.GetProviderPath(variablePath.QualifiedName, out providerInfo);
 
                     ProviderInvocationException providerException =
                         new ProviderInvocationException(
@@ -1490,57 +1351,49 @@ namespace System.Management.Automation
                     }
 #endif
             }
+
             return result;
-        } // SetVariable
+        }
 
         /// <summary>
         /// Set a variable in session state.
         /// </summary>
-        ///
         /// <param name="variable">
         /// The variable to set
         /// </param>
-        ///
         /// <param name="scopeID">
         /// The ID of the scope to do the lookup in. The ID is either a zero based index
         /// of the scope tree with the current scope being zero, its parent scope
         /// being 1 and so on, or "global", "local", "private", or "script"
         /// </param>
-        ///
         /// <param name="force">
         /// If true, the variable is set even if it is ReadOnly.
         /// </param>
-        ///
         /// <param name="origin">
         /// The origin of the caller
         /// </param>
-        ///
         /// <exception cref="ArgumentException">
         /// If <paramref name="variable"/> is null or its name is null or empty.
         /// or
         /// If <paramref name="scopeID"/> is less than zero, or not
         /// a number and not "script", "global", "local", or "private"
         /// </exception>
-        ///
         /// <returns>
         /// A PSVariable object if <paramref name="variable"/> refers to a variable.
         /// An PSObject if <paramref name="variable"/> refers to a provider path.
         /// </returns>
-        ///
         /// <exception cref="ArgumentOutOfRangeException">
         /// If <paramref name="scopeID"/> is less than zero or greater than the number of currently
         /// active scopes.
         /// </exception>
-        ///
         /// <exception cref="SessionStateUnauthorizedAccessException">
         /// If the variable is read-only or constant.
         /// </exception>
-        ///
         internal object SetVariableAtScope(PSVariable variable, string scopeID, bool force, CommandOrigin origin)
         {
-            if (variable == null || String.IsNullOrEmpty(variable.Name))
+            if (variable == null || string.IsNullOrEmpty(variable.Name))
             {
-                throw PSTraceSource.NewArgumentException("variable");
+                throw PSTraceSource.NewArgumentException(nameof(variable));
             }
 
             SessionStateScope lookupScope = GetScopeByID(scopeID);
@@ -1553,35 +1406,30 @@ namespace System.Management.Automation
                     force,
                     this,
                     origin);
-        } // SetVariableAtScope
+        }
 
         #region NewVariable
 
         /// <summary>
         /// Creates a new variable.
         /// </summary>
-        ///
         /// <param name="variable">
         /// The variable to create
         /// </param>
-        ///
         /// <param name="force">
         /// If true, the variable is created even if it is ReadOnly.
         /// </param>
-        ///
         /// <returns>
         /// A PSVariable representing the variable that was created.
         /// </returns>
-        ///
         /// <exception cref="SessionStateUnauthorizedAccessException">
         /// If the variable is read-only or constant.
         /// </exception>
-        ///
         internal object NewVariable(PSVariable variable, bool force)
         {
-            if (variable == null || String.IsNullOrEmpty(variable.Name))
+            if (variable == null || string.IsNullOrEmpty(variable.Name))
             {
-                throw PSTraceSource.NewArgumentException("variable");
+                throw PSTraceSource.NewArgumentException(nameof(variable));
             }
 
             return
@@ -1589,51 +1437,43 @@ namespace System.Management.Automation
                     variable,
                     force,
                     this);
-        } // NewVariable
+        }
 
         /// <summary>
-        /// Creates a new variable in the specified scope
+        /// Creates a new variable in the specified scope.
         /// </summary>
-        ///
         /// <param name="variable">
         /// The variable to create
         /// </param>
-        ///
         /// <param name="scopeID">
         /// The ID of the scope to do the lookup in. The ID is either a zero based index
         /// of the scope tree with the current scope being zero, its parent scope
         /// being 1 and so on, or "global", "local", "private", or "script"
         /// </param>
-        ///
         /// <param name="force">
         /// If true, the variable is set even if it is ReadOnly.
         /// </param>
-        ///
         /// <exception cref="ArgumentException">
         /// If <paramref name="variable"/> is null or its name is null or empty.
         /// or
         /// If <paramref name="scopeID"/> is less than zero, or not
         /// a number and not "script", "global", "local", or "private"
         /// </exception>
-        ///
         /// <returns>
         /// A PSVariable representing the variable that was created.
         /// </returns>
-        ///
         /// <exception cref="ArgumentOutOfRangeException">
         /// If <paramref name="scopeID"/> is less than zero or greater than the number of currently
         /// active scopes.
         /// </exception>
-        ///
         /// <exception cref="SessionStateUnauthorizedAccessException">
         /// If the variable is read-only or constant.
         /// </exception>
-        ///
         internal object NewVariableAtScope(PSVariable variable, string scopeID, bool force)
         {
-            if (variable == null || String.IsNullOrEmpty(variable.Name))
+            if (variable == null || string.IsNullOrEmpty(variable.Name))
             {
-                throw PSTraceSource.NewArgumentException("variable");
+                throw PSTraceSource.NewArgumentException(nameof(variable));
             }
 
             // The lookup scope from above is ignored and the scope is retrieved by
@@ -1646,43 +1486,35 @@ namespace System.Management.Automation
                     variable,
                     force,
                     this);
-        } // NewVariableAtScope
+        }
 
         #endregion NewVariable
 
         /// <summary>
         /// Removes a variable from the variable table.
         /// </summary>
-        ///
         /// <param name="name">
         /// The name of the variable to remove.
         /// </param>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If <paramref name="name"/> is null.
         /// </exception>
-        ///
         /// <exception cref="SessionStateUnauthorizedAccessException">
         /// if the variable is constant.
         /// </exception>
-        ///
         /// <exception cref="ProviderNotFoundException">
         /// If the <paramref name="name"/> refers to a provider that could not be found.
         /// </exception>
-        ///
         /// <exception cref="DriveNotFoundException">
         /// If the <paramref name="name"/> refers to a drive that could not be found.
         /// </exception>
-        ///
         /// <exception cref="NotSupportedException">
         /// If the provider that the <paramref name="name"/> refers to does
         /// not support this operation.
         /// </exception>
-        ///
         /// <exception cref="ProviderInvocationException">
         /// If the provider threw an exception.
         /// </exception>
-        ///
         internal void RemoveVariable(string name)
         {
             RemoveVariable(name, false);
@@ -1691,45 +1523,36 @@ namespace System.Management.Automation
         /// <summary>
         /// Removes a variable from the variable table.
         /// </summary>
-        ///
         /// <param name="name">
         /// The name of the variable to remove.
         /// </param>
-        ///
         /// <param name="force">
         /// If true, the variable will be removed even if its ReadOnly.
         /// </param>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If <paramref name="name"/> is null.
         /// </exception>
-        ///
         /// <exception cref="SessionStateUnauthorizedAccessException">
         /// if the variable is constant.
         /// </exception>
-        ///
         /// <exception cref="ProviderNotFoundException">
         /// If the <paramref name="name"/> refers to a provider that could not be found.
         /// </exception>
-        ///
         /// <exception cref="DriveNotFoundException">
         /// If the <paramref name="name"/> refers to a drive that could not be found.
         /// </exception>
-        ///
         /// <exception cref="NotSupportedException">
         /// If the provider that the <paramref name="name"/> refers to does
         /// not support this operation.
         /// </exception>
-        ///
         /// <exception cref="ProviderInvocationException">
         /// If the provider threw an exception.
         /// </exception>
-        ///
         internal void RemoveVariable(string name, bool force)
         {
             if (name == null)
             {
-                throw PSTraceSource.NewArgumentNullException("name");
+                throw PSTraceSource.NewArgumentNullException(nameof(name));
             }
 
             VariablePath variablePath = new VariablePath(name);
@@ -1750,24 +1573,20 @@ namespace System.Management.Automation
                 RemoveItem(new string[] { variablePath.QualifiedName }, false, context);
                 context.ThrowFirstErrorOrDoNothing();
             }
-        } // RemoveVariable
+        }
 
         /// <summary>
         /// Removes a variable from the variable table.
         /// </summary>
-        ///
         /// <param name="variable">
         /// The variable to remove.
         /// </param>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If <paramref name="variable"/> is null.
         /// </exception>
-        ///
         /// <exception cref="SessionStateUnauthorizedAccessException">
         /// if the variable is constant.
         /// </exception>
-        ///
         internal void RemoveVariable(PSVariable variable)
         {
             RemoveVariable(variable, false);
@@ -1776,28 +1595,23 @@ namespace System.Management.Automation
         /// <summary>
         /// Removes a variable from the variable table.
         /// </summary>
-        ///
         /// <param name="variable">
         /// The variable to remove.
         /// </param>
-        ///
         /// <param name="force">
         /// If true, the variable will be removed even if its ReadOnly.
         /// </param>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If <paramref name="variable"/> is null.
         /// </exception>
-        ///
         /// <exception cref="SessionStateUnauthorizedAccessException">
         /// if the variable is constant.
         /// </exception>
-        ///
         internal void RemoveVariable(PSVariable variable, bool force)
         {
             if (variable == null)
             {
-                throw PSTraceSource.NewArgumentNullException("variable");
+                throw PSTraceSource.NewArgumentNullException(nameof(variable));
             }
 
             VariablePath variablePath = new VariablePath(variable.Name);
@@ -1808,41 +1622,33 @@ namespace System.Management.Automation
             {
                 scope.RemoveVariable(variablePath.QualifiedName, force);
             }
-        } // RemoveVariable
+        }
 
         /// <summary>
         /// Remove a variable from session state. This interface supports
         /// the "namespace:name" syntax so you can do things like
-        /// "env:PATH" or "global:foobar"
+        /// "env:PATH" or "global:example"
         /// </summary>
-        ///
         /// <param name="name">
         /// name of variable to remove
         /// </param>
-        ///
         /// <param name="scopeID">
         /// The ID of the scope to lookup the variable in.
         /// </param>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If <paramref name="name"/> is null.
         /// </exception>
-        ///
         /// <exception cref="ArgumentOutOfRangeException">
         /// If <paramref name="scopeID"/> is less than zero or greater than the number of currently
         /// active scopes.
         /// </exception>
-        ///
-        ///
         /// <exception cref="SessionStateUnauthorizedAccessException">
         /// if the variable is constant.
         /// </exception>
-        ///
         /// <exception cref="ProviderInvocationException">
         /// If <paramref name="name"/> refers to an MSH path (not a variable)
         /// and the provider throws an exception.
         /// </exception>
-        ///
         internal void RemoveVariableAtScope(string name, string scopeID)
         {
             RemoveVariableAtScope(name, scopeID, false);
@@ -1851,44 +1657,36 @@ namespace System.Management.Automation
         /// <summary>
         /// Remove a variable from session state. This interface supports
         /// the "namespace:name" syntax so you can do things like
-        /// "env:PATH" or "global:foobar"
+        /// "env:PATH" or "global:example"
         /// </summary>
-        ///
         /// <param name="name">
         /// name of variable to remove
         /// </param>
-        ///
         /// <param name="scopeID">
         /// The ID of the scope to lookup the variable in.
         /// </param>
-        ///
         /// <param name="force">
         /// If true, the variable will be removed even if its ReadOnly.
         /// </param>
-        ///
         /// <exception cref="ArgumentException">
         /// If <paramref name="name"/> is null or empty.
         /// </exception>
-        ///
         /// <exception cref="ArgumentOutOfRangeException">
         /// If <paramref name="scopeID"/> is less than zero or greater than the number of currently
         /// active scopes.
         /// </exception>
-        ///
         /// <exception cref="SessionStateUnauthorizedAccessException">
         /// if the variable is constant.
         /// </exception>
-        ///
         /// <exception cref="ProviderInvocationException">
         /// If <paramref name="name"/> refers to an MSH path (not a variable)
         /// and the provider throws an exception.
         /// </exception>
-        ///
         internal void RemoveVariableAtScope(string name, string scopeID, bool force)
         {
-            if (String.IsNullOrEmpty(name))
+            if (string.IsNullOrEmpty(name))
             {
-                throw PSTraceSource.NewArgumentException("name");
+                throw PSTraceSource.NewArgumentException(nameof(name));
             }
 
             VariablePath variablePath = new VariablePath(name);
@@ -1918,33 +1716,27 @@ namespace System.Management.Automation
                     context.ThrowFirstErrorOrDoNothing();
                 }
             }
-        } // RemoveVariableAtScope
+        }
 
         /// <summary>
         /// Remove a variable from session state.
         /// </summary>
-        ///
         /// <param name="variable">
         /// The variable to remove
         /// </param>
-        ///
         /// <param name="scopeID">
         /// The ID of the scope to lookup the variable in.
         /// </param>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If <paramref name="variable"/> is null.
         /// </exception>
-        ///
         /// <exception cref="ArgumentOutOfRangeException">
         /// If <paramref name="scopeID"/> is less than zero or greater than the number of currently
         /// active scopes.
         /// </exception>
-        ///
         /// <exception cref="SessionStateUnauthorizedAccessException">
         /// if the variable is constant.
         /// </exception>
-        ///
         internal void RemoveVariableAtScope(PSVariable variable, string scopeID)
         {
             RemoveVariableAtScope(variable, scopeID, false);
@@ -1953,37 +1745,30 @@ namespace System.Management.Automation
         /// <summary>
         /// Remove a variable from session state.
         /// </summary>
-        ///
         /// <param name="variable">
         /// The variable to remove
         /// </param>
-        ///
         /// <param name="scopeID">
         /// The ID of the scope to lookup the variable in.
         /// </param>
-        ///
         /// <param name="force">
         /// If true, the variable will be removed even if its ReadOnly.
         /// </param>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If <paramref name="variable"/> is null.
         /// </exception>
-        ///
         /// <exception cref="ArgumentOutOfRangeException">
         /// If <paramref name="scopeID"/> is less than zero or greater than the number of currently
         /// active scopes.
         /// </exception>
-        ///
         /// <exception cref="SessionStateUnauthorizedAccessException">
         /// if the variable is constant.
         /// </exception>
-        ///
         internal void RemoveVariableAtScope(PSVariable variable, string scopeID, bool force)
         {
             if (variable == null)
             {
-                throw PSTraceSource.NewArgumentNullException("variable");
+                throw PSTraceSource.NewArgumentNullException(nameof(variable));
             }
 
             VariablePath variablePath = new VariablePath(variable.Name);
@@ -1993,18 +1778,16 @@ namespace System.Management.Automation
             SessionStateScope lookupScope = GetScopeByID(scopeID);
 
             lookupScope.RemoveVariable(variablePath.QualifiedName, force);
-        } // RemoveVariableAtScope
+        }
 
         /// <summary>
         /// Gets a flattened view of the variables that are visible using
         /// the current scope as a reference and filtering the variables in
         /// the other scopes based on the scoping rules.
         /// </summary>
-        ///
         /// <returns>
         /// An IDictionary representing the visible variables.
         /// </returns>
-        ///
         internal IDictionary<string, PSVariable> GetVariableTable()
         {
             SessionStateScopeEnumerator scopeEnumerator =
@@ -2021,7 +1804,7 @@ namespace System.Management.Automation
             return result;
         }
 
-        private void GetScopeVariableTable(SessionStateScope scope, Dictionary<string, PSVariable> result, bool includePrivate)
+        private static void GetScopeVariableTable(SessionStateScope scope, Dictionary<string, PSVariable> result, bool includePrivate)
         {
             foreach (KeyValuePair<string, PSVariable> entry in scope.Variables)
             {
@@ -2044,10 +1827,7 @@ namespace System.Management.Automation
                 dottedScope.GetVariableTable(result, includePrivate);
             }
 
-            if (scope.LocalsTuple != null)
-            {
-                scope.LocalsTuple.GetVariableTable(result, includePrivate);
-            }
+            scope.LocalsTuple?.GetVariableTable(result, includePrivate);
         }
 
         /// <summary>
@@ -2055,21 +1835,17 @@ namespace System.Management.Automation
         /// the current scope as a reference and filtering the variables in
         /// the other scopes based on the scoping rules.
         /// </summary>
-        ///
         /// <returns>
         /// An IDictionary representing the visible variables.
         /// </returns>
-        ///
         /// <exception cref="ArgumentException">
         /// If <paramref name="scopeID"/> is less than zero, or not
         /// a number and not "script", "global", "local", or "private"
         /// </exception>
-        ///
         /// <exception cref="ArgumentOutOfRangeException">
         /// If <paramref name="scopeID"/> is less than zero or greater than the number of currently
         /// active scopes.
         /// </exception>
-        ///
         internal IDictionary<string, PSVariable> GetVariableTableAtScope(string scopeID)
         {
             var result = new Dictionary<string, PSVariable>(StringComparer.OrdinalIgnoreCase);
@@ -2083,7 +1859,7 @@ namespace System.Management.Automation
         internal List<PSVariable> ExportedVariables { get; } = new List<PSVariable>();
 
         #endregion variables
-    }           // SessionStateInternal class
+    }
 }
 
 #pragma warning restore 56500

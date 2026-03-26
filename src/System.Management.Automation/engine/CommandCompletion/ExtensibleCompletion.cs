@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Collections;
@@ -24,20 +24,32 @@ namespace System.Management.Automation
     {
         /// <summary/>
         [SuppressMessage("Microsoft.Naming", "CA1721:PropertyNamesShouldNotMatchGetMethods")]
-        public Type Type { get; private set; }
+        public Type Type { get; }
 
         /// <summary/>
-        public ScriptBlock ScriptBlock { get; private set; }
+        public ScriptBlock ScriptBlock { get; }
 
         /// <param name="type">The type must implement <see cref="IArgumentCompleter"/> and have a default constructor.</param>
         public ArgumentCompleterAttribute(Type type)
         {
-            if (type == null || (type.GetInterfaces().All(t => t != typeof(IArgumentCompleter))))
+            if (type == null || (type.GetInterfaces().All(static t => t != typeof(IArgumentCompleter))))
             {
-                throw PSTraceSource.NewArgumentException("type");
+                throw PSTraceSource.NewArgumentException(nameof(type));
             }
 
             Type = type;
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ArgumentCompleterAttribute"/> class.
+        /// This constructor is used by derived attributes implementing <see cref="IArgumentCompleterFactory"/>.
+        /// </summary>
+        protected ArgumentCompleterAttribute()
+        {
+            if (this is not IArgumentCompleterFactory)
+            {
+                throw PSTraceSource.NewInvalidOperationException();
+            }
         }
 
         /// <summary>
@@ -46,18 +58,28 @@ namespace System.Management.Automation
         /// <param name="scriptBlock"></param>
         public ArgumentCompleterAttribute(ScriptBlock scriptBlock)
         {
-            if (scriptBlock == null)
+            if (scriptBlock is null)
             {
-                throw PSTraceSource.NewArgumentNullException("scriptBlock");
+                throw PSTraceSource.NewArgumentNullException(nameof(scriptBlock));
             }
 
             ScriptBlock = scriptBlock;
+        }
+
+        internal IArgumentCompleter CreateArgumentCompleter()
+        {
+            return Type != null
+                ? Activator.CreateInstance(Type) as IArgumentCompleter
+                : this is IArgumentCompleterFactory factory
+                    ? factory.Create()
+                    : null;
         }
     }
 
     /// <summary>
     /// A type specified by the <see cref="ArgumentCompleterAttribute"/> must implement this interface.
     /// </summary>
+#nullable enable
     public interface IArgumentCompleter
     {
         /// <summary>
@@ -82,78 +104,178 @@ namespace System.Management.Automation
             CommandAst commandAst,
             IDictionary fakeBoundParameters);
     }
+#nullable restore
 
     /// <summary>
+    /// Creates a new argument completer.
+    /// </summary>
+    /// <para>
+    /// If an attribute that derives from <see cref="ArgumentCompleterAttribute"/> implements this interface,
+    /// it will be used to create the <see cref="IArgumentCompleter"/>, thus giving a way to parameterize a completer.
+    /// The derived attribute can have properties or constructor arguments that are used when creating the completer.
+    /// </para>
+    /// <example>
+    /// This example shows the intended usage of <see cref="IArgumentCompleterFactory"/> to pass arguments to an argument completer.
+    /// <code>
+    /// public class NumberCompleterAttribute : ArgumentCompleterAttribute, IArgumentCompleterFactory {
+    ///    private readonly int _from;
+    ///    private readonly int _to;
     ///
+    ///    public NumberCompleterAttribute(int from, int to){
+    ///       _from = from;
+    ///       _to = to;
+    ///    }
+    ///
+    ///    // use the attribute parameters to create a parameterized completer
+    ///    IArgumentCompleter Create() => new NumberCompleter(_from, _to);
+    /// }
+    ///
+    /// class NumberCompleter : IArgumentCompleter {
+    ///    private readonly int _from;
+    ///    private readonly int _to;
+    ///
+    ///    public NumberCompleter(int from, int to){
+    ///       _from = from;
+    ///       _to = to;
+    ///    }
+    ///
+    ///    IEnumerable{CompletionResult} CompleteArgument(string commandName, string parameterName, string wordToComplete,
+    ///       CommandAst commandAst, IDictionary fakeBoundParameters) {
+    ///       for(int i = _from; i &lt; _to; i++) {
+    ///           yield return new CompletionResult(i.ToString());
+    ///       }
+    ///    }
+    /// }
+    /// </code>
+    /// </example>
+    public interface IArgumentCompleterFactory
+    {
+        /// <summary>
+        /// Creates an instance of a class implementing the <see cref="IArgumentCompleter"/> interface.
+        /// </summary>
+        /// <returns>An IArgumentCompleter instance.</returns>
+        IArgumentCompleter Create();
+    }
+
+    /// <summary>
+    /// Base class for parameterized argument completer attributes.
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
+    public abstract class ArgumentCompleterFactoryAttribute : ArgumentCompleterAttribute, IArgumentCompleterFactory
+    {
+        /// <inheritdoc />
+        public abstract IArgumentCompleter Create();
+    }
+
+    /// <summary>
     /// </summary>
     [Cmdlet(VerbsLifecycle.Register, "ArgumentCompleter", HelpUri = "https://go.microsoft.com/fwlink/?LinkId=528576")]
     public class RegisterArgumentCompleterCommand : PSCmdlet
     {
+        private const string PowerShellSetName = "PowerShellSet";
+        private const string NativeCommandSetName = "NativeCommandSet";
+        private const string NativeFallbackSetName = "NativeFallbackSet";
+
+        // Use a key that is unlikely to be a file name or path to indicate the fallback completer for native commands.
+        internal const string FallbackCompleterKey = "___ps::<native_fallback_key>@@___";
+
         /// <summary>
-        ///
+        /// Gets or sets the command names for which the argument completer is registered.
         /// </summary>
-        [Parameter(ParameterSetName = "NativeSet", Mandatory = true)]
-        [Parameter(ParameterSetName = "PowerShellSet")]
+        [Parameter(ParameterSetName = NativeCommandSetName, Mandatory = true)]
+        [Parameter(ParameterSetName = PowerShellSetName)]
         [SuppressMessage("Microsoft.Performance", "CA1819:PropertiesShouldNotReturnArrays")]
         public string[] CommandName { get; set; }
 
         /// <summary>
-        ///
+        /// Gets or sets the name of the parameter for which the argument completer is registered.
         /// </summary>
-        [Parameter(ParameterSetName = "PowerShellSet", Mandatory = true)]
+        [Parameter(ParameterSetName = PowerShellSetName, Mandatory = true)]
         public string ParameterName { get; set; }
 
         /// <summary>
-        ///
+        /// Gets or sets the script block that will be executed to provide argument completions.
         /// </summary>
         [Parameter(Mandatory = true)]
         [AllowNull()]
         public ScriptBlock ScriptBlock { get; set; }
 
         /// <summary>
-        ///
+        /// Indicates the argument completer is for native commands.
         /// </summary>
-        [Parameter(ParameterSetName = "NativeSet")]
+        [Parameter(ParameterSetName = NativeCommandSetName)]
         public SwitchParameter Native { get; set; }
 
         /// <summary>
-        ///
+        /// Indicates the argument completer is a fallback for any native commands that don't have a completer registered.
+        /// </summary>
+        [Parameter(ParameterSetName = NativeFallbackSetName)]
+        public SwitchParameter NativeFallback { get; set; }
+
+        /// <summary>
         /// </summary>
         protected override void EndProcessing()
         {
             Dictionary<string, ScriptBlock> completerDictionary;
-            if (ParameterName != null)
-            {
-                completerDictionary = Context.CustomArgumentCompleters ??
-                                      (Context.CustomArgumentCompleters = new Dictionary<string, ScriptBlock>(StringComparer.OrdinalIgnoreCase));
-            }
-            else
-            {
-                completerDictionary = Context.NativeArgumentCompleters ??
-                                      (Context.NativeArgumentCompleters = new Dictionary<string, ScriptBlock>(StringComparer.OrdinalIgnoreCase));
-            }
 
-            if (CommandName == null || CommandName.Length == 0)
+            if (ParameterSetName is NativeFallbackSetName)
             {
-                CommandName = new[] { "" };
-            }
+                completerDictionary = Context.NativeArgumentCompleters ??= new(StringComparer.OrdinalIgnoreCase);
 
-            for (int i = 0; i < CommandName.Length; i++)
+                SetKeyValue(completerDictionary, FallbackCompleterKey, ScriptBlock);
+            }
+            else if (ParameterSetName is NativeCommandSetName)
             {
-                var key = CommandName[i];
-                if (!string.IsNullOrWhiteSpace(ParameterName))
+                completerDictionary = Context.NativeArgumentCompleters ??= new(StringComparer.OrdinalIgnoreCase);
+
+                foreach (string command in CommandName)
                 {
-                    if (!string.IsNullOrWhiteSpace(key))
+                    var key = command?.Trim();
+                    if (string.IsNullOrEmpty(key))
                     {
-                        key = key + ":" + ParameterName;
+                        continue;
                     }
-                    else
-                    {
-                        key = ParameterName;
-                    }
+
+                    SetKeyValue(completerDictionary, key, ScriptBlock);
+                }
+            }
+            else if (ParameterSetName is PowerShellSetName)
+            {
+                completerDictionary = Context.CustomArgumentCompleters ??= new(StringComparer.OrdinalIgnoreCase);
+
+                string paramName = ParameterName.Trim();
+                if (paramName.Length is 0)
+                {
+                    return;
                 }
 
-                completerDictionary[key] = ScriptBlock;
+                if (CommandName is null || CommandName.Length is 0)
+                {
+                    SetKeyValue(completerDictionary, paramName, ScriptBlock);
+                    return;
+                }
+
+                foreach (string command in CommandName)
+                {
+                    var key = command?.Trim();
+                    key = string.IsNullOrEmpty(key)
+                        ? paramName
+                        : $"{key}:{paramName}";
+
+                    SetKeyValue(completerDictionary, key, ScriptBlock);
+                }
+            }
+
+            static void SetKeyValue(Dictionary<string, ScriptBlock> table, string key, ScriptBlock value)
+            {
+                if (value is null)
+                {
+                    table.Remove(key);
+                }
+                else
+                {
+                    table[key] = value;
+                }
             }
         }
     }
@@ -170,24 +292,24 @@ namespace System.Management.Automation
     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
     public class ArgumentCompletionsAttribute : Attribute
     {
-        private string[] _completions;
+        private readonly string[] _completions;
 
         /// <summary>
-        /// Initializes a new instance of the ArgumentCompletionsAttribute class
+        /// Initializes a new instance of the ArgumentCompletionsAttribute class.
         /// </summary>
-        /// <param name="completions">list of complete values</param>
-        /// <exception cref="ArgumentNullException">for null arguments</exception>
-        /// <exception cref="ArgumentOutOfRangeException">for invalid arguments</exception>
+        /// <param name="completions">List of complete values.</param>
+        /// <exception cref="ArgumentNullException">For null arguments.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">For invalid arguments.</exception>
         public ArgumentCompletionsAttribute(params string[] completions)
         {
             if (completions == null)
             {
-                throw PSTraceSource.NewArgumentNullException("completions");
+                throw PSTraceSource.NewArgumentNullException(nameof(completions));
             }
 
             if (completions.Length == 0)
             {
-                throw PSTraceSource.NewArgumentOutOfRangeException("completions", completions);
+                throw PSTraceSource.NewArgumentOutOfRangeException(nameof(completions), completions);
             }
 
             _completions = completions;

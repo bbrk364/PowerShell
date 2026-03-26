@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 #region Using directives
@@ -19,6 +19,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
     /// cancel the subscription
     /// Should we have the second parameter set with a -Query?
     /// </summary>
+    [Alias("rcie")]
     [Cmdlet(VerbsLifecycle.Register, "CimIndicationEvent", DefaultParameterSetName = CimBaseCommand.ClassNameComputerSet, HelpUri = "https://go.microsoft.com/fwlink/?LinkId=227960")]
     public class RegisterCimIndicationCommand : ObjectEventRegistrationBase
     {
@@ -34,12 +35,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         /// </para>
         /// </summary>
         [Parameter]
-        public String Namespace
-        {
-            get { return nameSpace; }
-            set { nameSpace = value; }
-        }
-        private String nameSpace;
+        public string Namespace { get; set; }
 
         /// <summary>
         /// The following is the definition of the input parameter "ClassName".
@@ -52,16 +48,21 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         [Parameter(Mandatory = true,
             Position = 0,
             ParameterSetName = CimBaseCommand.ClassNameComputerSet)]
-        public String ClassName
+        public string ClassName
         {
-            get { return className; }
+            get
+            {
+                return className;
+            }
+
             set
             {
                 className = value;
                 this.SetParameter(value, nameClassName);
             }
         }
-        private String className;
+
+        private string className;
 
         /// <summary>
         /// The following is the definition of the input parameter "Query".
@@ -75,16 +76,21 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
             Mandatory = true,
             Position = 0,
             ParameterSetName = CimBaseCommand.QueryExpressionComputerSet)]
-        public String Query
+        public string Query
         {
-            get { return query; }
+            get
+            {
+                return query;
+            }
+
             set
             {
                 query = value;
                 this.SetParameter(value, nameQuery);
             }
         }
-        private String query;
+
+        private string query;
 
         /// <summary>
         /// <para>
@@ -95,16 +101,21 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         /// </summary>
         [Parameter(ParameterSetName = CimBaseCommand.QueryExpressionComputerSet)]
         [Parameter(ParameterSetName = CimBaseCommand.QueryExpressionSessionSet)]
-        public String QueryDialect
+        public string QueryDialect
         {
-            get { return queryDialect; }
+            get
+            {
+                return queryDialect;
+            }
+
             set
             {
                 queryDialect = value;
                 this.SetParameter(value, nameQueryDialect);
             }
         }
-        private String queryDialect;
+
+        private string queryDialect;
 
         /// <summary>
         /// The following is the definition of the input parameter "OperationTimeoutSec".
@@ -113,12 +124,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         /// </summary>
         [Alias(CimBaseCommand.AliasOT)]
         [Parameter]
-        public UInt32 OperationTimeoutSec
-        {
-            get { return operationTimeout; }
-            set { operationTimeout = value; }
-        }
-        private UInt32 operationTimeout;
+        public uint OperationTimeoutSec { get; set; }
 
         /// <summary>
         /// The following is the definition of the input parameter "Session".
@@ -132,13 +138,18 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
             ParameterSetName = CimBaseCommand.ClassNameSessionSet)]
         public CimSession CimSession
         {
-            get { return cimSession; }
+            get
+            {
+                return cimSession;
+            }
+
             set
             {
                 cimSession = value;
                 this.SetParameter(value, nameCimSession);
             }
         }
+
         private CimSession cimSession;
 
         /// <summary>
@@ -149,23 +160,28 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         [Alias(CimBaseCommand.AliasCN, CimBaseCommand.AliasServerName)]
         [Parameter(ParameterSetName = CimBaseCommand.QueryExpressionComputerSet)]
         [Parameter(ParameterSetName = CimBaseCommand.ClassNameComputerSet)]
-        public String ComputerName
+        public string ComputerName
         {
-            get { return computername; }
+            get
+            {
+                return computername;
+            }
+
             set
             {
                 computername = value;
                 this.SetParameter(value, nameComputerName);
             }
         }
-        private String computername;
+
+        private string computername;
 
         #endregion
 
         /// <summary>
-        /// Returns the object that generates events to be monitored
+        /// Returns the object that generates events to be monitored.
         /// </summary>
-        protected override Object GetSourceObject()
+        protected override object GetSourceObject()
         {
             CimIndicationWatcher watcher = null;
             string parameterSetName = null;
@@ -177,6 +193,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
             {
                 this.parameterBinder.reset();
             }
+
             string tempQueryExpression = string.Empty;
             switch (parameterSetName)
             {
@@ -188,9 +205,10 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                 case CimBaseCommand.ClassNameComputerSet:
                     // validate the classname
                     this.CheckArgument();
-                    tempQueryExpression = String.Format(CultureInfo.CurrentCulture, "Select * from {0}", this.ClassName);
+                    tempQueryExpression = string.Create(CultureInfo.CurrentCulture, $"Select * from {this.ClassName}");
                     break;
             }
+
             switch (parameterSetName)
             {
                 case CimBaseCommand.QueryExpressionSessionSet:
@@ -198,25 +216,26 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                     {
                         watcher = new CimIndicationWatcher(this.CimSession, this.Namespace, this.QueryDialect, tempQueryExpression, this.OperationTimeoutSec);
                     }
+
                     break;
                 case CimBaseCommand.QueryExpressionComputerSet:
                 case CimBaseCommand.ClassNameComputerSet:
                     {
                         watcher = new CimIndicationWatcher(this.ComputerName, this.Namespace, this.QueryDialect, tempQueryExpression, this.OperationTimeoutSec);
                     }
+
                     break;
             }
-            if (watcher != null)
-            {
-                watcher.SetCmdlet(this);
-            }
+
+            watcher?.SetCmdlet(this);
+
             return watcher;
         }
 
         /// <summary>
-        /// Returns the event name to be monitored on the input object
+        /// Returns the event name to be monitored on the input object.
         /// </summary>
-        protected override String GetSourceObjectEventName()
+        protected override string GetSourceObjectEventName()
         {
             return "CimIndicationArrived";
         }
@@ -236,9 +255,9 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
             if (newSubscriber != null)
             {
                 DebugHelper.WriteLog("RegisterCimIndicationCommand::EndProcessing subscribe to Unsubscribed event", 4);
-                newSubscriber.Unsubscribed += new PSEventUnsubscribedEventHandler(newSubscriber_Unsubscribed);
+                newSubscriber.Unsubscribed += newSubscriber_Unsubscribed;
             }
-        }//End EndProcessing()
+        }
 
         /// <summary>
         /// <para>
@@ -253,15 +272,12 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
             DebugHelper.WriteLogEx();
 
             CimIndicationWatcher watcher = sender as CimIndicationWatcher;
-            if (watcher != null)
-            {
-                watcher.Stop();
-            }
+            watcher?.Stop();
         }
 
         #region private members
         /// <summary>
-        /// check argument value
+        /// Check argument value.
         /// </summary>
         private void CheckArgument()
         {
@@ -269,13 +285,13 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         }
 
         /// <summary>
-        /// Parameter binder used to resolve parameter set name
+        /// Parameter binder used to resolve parameter set name.
         /// </summary>
-        private ParameterBinder parameterBinder = new ParameterBinder(
+        private readonly ParameterBinder parameterBinder = new(
             parameters, parameterSets);
 
         /// <summary>
-        /// Set the parameter
+        /// Set the parameter.
         /// </summary>
         /// <param name="parameterName"></param>
         private void SetParameter(object value, string parameterName)
@@ -284,6 +300,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
             {
                 return;
             }
+
             this.parameterBinder.SetParameter(parameterName, true);
         }
 
@@ -296,9 +313,9 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         #endregion
 
         /// <summary>
-        /// static parameter definition entries
+        /// Static parameter definition entries.
         /// </summary>
-        static Dictionary<string, HashSet<ParameterDefinitionEntry>> parameters = new Dictionary<string, HashSet<ParameterDefinitionEntry>>
+        private static readonly Dictionary<string, HashSet<ParameterDefinitionEntry>> parameters = new()
         {
             {
                 nameClassName, new HashSet<ParameterDefinitionEntry> {
@@ -333,9 +350,9 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         };
 
         /// <summary>
-        /// static parameter set entries
+        /// Static parameter set entries.
         /// </summary>
-        static Dictionary<string, ParameterSetEntry> parameterSets = new Dictionary<string, ParameterSetEntry>
+        private static readonly Dictionary<string, ParameterSetEntry> parameterSets = new()
         {
             {   CimBaseCommand.QueryExpressionSessionSet, new ParameterSetEntry(2)     },
             {   CimBaseCommand.QueryExpressionComputerSet, new ParameterSetEntry(1)     },
@@ -344,5 +361,5 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         };
 
         #endregion
-    }//End Class
-}//End namespace
+    }
+}

@@ -1,14 +1,16 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
 using System.Management.Automation;
+
 using Microsoft.Management.Infrastructure;
+
 using Dbg = System.Management.Automation.Diagnostics;
 
 namespace Microsoft.PowerShell.Cmdletization.Cim
 {
-    internal class CimCmdletInvocationContext
+    internal sealed class CimCmdletInvocationContext
     {
         internal CimCmdletInvocationContext(
             CimCmdletDefinitionContext cmdletDefinitionContext,
@@ -74,20 +76,26 @@ namespace Microsoft.PowerShell.Cmdletization.Cim
             if (actionPreferenceComesFromCommandLineParameter)
             {
                 Exception exception = new ArgumentException(message);
-                ErrorRecord errorRecord = new ErrorRecord(exception, "ActionPreferenceNotSupportedByCimCmdletAdapter", ErrorCategory.NotImplemented, null);
+                ErrorRecord errorRecord = new(exception, "ActionPreferenceNotSupportedByCimCmdletAdapter", ErrorCategory.NotImplemented, null);
                 cmdlet.ThrowTerminatingError(errorRecord);
             }
         }
 
-        public CimCmdletDefinitionContext CmdletDefinitionContext { get; private set; }
+        public CimCmdletDefinitionContext CmdletDefinitionContext { get; }
 
-        public InvocationInfo CmdletInvocationInfo { get; private set; }
-        public MshCommandRuntime.ShouldProcessPossibleOptimization ShouldProcessOptimization { get; private set; }
-        public ActionPreference ErrorActionPreference { get; private set; }
-        public ActionPreference WarningActionPreference { get; private set; }
-        public ActionPreference VerboseActionPreference { get; private set; }
-        public ActionPreference DebugActionPreference { get; private set; }
-        public string NamespaceOverride { get; private set; }
+        public InvocationInfo CmdletInvocationInfo { get; }
+
+        public MshCommandRuntime.ShouldProcessPossibleOptimization ShouldProcessOptimization { get; }
+
+        public ActionPreference ErrorActionPreference { get; }
+
+        public ActionPreference WarningActionPreference { get; }
+
+        public ActionPreference VerboseActionPreference { get; }
+
+        public ActionPreference DebugActionPreference { get; }
+
+        public string NamespaceOverride { get; }
 
         public bool IsRunningInBackground
         {
@@ -105,7 +113,7 @@ namespace Microsoft.PowerShell.Cmdletization.Cim
             }
         }
 
-        private readonly Lazy<CimSession> _defaultCimSession = new Lazy<CimSession>(CreateDefaultCimSession);
+        private readonly Lazy<CimSession> _defaultCimSession = new(CreateDefaultCimSession);
 
         private static CimSession CreateDefaultCimSession()
         {

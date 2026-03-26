@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
@@ -15,10 +15,10 @@ namespace Microsoft.PowerShell.Commands
         HelpUri = "https://go.microsoft.com/fwlink/?LinkID=623621", RemotingCapability = RemotingCapability.None)]
     public class ImportPowerShellDataFileCommand : PSCmdlet
     {
-        bool _isLiteralPath;
+        private bool _isLiteralPath;
 
         /// <summary>
-        /// Path specified, using globbing to resolve
+        /// Path specified, using globbing to resolve.
         /// </summary>
         [Parameter(Mandatory = true, Position = 0, ParameterSetName = "ByPath")]
         [ValidateNotNullOrEmpty]
@@ -26,28 +26,34 @@ namespace Microsoft.PowerShell.Commands
         public string[] Path { get; set; }
 
         /// <summary>
-        /// Specifies a path to one or more locations, without globbing
+        /// Specifies a path to one or more locations, without globbing.
         /// </summary>
         [Parameter(Mandatory = true, Position = 0, ParameterSetName = "ByLiteralPath", ValueFromPipelineByPropertyName = true)]
         [ValidateNotNullOrEmpty]
-        [Alias("PSPath","LP")]
+        [Alias("PSPath", "LP")]
         [SuppressMessage("Microsoft.Performance", "CA1819:PropertiesShouldNotReturnArrays")]
         public string[] LiteralPath
         {
             get { return _isLiteralPath ? Path : null; }
+
             set { _isLiteralPath = true; Path = value; }
         }
 
         /// <summary>
-        /// For each path, resolve it, parse it and write all hashtables
-        /// to the output stream
+        /// Gets or sets switch that determines if built-in limits are applied to the data.
+        /// </summary>
+        [Parameter]
+        public SwitchParameter SkipLimitCheck { get; set; }
+
+        /// <summary>
+        /// For each path, resolve it, parse it and write all hashtables to the output stream.
         /// </summary>
         protected override void ProcessRecord()
         {
             foreach (var path in Path)
             {
                 var resolved = PathUtils.ResolveFilePath(path, this, _isLiteralPath);
-                if(!string.IsNullOrEmpty(resolved) && System.IO.File.Exists(resolved))
+                if (!string.IsNullOrEmpty(resolved) && System.IO.File.Exists(resolved))
                 {
                     Token[] tokens;
                     ParseError[] errors;
@@ -58,10 +64,10 @@ namespace Microsoft.PowerShell.Commands
                     }
                     else
                     {
-                        var data = ast.Find(a => a is HashtableAst, false);
+                        var data = ast.Find(static a => a is HashtableAst, false);
                         if (data != null)
                         {
-                            WriteObject(data.SafeGetValue());
+                            WriteObject(data.SafeGetValue(SkipLimitCheck));
                         }
                         else
                         {
@@ -78,18 +84,18 @@ namespace Microsoft.PowerShell.Commands
 
         private void WritePathNotFoundError(string path)
         {
-            var errorId = "PathNotFound";
-            var errorCategory = ErrorCategory.InvalidArgument;
-            var errorMessage = string.Format(UtilityResources.PathDoesNotExist, path);
+            const string errorId = "PathNotFound";
+            const ErrorCategory errorCategory = ErrorCategory.InvalidArgument;
+            var errorMessage = string.Format(UtilityCommonStrings.PathDoesNotExist, path);
             var exception = new ArgumentException(errorMessage);
             var errorRecord = new ErrorRecord(exception, errorId, errorCategory, path);
             WriteError(errorRecord);
         }
 
-        void WriteInvalidDataFileError(string resolvedPath, string errorId)
+        private void WriteInvalidDataFileError(string resolvedPath, string errorId)
         {
-            var errorCategory = ErrorCategory.InvalidData;
-            var errorMessage = string.Format(UtilityResources.CouldNotParseAsPowerShellDataFile, resolvedPath);
+            const ErrorCategory errorCategory = ErrorCategory.InvalidData;
+            var errorMessage = string.Format(UtilityCommonStrings.CouldNotParseAsPowerShellDataFile, resolvedPath);
             var exception = new InvalidOperationException(errorMessage);
             var errorRecord = new ErrorRecord(exception, errorId, errorCategory, resolvedPath);
             WriteError(errorRecord);

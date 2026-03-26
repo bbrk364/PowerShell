@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 /*
@@ -18,11 +18,9 @@ namespace System.Management.Automation.Remoting
     /// <summary>
     /// This class is used in the server side remoting scenarios. This class
     /// holds information about the incoming connection like:
-    /// (a) Client's TimeZone
-    /// (b) Connecting User information
-    /// (c) Connection String used by the user to connect to the server.
+    /// (a) Connecting User information
+    /// (b) Connection String used by the user to connect to the server.
     /// </summary>
-    [Serializable]
     public sealed class PSSenderInfo : ISerializable
     {
         #region Private Data
@@ -34,7 +32,7 @@ namespace System.Management.Automation.Remoting
         #region Serialization
 
         /// <summary>
-        /// Serialization
+        /// Serialization.
         /// </summary>
         /// <param name="info"></param>
         /// <param name="context"></param>
@@ -45,7 +43,7 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        /// Deserialization constructor
+        /// Deserialization constructor.
         /// </summary>
         /// <param name="info"></param>
         /// <param name="context"></param>
@@ -81,8 +79,6 @@ namespace System.Management.Automation.Remoting
                 UserInfo = senderInfo.UserInfo;
                 ConnectionString = senderInfo.ConnectionString;
                 _applicationArguments = senderInfo._applicationArguments;
-
-                ClientTimeZone = senderInfo.ClientTimeZone;
             }
             catch (Exception)
             {
@@ -116,9 +112,11 @@ namespace System.Management.Automation.Remoting
         #region Properties
 
         /// <summary>
-        /// Contains information related to the user connecting to the server
+        /// Contains information related to the user connecting to the server.
         /// </summary>
-        public PSPrincipal UserInfo { get;
+        public PSPrincipal UserInfo
+        {
+            get;
             // No public set because PSSenderInfo/PSPrincipal is used by PSSessionConfiguration's
             // and usually they dont cache this data internally..so did not want to give
             // cmdlets/scripts a chance to modify these.
@@ -127,17 +125,15 @@ namespace System.Management.Automation.Remoting
         /// <summary>
         /// Contains the TimeZone information from the client machine.
         /// </summary>
-        public TimeZoneInfo ClientTimeZone
-        {
-            get;
-            internal set;
-        }
+        public TimeZoneInfo ClientTimeZone => null;
 
         /// <summary>
         /// Connection string used by the client to connect to the server. This is
         /// directly taken from WSMAN_SENDER_DETAILS struct (from wsman.h)
         /// </summary>
-        public string ConnectionString { get;
+        public string ConnectionString
+        {
+            get;
             // No public set because PSSenderInfo/PSPrincipal is used by PSSessionConfiguration's
             // and usually they dont cache this data internally..so did not want to give
             // cmdlets/scripts a chance to modify these.
@@ -149,11 +145,12 @@ namespace System.Management.Automation.Remoting
         public PSPrimitiveDictionary ApplicationArguments
         {
             get { return _applicationArguments; }
+
             internal set { _applicationArguments = value; }
         }
 
         /// <summary>
-        /// "ConfigurationName" from the sever remote session
+        /// "ConfigurationName" from the sever remote session.
         /// </summary>
         public string ConfigurationName { get; internal set; }
 
@@ -172,7 +169,9 @@ namespace System.Management.Automation.Remoting
         /// <summary>
         /// Gets the identity of the current user principal.
         /// </summary>
-        public PSIdentity Identity { get;
+        public PSIdentity Identity
+        {
+            get;
             // No public set because PSSenderInfo/PSPrincipal is used by PSSessionConfiguration's
             // and usually they dont cache this data internally..so did not want to give
             // cmdlets/scripts a chance to modify these.
@@ -184,7 +183,9 @@ namespace System.Management.Automation.Remoting
         /// a domain etc. This property tries to convert the Identity to WindowsIdentity
         /// using the user token supplied.
         /// </summary>
-        public WindowsIdentity WindowsIdentity { get;
+        public WindowsIdentity WindowsIdentity
+        {
+            get;
             // No public set because PSSenderInfo/PSPrincipal is used by PSSessionConfiguration's
             // and usually they dont cache this data internally..so did not want to give
             // cmdlets/scripts a chance to modify these.
@@ -223,7 +224,7 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        /// Internal overload of IsInRole() taking a WindowsBuiltInRole enum value
+        /// Internal overload of IsInRole() taking a WindowsBuiltInRole enum value.
         /// </summary>
         internal bool IsInRole(WindowsBuiltInRole role)
         {
@@ -242,7 +243,7 @@ namespace System.Management.Automation.Remoting
         #region Constructor
 
         /// <summary>
-        /// Constructs PSPrincipal using PSIdentity and a WindowsIdentity
+        /// Constructs PSPrincipal using PSIdentity and a WindowsIdentity.
         /// </summary>
         /// <param name="identity">
         /// An instance of PSIdentity
@@ -279,7 +280,7 @@ namespace System.Management.Automation.Remoting
         ///  WSMAN_AUTH_BASIC
         ///  WSMAN_AUTH_KERBEROS
         ///  WSMAN_AUTH_CLIENT_CERTIFICATE
-        ///  WSMAN_AUTH_LIVEID
+        ///  WSMAN_AUTH_LIVEID.
         /// </summary>
         public string AuthenticationType { get; }
 
@@ -301,7 +302,7 @@ namespace System.Management.Automation.Remoting
         #region Public Constructor
 
         /// <summary>
-        /// Constructor used to construct a PSIdentity object
+        /// Constructor used to construct a PSIdentity object.
         /// </summary>
         /// <param name="authType">
         /// Type of authentication used to authenticate this user.
@@ -362,7 +363,7 @@ namespace System.Management.Automation.Remoting
         #region Constructor
 
         /// <summary>
-        /// Constructor used to construct a PSCertificateDetails object
+        /// Constructor used to construct a PSCertificateDetails object.
         /// </summary>
         /// <param name="subject">
         /// Subject of the certificate.

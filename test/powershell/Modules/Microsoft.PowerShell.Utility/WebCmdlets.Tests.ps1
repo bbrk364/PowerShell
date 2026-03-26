@@ -1,4 +1,4 @@
-﻿# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
 # This is a Pester test suite which validate the Web cmdlets.
@@ -41,14 +41,15 @@ function ExecuteRequestWithOutFile {
     )
 
     $result = [PSObject]@{Output = $null; Error = $null}
-    $filePath = Join-Path $TestDrive ((Get-Random).ToString() + ".txt")
+    # We use '[outfile1]' in the file name to check that OutFile parameter is literal path
+    $filePath = Join-Path $TestDrive ((Get-Random).ToString() + "[outfile1].txt")
     try {
         if ($cmdletName -eq "Invoke-WebRequest") {
             Invoke-WebRequest -Uri $uri -OutFile $filePath
         } else {
             Invoke-RestMethod -Uri $uri -OutFile $filePath
         }
-        $result.Output = Get-Content $filePath -Raw -ErrorAction SilentlyContinue
+        $result.Output = Get-Content -LiteralPath $filePath -Raw -ErrorAction SilentlyContinue
     } catch {
         $result.Error = $_
     } finally {
@@ -131,18 +132,41 @@ function ExecuteRedirectRequest {
         [string]
         $Method = 'GET',
 
+        [ValidateSet('POST')]
+        [string]
+        $CustomMethod,
+
         [switch]
-        $PreserveAuthorizationOnRedirect
+        $PreserveAuthorizationOnRedirect,
+
+        [switch]
+        $PreserveHttpMethodOnRedirect,
+
+        [ValidateRange(0, [int]::MaxValue)]
+        [int]
+        $MaximumRedirection
     )
     $result = [PSObject]@{Output = $null; Error = $null; Content = $null}
 
     try {
         $headers = @{"Authorization" = "test"}
         if ($Cmdlet -eq 'Invoke-WebRequest') {
-            $result.Output = Invoke-WebRequest -Uri $uri -Headers $headers -PreserveAuthorizationOnRedirect:$PreserveAuthorizationOnRedirect.IsPresent -Method $Method
+            if ($MaximumRedirection -gt 0) {
+                $result.Output = Invoke-WebRequest -Uri $uri -Headers $headers -PreserveAuthorizationOnRedirect:$PreserveAuthorizationOnRedirect.IsPresent -Method $Method -MaximumRedirection:$MaximumRedirection
+            } elseif ($CustomMethod) {
+                $result.Output = Invoke-WebRequest -Uri $uri -Headers $headers -PreserveAuthorizationOnRedirect:$PreserveAuthorizationOnRedirect.IsPresent -CustomMethod $CustomMethod
+            } else {
+                $result.Output = Invoke-WebRequest -Uri $uri -Headers $headers -PreserveAuthorizationOnRedirect:$PreserveAuthorizationOnRedirect.IsPresent -PreserveHttpMethodOnRedirect:$PreserveHttpMethodOnRedirect.IsPresent -Method $Method
+            }
             $result.Content = $result.Output.Content | ConvertFrom-Json
         } else {
-            $result.Output = Invoke-RestMethod -Uri $uri -Headers $headers -PreserveAuthorizationOnRedirect:$PreserveAuthorizationOnRedirect.IsPresent -Method $Method
+            if ($MaximumRedirection -gt 0) {
+                $result.Output = Invoke-RestMethod -Uri $uri -Headers $headers -PreserveAuthorizationOnRedirect:$PreserveAuthorizationOnRedirect.IsPresent -Method $Method -MaximumRedirection:$MaximumRedirection
+            } elseif ($CustomMethod) {
+                $result.Output = Invoke-RestMethod -Uri $uri -Headers $headers -PreserveAuthorizationOnRedirect:$PreserveAuthorizationOnRedirect.IsPresent -CustomMethod $CustomMethod
+            } else {
+                $result.Output = Invoke-RestMethod -Uri $uri -Headers $headers -PreserveAuthorizationOnRedirect:$PreserveAuthorizationOnRedirect.IsPresent -PreserveHttpMethodOnRedirect:$PreserveHttpMethodOnRedirect.IsPresent -Method $Method
+            }
             # NOTE: $result.Output should already be a PSObject (Invoke-RestMethod converts the returned json automatically)
             # so simply reference $result.Output
             $result.Content = $result.Output
@@ -217,10 +241,10 @@ function ExecuteRequestWithCustomUserAgent {
 
     try {
         $Params = @{
-            Uri                  = $Uri
-            TimeoutSec           = 5
-            UserAgent            = $UserAgent
-            SkipHeaderValidation = $SkipHeaderValidation.IsPresent
+            Uri                         = $Uri
+            ConnectionTimeoutSeconds    = 5
+            UserAgent                   = $UserAgent
+            SkipHeaderValidation        = $SkipHeaderValidation.IsPresent
         }
         if ($Cmdlet -eq 'Invoke-WebRequest') {
             $result.Output = Invoke-WebRequest @Params
@@ -260,7 +284,7 @@ function ExecuteWebRequest {
     return $result
 }
 
-[string] $verboseEncodingPrefix = 'Content encoding: '
+[string] $debugEncodingPrefix = 'WebResponse content encoding: '
 # This function calls Invoke-WebRequest with the given uri and
 # parses the verbose output to determine the encoding used for the content.
 function ExecuteRestMethod {
@@ -273,37 +297,39 @@ function ExecuteRestMethod {
         $UseBasicParsing
     )
     $result = @{Output = $null; Error = $null; Encoding = $null; Content = $null}
-    $verbosePreferenceSave = $VerbosePreference
-    $VerbosePreference = 'Continue'
+    $debugPreferenceSave = $DebugPreference
+    $DebugPreference = 'Continue'
     try {
-        $verboseFile = Join-Path $TestDrive -ChildPath ExecuteRestMethod.verbose.txt
-        $result.Output = Invoke-RestMethod -Uri $Uri -UseBasicParsing:$UseBasicParsing.IsPresent -Verbose 4>$verboseFile
+        $debugFile = Join-Path $TestDrive -ChildPath ExecuteRestMethod.debug.txt
+        $result.Output = Invoke-RestMethod -Uri $Uri -UseBasicParsing:$UseBasicParsing.IsPresent 5>$debugFile
         $result.Content = $result.Output
 
-        if (Test-Path -Path $verboseFile) {
-            $result.Verbose = Get-Content -Path $verboseFile
-            foreach ($item in $result.Verbose) {
+        # Invoke-RestMethod does not return encoding as part of an object, only in debug output, so we parse the debug output for the purposes of verifying the test.
+        # This debug output is defined in InvokeRestMethodCommand.Common.cs ProcessResponse()
+        if (Test-Path -Path $debugFile) {
+            $result.Debug = Get-Content -Path $debugFile
+            foreach ($item in $result.Debug) {
                 $line = $item.Trim()
-                if ($line.StartsWith($verboseEncodingPrefix)) {
-                    $encodingName = $item.SubString($verboseEncodingPrefix.Length).Trim()
+                if ($line.StartsWith($debugEncodingPrefix)) {
+                    $encodingName = [int]::Parse($item.SubString($EncodingPrefix.Length).Split('CodePage: ')[1].Trim())
                     $result.Encoding = [System.Text.Encoding]::GetEncoding($encodingName)
                     break
                 }
             }
-            if ($result.Encoding -eq $null) {
-                throw "Encoding not found in verbose output. Lines: $($result.Verbose.Count) Content:$($result.Verbose)"
+            if ($null -eq $result.Encoding) {
+                throw "Encoding not found in debug output. Lines: $($result.Debug.Count) Content:$($result.Debug)"
             }
         }
 
-        if ($result.Verbose -eq $null) {
-            throw "No verbose output was found"
+        if ($null -eq $result.Debug) {
+            throw "No debug output was found"
         }
     } catch {
-        $result.Error = $_ | select-object * | Out-String
+        $result.Error = $_ | Select-Object * | Out-String
     } finally {
-        $VerbosePreference = $verbosePreferenceSave
-        if (Test-Path -Path $verboseFile) {
-            Remove-Item -Path $verboseFile -ErrorAction SilentlyContinue
+        $DebugPreference = $debugPreferenceSave
+        if (Test-Path -Path $debugFile) {
+            Remove-Item -Path $debugFile -ErrorAction SilentlyContinue
         }
     }
 
@@ -345,7 +371,7 @@ function GetMultipartBody {
 <#
     Defines the list of redirect codes to test as well as the
     expected Method when the redirection is handled.
-    See https://docs.microsoft.com/previous-versions/windows/apps/f92ssyy1(v=vs.105)
+    See https://learn.microsoft.com/dotnet/api/system.net.httpstatuscode
     for additonal details.
 #>
 $redirectTests = @(
@@ -367,9 +393,22 @@ $redirectTests = @(
     @{redirectType = 'relative'; redirectedMethod = 'GET'}
 )
 
-Describe "Invoke-WebRequest tests" -Tags "Feature" {
+Describe "Invoke-WebRequest tests" -Tags "Feature", "RequireAdminOnWindows" {
     BeforeAll {
+        $oldProgress = $ProgressPreference
+        $ProgressPreference = 'SilentlyContinue'
         $WebListener = Start-WebListener
+        $NotFoundQuery = @{
+            statuscode = 404
+            responsephrase = 'Not Found'
+            contenttype = 'text/plain'
+            body = 'oops'
+            headers = "{}"
+        }
+    }
+
+    AfterAll {
+        $ProgressPreference = $oldProgress
     }
 
     # Validate the output of Invoke-WebRequest
@@ -440,6 +479,18 @@ Describe "Invoke-WebRequest tests" -Tags "Feature" {
         $jsonContent.headers.Host | Should -Be $Uri.Authority
     }
 
+    It "Invoke-WebRequest with blank ContentType succeeds" {
+        $uri = Get-WebListenerUrl -Test 'Get'
+        $command = "Invoke-WebRequest -Uri '$uri' -ContentType ''"
+
+        $result = ExecuteWebCommand -command $command
+
+        # Validate response
+        ValidateResponse -response $result
+
+        $result.Output.Headers.'Content-Length' | Should -BeNullOrEmpty
+    }
+
     It "Validate Invoke-WebRequest -DisableKeepAlive" {
         # Operation options
         $uri = Get-WebListenerUrl -Test 'Get'
@@ -449,6 +500,29 @@ Describe "Invoke-WebRequest tests" -Tags "Feature" {
         ValidateResponse -response $result
 
         $result.Output.Headers.Connection | Should -Be "Close"
+    }
+
+    It "Validate Invoke-WebRequest -HttpVersion '<httpVersion>'" -Skip:(!$IsWindows) -TestCases @(
+        @{ httpVersion = '1.1'},
+        @{ httpVersion = '2'}
+    ) {
+        param($httpVersion)
+
+        if(Test-IsWinServer2012R2 -and $httpVersion -eq '2') {
+            Set-ItResult -Skipped -Because "HTTP/2 is not supported on Windows Server 2012R2"
+            return
+        }
+
+        # Operation options
+        $uri = Get-WebListenerUrl -Test 'Get' -Https
+        $command = "Invoke-WebRequest -Uri $uri -HttpVersion $httpVersion -SkipCertificateCheck"
+
+        $result = ExecuteWebCommand -command $command
+        ValidateResponse -response $result
+
+        # Validate response content
+        $jsonContent = $result.Output.Content | ConvertFrom-Json
+        $jsonContent.protocol | Should -Be "HTTP/$httpVersion"
     }
 
     It "Validate Invoke-WebRequest -MaximumRedirection" {
@@ -471,6 +545,26 @@ Describe "Invoke-WebRequest tests" -Tags "Feature" {
         $result.Error.FullyQualifiedErrorId | Should -Be "WebCmdletWebResponseException,Microsoft.PowerShell.Commands.InvokeWebRequestCommand"
     }
 
+    It "Validate Invoke-WebRequest redirect with -Query destination Http" {
+        $httpUri = Get-WebListenerUrl -Test 'Get'
+        $uri = Get-WebListenerUrl -Test 'Redirect' -Query @{destination = $httpUri}
+        $command = "Invoke-WebRequest -Uri '$uri'"
+
+        $result = ExecuteWebCommand -command $command
+        $jsonContent = $result.Output.Content | ConvertFrom-Json
+        $jsonContent.headers.Host | Should -Match $httpUri.Authority
+    }
+
+    It "Validate Invoke-WebRequest redirect with -Query destination Https" {
+        $httpsUri = Get-WebListenerUrl -Test 'Get' -Https
+        $uri = Get-WebListenerUrl -Test 'Redirect' -Https -Query @{destination = $httpsUri}
+        $command = "Invoke-WebRequest -Uri '$uri' -SkipCertificateCheck"
+
+        $result = ExecuteWebCommand -command $command
+        $jsonContent = $result.Output.Content | ConvertFrom-Json
+        $jsonContent.headers.Host | Should -Match $httpsUri.Authority
+    }
+
     It "Invoke-WebRequest supports request that returns page containing UTF-8 data." {
         $uri = Get-WebListenerUrl -Test 'Encoding' -TestValue 'Utf8'
         $command = "Invoke-WebRequest -Uri '$uri'"
@@ -482,12 +576,60 @@ Describe "Invoke-WebRequest tests" -Tags "Feature" {
         $Result.Output.Content | Should -Match '⡌⠁⠧⠑ ⠼⠁⠒  ⡍⠜⠇⠑⠹⠰⠎ ⡣⠕⠌'
     }
 
-    It "Invoke-WebRequest validate timeout option" {
+    It "Invoke-WebRequest -ContentType overwrites Content-Type from -Headers." {
+        $uri = Get-WebListenerUrl -Test 'POST'
+        $command = "Invoke-WebRequest -Uri '$uri' -ContentType 'application/json' -Headers @{'Content-Type'='plain/text'} -Method 'POST'"
+        $result = ExecuteWebCommand -command $command
+        $result.Output.BaseResponse.RequestMessage.Content.Headers.ContentType.MediaType | Should -BeExactly 'application/json'
+    }
+
+    It "Invoke-WebRequest supports sending request as UTF-8." {
+        $uri = Get-WebListenerUrl -Test 'POST'
+        # Body must contain non-ASCII characters
+        $command = "Invoke-WebRequest -Uri '$uri' -Body 'проверка' -ContentType 'application/json; charset=utf-8' -Method 'POST'"
+
+        $result = ExecuteWebCommand -command $command
+        ValidateResponse -response $result
+
+        $result.Output.Encoding.BodyName | Should -BeExactly 'utf-8'
+        $object = $Result.Output.Content | ConvertFrom-Json
+        $object.Data | Should -BeExactly 'проверка'
+    }
+
+    It "Invoke-WebRequest supports sending XML requests without encoding" {
+        $uri = Get-WebListenerUrl -Test POST
+        $body = '<?xml version="1.0"?><foo />'
+        $result = Invoke-WebRequest -Uri $uri -body ([xml]$body) -ContentType 'text/xml' -method 'POST'
+
+        $object = $result.Content | ConvertFrom-Json
+        $object.Data | Should -BeExactly $body
+    }
+
+    It "Invoke-WebRequest supports request that returns page containing CodPage 936 data." {
+        $uri = Get-WebListenerUrl -Test 'Encoding' -TestValue 'CP936'
+        $command = "Invoke-WebRequest -Uri '$uri'"
+
+        $result = ExecuteWebCommand -command $command
+        ValidateResponse -response $result
+
+        $Result.Output.Encoding.CodePage | Should -Be 936
+        $Result.Output.Content | Should -Match '测试123'
+    }
+
+    It "Invoke-WebRequest validate ConnectionTimeoutSeconds option" {
+        $uri = Get-WebListenerUrl -Test 'Delay' -TestValue '5'
+        $command = "Invoke-WebRequest -Uri '$uri' -ConnectionTimeoutSeconds 2"
+
+        $result = ExecuteWebCommand -command $command
+        $result.Error.FullyQualifiedErrorId | Should -Be "ConnectionTimeoutReached,Microsoft.PowerShell.Commands.InvokeWebRequestCommand"
+    }
+
+    It "Invoke-WebRequest validate TimeoutSec alias" {
         $uri = Get-WebListenerUrl -Test 'Delay' -TestValue '5'
         $command = "Invoke-WebRequest -Uri '$uri' -TimeoutSec 2"
 
         $result = ExecuteWebCommand -command $command
-        $result.Error.FullyQualifiedErrorId | Should -Be "System.Threading.Tasks.TaskCanceledException,Microsoft.PowerShell.Commands.InvokeWebRequestCommand"
+        $result.Error.FullyQualifiedErrorId | Should -Be "ConnectionTimeoutReached,Microsoft.PowerShell.Commands.InvokeWebRequestCommand"
     }
 
     It "Validate Invoke-WebRequest error with -Proxy and -NoProxy option" {
@@ -507,7 +649,7 @@ Describe "Invoke-WebRequest tests" -Tags "Feature" {
         param($proxy_address, $name, $protocol)
 
         # use external url, but with proxy the external url should not actually be called
-        $command = "Invoke-WebRequest -Uri ${protocol}://httpbin.org -Proxy '${protocol}://${proxy_address}' -SkipCertificateCheck"
+        $command = "Invoke-WebRequest -Uri ${protocol}://httpbin.org -Proxy '${protocol}://${proxy_address}'"
         $result = ExecuteWebCommand -command $command
         $command = "Invoke-WebRequest -Uri '${protocol}://${proxy_address}' -NoProxy"
         $expectedResult = ExecuteWebCommand -command $command
@@ -517,11 +659,13 @@ Describe "Invoke-WebRequest tests" -Tags "Feature" {
     # Perform the following operation for Invoke-WebRequest
     # gzip Returns gzip-encoded data.
     # deflate Returns deflate-encoded data.
+    # brotli Returns brotli-encoded data.
     # $dataEncodings = @("Chunked", "Compress", "Deflate", "GZip", "Identity")
     # Note: These are the supported options, but we do not have a web service to test them all.
     It "Invoke-WebRequest supports request that returns <DataEncoding>-encoded data." -TestCases @(
-        @{ DataEncoding = "gzip"}
-        @{ DataEncoding = "deflate"}
+        @{ DataEncoding = "gzip" }
+        @{ DataEncoding = "deflate" }
+        @{ DataEncoding = "brotli" }
     ) {
         param($dataEncoding)
         $uri = Get-WebListenerUrl -Test 'Compression' -TestValue $dataEncoding
@@ -531,7 +675,7 @@ Describe "Invoke-WebRequest tests" -Tags "Feature" {
         ValidateResponse -response $result
 
         # Validate response content
-        $result.Output.Headers.'Content-Encoding'[0] | Should -BeExactly $dataEncoding
+        # The content should be de-compressed, and otherwise converting from JSON will fail.
         $jsonContent = $result.Output.Content | ConvertFrom-Json
         $jsonContent.Headers.Host | Should -BeExactly $uri.Authority
     }
@@ -550,8 +694,9 @@ Describe "Invoke-WebRequest tests" -Tags "Feature" {
             $uri = Get-WebListenerUrl -Test $method
             $body = GetTestData -contentType $contentType
             $command = "Invoke-WebRequest -Uri $uri -Body '$body' -Method $method -ContentType $contentType"
+            $commandNoContentType = "Invoke-WebRequest -Uri $uri -Body '$body' -Method $method"
 
-            It "Invoke-WebRequest -Uri $uri  -Method $method -ContentType $contentType -Body [body data]" {
+            It "Invoke-WebRequest -Uri $uri -Method $method -ContentType $contentType -Body [body data]" {
 
                 $result = ExecuteWebCommand -command $command
                 ValidateResponse -response $result
@@ -562,6 +707,29 @@ Describe "Invoke-WebRequest tests" -Tags "Feature" {
                 $jsonContent.headers.'Content-Type' | Should -Match $contentType
                 # Validate that the response Content.data field is the same as what we sent.
                 $jsonContent.data | Should -Be $body
+            }
+
+            It "Invoke-WebRequest -Uri $uri -Method $method -Body [body data]" {
+
+                $result = ExecuteWebCommand -command $commandNoContentType
+                ValidateResponse -response $result
+
+                # Validate response content
+                $jsonContent = $result.Output.Content | ConvertFrom-Json
+                $jsonContent.url | Should -Match $uri
+                if ($method -eq "POST")
+                {
+                    $jsonContent.headers.'Content-Type' | Should -Match "application/x-www-form-urlencoded"
+                    # Validate that the response Content.form field is the same as what we sent.
+                    [string]$jsonContent.form | Should -Be ([string][PSCustomObject]@{$body.Split("=")[0] = [System.Object[]]})
+                    $jsonContent.data | Should -BeNullOrEmpty
+                }
+                else
+                {
+                    # Validate that the response Content.data field is the same as what we sent.
+                    $jsonContent.data | Should -Be $body
+                }
+
             }
         }
     }
@@ -607,6 +775,51 @@ Describe "Invoke-WebRequest tests" -Tags "Feature" {
         $jsonContent.headers.Host | Should -Be $uri.Authority
     }
 
+    It "Invoke-WebRequest -OutFile folder Downloads the file and names it" {
+        $uri = Get-WebListenerUrl -Test 'Get'
+        $content = Invoke-WebRequest -Uri $uri
+        $outFile = Join-Path $TestDrive $content.BaseResponse.RequestMessage.RequestUri.Segments[-1]
+
+        # ensure the file does not exist
+        Remove-Item -Force -ErrorAction Ignore -Path $outFile
+        Invoke-WebRequest -Uri $uri -OutFile $TestDrive
+
+        Test-Path $outFile | Should -Be $true
+        Get-Item $outFile | Select-Object -ExpandProperty Length | Should -Be $content.Content.Length
+    }
+
+    It "Invoke-WebRequest -PassThru -OutFile <directory> saves the downloaded file path as a property in WebResponseObject"{
+        $uri = Get-WebListenerUrl -Test 'Get'
+        $content = Invoke-WebRequest -Uri $uri -PassThru -OutFile $TestDrive
+        $content.OutFile | Should -exist
+        $content.OutFile | Should -Be (Join-Path $TestDrive 'Get')
+    }
+
+    It "Invoke-WebRequest -PassThru -OutFile <file> saves the downloaded file path as a property in WebResponseObject"{
+        $uri = Get-WebListenerUrl -Test 'Get'
+        $filePath = Join-Path $TestDrive "pestertest-outfile"
+        $content = Invoke-WebRequest -Uri $uri -PassThru -OutFile $filePath
+        $content.OutFile | Should -exist
+        $content.OutFile | Should -Be $filePath
+    }
+
+    It "Invoke-WebRequest -PassThru -OutFile -Verbose File Name reflects the downloaded file name" {
+        $uri = Get-WebListenerUrl -Test 'Get'
+        $filePath = Join-Path $TestDrive "pestertest-outfile"
+        $content = Invoke-WebRequest -Verbose -Uri $uri -PassThru -OutFile $filePath 4>variable:verbo
+        $verbo[-1].Message | Should -Match "pestertest-outfile"
+    }
+
+    It "Invoke-WebRequest should fail if -OutFile is <Name>." -TestCases @(
+        @{ Name = "empty"; Value = [string]::Empty }
+        @{ Name = "null"; Value = $null }
+    ) {
+        param ($value)
+        $uri = Get-WebListenerUrl -Test 'Get'
+        $errorId = "ParameterArgumentValidationError,Microsoft.PowerShell.Commands.InvokeWebRequestCommand"
+        { Invoke-WebRequest -Uri $uri -OutFile $value} | Should -Throw -ErrorId $errorId
+    }
+
     It "Validate Invoke-WebRequest handles missing Content-Type in response header" {
         #Validate that exception is not thrown when response headers are missing Content-Type.
         $uri = Get-WebListenerUrl -Test 'ResponseHeaders' -Query @{'Content-Type' = ''}
@@ -646,6 +859,20 @@ Describe "Invoke-WebRequest tests" -Tags "Feature" {
         ($result.Output.Content | ConvertFrom-Json).args.testparam | Should -Be "testvalue"
     }
 
+    It 'Validate Invoke-WebRequest empty body CustomMethod GET' {
+        $uri = Get-WebListenerUrl -Test 'Get'
+        $command = "Invoke-WebRequest -Uri '$uri' -CustomMethod GET"
+        $result = ExecuteWebCommand -command $command
+        $result.Output.Headers.'Content-Length' | Should -BeNullOrEmpty
+    }
+
+    It "Validate Invoke-WebRequest body is converted to query params for CustomMethod GET and -NoProxy" {
+        $uri = Get-WebListenerUrl -Test 'Get'
+        $command = "Invoke-WebRequest -Uri '$uri' -CustomMethod GET -Body @{'testparam'='testvalue'} -NoProxy"
+        $result = ExecuteWebCommand -command $command
+        ($result.Output.Content | ConvertFrom-Json).query | Should -Be "?testparam=testvalue"
+    }
+
     It "Validate Invoke-WebRequest returns HTTP errors in exception" {
         $query = @{
             body           = "I am a teapot!!!"
@@ -657,11 +884,40 @@ Describe "Invoke-WebRequest tests" -Tags "Feature" {
         $result = ExecuteWebCommand -command $command
 
         $result.Error.ErrorDetails.Message | Should -Be $query.body
-        $result.Error.Exception | Should -BeOfType 'Microsoft.PowerShell.Commands.HttpResponseException'
+        $result.Error.Exception | Should -BeOfType Microsoft.PowerShell.Commands.HttpResponseException
         $result.Error.Exception.Response.StatusCode | Should -Be 418
         $result.Error.Exception.Response.ReasonPhrase | Should -Be $query.responsephrase
         $result.Error.Exception.Message | Should -Match ": 418 \($($query.responsephrase)\)\."
         $result.Error.FullyQualifiedErrorId | Should -Be "WebCmdletWebResponseException,Microsoft.PowerShell.Commands.InvokeWebRequestCommand"
+    }
+
+    It "Validate Invoke-WebRequest returns <type> errors in exception" -TestCases @(
+        @{ type = "XML"
+           query = @{
+                        contenttype = 'application/xml'
+                        body = '<?xml version="1.0" encoding="UTF-8"?><Error><Code>418</Code><Message>I am a teapot!!!</Message></Error>'
+                        statuscode = 418
+                        responsephrase = "I am a teapot"
+                    }
+           expectederror = $IsWindows ? "`r`n<Error>`r`n  <Code>418</Code>`r`n  <Message>I am a teapot!!!</Message>`r`n</Error>" : "`n<Error>`n  <Code>418</Code>`n  <Message>I am a teapot!!!</Message>`n</Error>"
+        }
+
+        @{ type = "Json"
+           query = @{
+                        contenttype = 'application/json'
+                        body = '{"error":{"code":"418", "message":"I am a teapot!!!"}}'
+                        statuscode = 418
+                        responsephrase = "I am a teapot"
+                    }
+           expectederror = $IsWindows ? "`r`n{`r`n  `"error`": {`r`n    `"code`": `"418`",`r`n    `"message`": `"I am a teapot!!!`"`r`n  }`r`n}" : "`n{`n  `"error`": {`n    `"code`": `"418`",`n    `"message`": `"I am a teapot!!!`"`n  }`n}"
+        }
+    ) {
+        param($query, $expectederror)
+        $uri = Get-WebListenerUrl -Test 'Response' -Query $query
+        $command = "Invoke-WebRequest -Uri '$uri'"
+        $result = ExecuteWebCommand -command $command
+
+        $result.Error.ErrorDetails.Message | Should -Be $expectederror
     }
 
     It "Validate Invoke-WebRequest returns empty RelationLink property if there is no Link Header" {
@@ -672,8 +928,12 @@ Describe "Invoke-WebRequest tests" -Tags "Feature" {
         $result.Output.RelationLink.Count | Should -Be 0
     }
 
-    It "Validate Invoke-WebRequest returns valid RelationLink property with absolute uris if Link Header is present" {
-        $uri = Get-WebListenerUrl -Test 'Link' -Query @{maxlinks = 5; linknumber = 2}
+    It "Validate Invoke-WebRequest returns valid RelationLink property with absolute uris if Link Header is present <name>" -TestCases @(
+        $originalUri = Get-WebListenerUrl -Test 'Link' -Query @{maxlinks = 5; linknumber = 2}
+        @{name = '(URI with scheme)'; uri = $originalUri}
+        @{name = '(URI without scheme)'; uri = $originalUri.OriginalString.Split("//")[1]}
+    ) {
+        param($uri)
         $command = "Invoke-WebRequest -Uri '$uri'"
         $result = ExecuteWebCommand -command $command
 
@@ -739,90 +999,224 @@ Describe "Invoke-WebRequest tests" -Tags "Feature" {
         $result.Output.RelationLink["self"] | Should -BeExactly "${baseUri}?maxlinks=3&linknumber=1&type=${type}"
     }
 
-    #region Redirect tests
+    It "Validate Invoke-WebRequest handles different whitespace for Link Headers: <type>" -TestCases @(
+        @{ type = "noWhitespace" }
+        @{ type = "extraWhitespace" }
+    ) {
+        param($type)
+        $uri = Get-WebListenerUrl -Test 'Link' -Query @{type = $type}
+        $command = "Invoke-WebRequest -Uri '$uri'"
+        $result = ExecuteWebCommand -command $command
 
-    It "Validates Invoke-WebRequest with -PreserveAuthorizationOnRedirect preserves the authorization header on redirect: <redirectType> <redirectedMethod>" -TestCases $redirectTests {
-        param($redirectType, $redirectedMethod)
-        $uri = Get-WebListenerUrl -Test 'Redirect' -Query @{type = $redirectType}
-        $response = ExecuteRedirectRequest -Uri $uri -PreserveAuthorizationOnRedirect
-
-        $response.Error | Should -BeNullOrEmpty
-        $response.Content.Headers."Authorization" | Should -BeExactly "test"
+        $result.Output.RelationLink.Count | Should -BeExactly 4
+        $baseUri = Get-WebListenerUrl -Test 'Link'
+        $result.Output.RelationLink["last"] | Should -BeExactly "${baseUri}?maxlinks=3&linknumber=3&type=${type}"
+        $result.Output.RelationLink["first"] | Should -BeExactly "${baseUri}?maxlinks=3&linknumber=1&type=${type}"
+        $result.Output.RelationLink["self"] | Should -BeExactly "${baseUri}?maxlinks=3&linknumber=1&type=${type}"
+        $result.Output.RelationLink["next"] | Should -BeExactly "${baseUri}?maxlinks=3&linknumber=2&type=${type}"
     }
 
-    It "Validates Invoke-WebRequest preserves the authorization header on multiple redirects: <redirectType>" -TestCases $redirectTests {
-        param($redirectType)
-        $uri = Get-WebListenerUrl -Test 'Redirect' -TestValue 3 -Query @{type = $redirectType}
-        $response = ExecuteRedirectRequest -Uri $uri -PreserveAuthorizationOnRedirect
-
-        $response.Error | Should -BeNullOrEmpty
-        $response.Content.Headers."Authorization" | Should -BeExactly "test"
+    It "Verify Invoke-WebRequest supresses terminating errors with -SkipHttpErrorCheck" {
+        $uri =  Get-WebListenerUrl -Test 'Response' -Query $NotFoundQuery
+        $command = "Invoke-WebRequest -SkipHttpErrorCheck -Uri '$uri'"
+        $result = ExecuteWebCommand -Command $command
+        $result.output.StatusCode | Should -Be 404
+        $result.output.Content | Should -BeExactly "oops"
+        $result.error | Should -BeNullOrEmpty
     }
 
-    It "Validates Invoke-WebRequest strips the authorization header on various redirects: <redirectType>" -TestCases $redirectTests {
-        param($redirectType)
-        $uri = Get-WebListenerUrl -Test 'Redirect' -Query @{type = $redirectType}
-        $response = ExecuteRedirectRequest -Uri $uri
-
-        $response.Error | Should -BeNullOrEmpty
-        # ensure user-agent is present (i.e., no false positives )
-        $response.Content.Headers."User-Agent" | Should -Not -BeNullOrEmpty
-        # ensure Authorization header has been removed.
-        $response.Content.Headers."Authorization" | Should -BeNullOrEmpty
+    It "Verify Invoke-WebRequest terminates without -SkipHttpErrorCheck" {
+        $uri =  Get-WebListenerUrl -Test 'Response' -Query $NotFoundQuery
+        $command = "Invoke-WebRequest -Uri '$uri'"
+        $result = ExecuteWebCommand -Command $command
+        $result.output | Should -BeNullOrEmpty
+        $result.error | Should -Not -BeNullOrEmpty
     }
 
-    # NOTE: Only testing redirection of POST -> GET for unique underlying values of HttpStatusCode.
-    # Some names overlap in underlying value.
-    It "Validates Invoke-WebRequest strips the authorization header redirects and switches from POST to GET when it handles the redirect: <redirectType> <redirectedMethod>" -TestCases $redirectTests {
-        param($redirectType, $redirectedMethod)
-        $uri = Get-WebListenerUrl -Test 'Redirect' -Query @{type = $redirectType}
-        $response = ExecuteRedirectRequest -Uri $uri -Method 'POST'
+    Context "Redirect" {
+        It "Validates Invoke-WebRequest with -PreserveAuthorizationOnRedirect preserves the authorization header on redirect: <redirectType> <redirectedMethod>" -TestCases $redirectTests {
+            param($redirectType, $redirectedMethod)
+            $uri = Get-WebListenerUrl -Test 'Redirect' -Query @{type = $redirectType}
+            $response = ExecuteRedirectRequest -Uri $uri -PreserveAuthorizationOnRedirect
 
-        $response.Error | Should -BeNullOrEmpty
-        # ensure user-agent is present (i.e., no false positives )
-        $response.Content.Headers."User-Agent" | Should -Not -BeNullOrEmpty
-        # ensure Authorization header has been removed.
-        $response.Content.Headers."Authorization" | Should -BeNullOrEmpty
-        # ensure POST was changed to GET for selected redirections and remains as POST for others.
-        $response.Content.Method | Should -Be $redirectedMethod
+            $response.Error | Should -BeNullOrEmpty
+            $response.Content.Headers."Authorization" | Should -BeExactly "test"
+        }
+
+        It "Validates Invoke-WebRequest with -PreserveAuthorizationOnRedirect respects -MaximumRedirection on redirect: <redirectType> <redirectedMethod>" -TestCases $redirectTests {
+            param($redirectType, $redirectedMethod)
+            $uri = Get-WebListenerUrl -Test 'Redirect' -TestValue '3' -Query @{type = $redirectType}
+            $response = ExecuteRedirectRequest -Uri $uri -PreserveAuthorizationOnRedirect -MaximumRedirection 2
+
+            $response.Error.FullyQualifiedErrorId | Should -Be "WebCmdletWebResponseException,Microsoft.PowerShell.Commands.InvokeWebRequestCommand"
+        }
+
+        It "Validates Invoke-WebRequest preserves the authorization header on multiple redirects: <redirectType>" -TestCases $redirectTests {
+            param($redirectType)
+            $uri = Get-WebListenerUrl -Test 'Redirect' -TestValue 3 -Query @{type = $redirectType}
+            $response = ExecuteRedirectRequest -Uri $uri -PreserveAuthorizationOnRedirect
+
+            $response.Error | Should -BeNullOrEmpty
+            $response.Content.Headers."Authorization" | Should -BeExactly "test"
+        }
+
+        It "Validates Invoke-WebRequest with -WebSession and -PreserveAuthorizationOnRedirect doesn't change session variable on multiple redirects: <redirectType>" -TestCases $redirectTests {
+            param($redirectType)
+
+            #[SuppressMessage("Microsoft.Security", "CS002:SecretInNextLine", Justification="Demo/doc/test secret.")]
+            $token = "testpassword" | ConvertTo-SecureString -AsPlainText -Force
+            $credential = [pscredential]::new("testuser", $token)
+            $certificate = Get-WebListenerClientCertificate
+            $headers = @{"Authorization" = "test"}
+            $proxy = (Get-WebListenerUrl).Authority
+            $uri = Get-WebListenerUrl -Test 'Redirect' -TestValue 2 -Query @{type = $redirectType}
+
+            $session = [Microsoft.PowerShell.Commands.WebRequestSession]::new()
+            $session.MaximumRedirection = 2
+            $session.MaximumRetryCount = 2
+            $session.RetryIntervalInSeconds = 2
+            $session.UseDefaultCredentials = $true
+            $null = Invoke-WebRequest -Uri $uri -PreserveAuthorizationOnRedirect -WebSession $session -AllowUnencryptedAuthentication -Headers $headers
+            $session.MaximumRedirection | Should -BeExactly 2
+            $session.MaximumRetryCount | Should -BeExactly 2
+            $session.RetryIntervalInSeconds | Should -BeExactly 2
+            $session.UseDefaultCredentials | Should -BeExactly $true
+
+            $session = [Microsoft.PowerShell.Commands.WebRequestSession]::new()
+            $session.Credentials = $credential
+            $session.Certificates = [System.Security.Cryptography.X509Certificates.X509CertificateCollection]::new([X509Certificate]$certificate)
+            $null = Invoke-WebRequest -Uri $uri -PreserveAuthorizationOnRedirect -WebSession $session -SkipCertificateCheck -Headers $headers
+            $session.Credentials.UserName | Should -BeExactly $credential.UserName
+            $session.Credentials.Password | Should -BeExactly $credential.GetNetworkCredential().Password
+            $session.Certificates.Thumbprint | Should -BeExactly $certificate.Thumbprint
+
+            $session = [Microsoft.PowerShell.Commands.WebRequestSession]::new()
+            $session.Proxy = [System.Net.WebProxy]::new($proxy)
+            $null = Invoke-WebRequest -Uri $uri -PreserveAuthorizationOnRedirect -WebSession $session -Headers $headers
+            $session.Proxy.GetProxy($uri).Authority | Should -BeExactly $proxy
+        }
+
+        It "Validates Invoke-WebRequest strips the authorization header on various redirects: <redirectType>" -TestCases $redirectTests {
+            param($redirectType)
+            $uri = Get-WebListenerUrl -Test 'Redirect' -Query @{type = $redirectType}
+            $response = ExecuteRedirectRequest -Uri $uri
+
+            $response.Error | Should -BeNullOrEmpty
+            # ensure user-agent is present (i.e., no false positives )
+            $response.Content.Headers."User-Agent" | Should -Not -BeNullOrEmpty
+            # ensure Authorization header has been removed.
+            $response.Content.Headers."Authorization" | Should -BeNullOrEmpty
+        }
+
+        # NOTE: Only testing redirection of POST -> GET for unique underlying values of HttpStatusCode.
+        # Some names overlap in underlying value.
+        It "Validates Invoke-WebRequest strips the authorization header redirects and switches from POST to GET when it handles the redirect: <redirectType> <redirectedMethod>" -TestCases $redirectTests {
+            param($redirectType, $redirectedMethod)
+            $uri = Get-WebListenerUrl -Test 'Redirect' -Query @{type = $redirectType}
+            $response = ExecuteRedirectRequest -Uri $uri -Method 'POST'
+
+            $response.Error | Should -BeNullOrEmpty
+            # ensure user-agent is present (i.e., no false positives )
+            $response.Content.Headers."User-Agent" | Should -Not -BeNullOrEmpty
+            # ensure Authorization header has been removed.
+            $response.Content.Headers."Authorization" | Should -BeNullOrEmpty
+            # ensure POST was changed to GET for selected redirections and remains as POST for others.
+            $response.Content.Method | Should -Be $redirectedMethod
+        }
+
+        It "Validates Invoke-WebRequest -PreserveAuthorizationOnRedirect keeps the authorization header redirects and switches from POST to GET when it handles the redirect: <redirectType> <redirectedMethod>" -TestCases $redirectTests {
+            param($redirectType, $redirectedMethod)
+            $uri = Get-WebListenerUrl -Test 'Redirect' -Query @{type = $redirectType}
+            $response = ExecuteRedirectRequest -PreserveAuthorizationOnRedirect -Uri $uri -Method 'POST'
+
+            $response.Error | Should -BeNullOrEmpty
+            # ensure user-agent is present (i.e., no false positives )
+            $response.Content.Headers."User-Agent" | Should -Not -BeNullOrEmpty
+            # ensure Authorization header has been preserved.
+            $response.Content.Headers."Authorization" | Should -BeExactly 'test'
+            # ensure POST was changed to GET for selected redirections and remains as POST for others.
+            $response.Content.Method | Should -Be $redirectedMethod
+        }
+
+        It "Validates Invoke-WebRequest -PreserveAuthorizationOnRedirect -CustomMethod POST keeps the authorization header redirects and switches from POST to GET when it handles the redirect: <redirectType> <redirectedMethod>" -TestCases $redirectTests {
+            param($redirectType, $redirectedMethod)
+            $uri = Get-WebListenerUrl -Test 'Redirect' -Query @{type = $redirectType}
+
+            $response = ExecuteRedirectRequest -PreserveAuthorizationOnRedirect -Uri $uri -CustomMethod 'POST'
+
+            $response.Error | Should -BeNullOrEmpty
+            # ensure user-agent is present (i.e., no false positives )
+            $response.Content.Headers."User-Agent" | Should -Not -BeNullOrEmpty
+            # ensure Authorization header has been preserved.
+            $response.Content.Headers."Authorization" | Should -BeExactly 'test'
+            # ensure POST was changed to GET for selected redirections and remains as POST for others.
+            $response.Content.Method | Should -Be $redirectedMethod
+        }
+
+        It "Validates Invoke-WebRequest -PreserveHttpMethodOnRedirect keeps the authorization header redirects and do remains POST when it handles the redirect: <redirectType>" -TestCases $redirectTests {
+            param($redirectType)
+            $uri = Get-WebListenerUrl -Test 'Redirect' -Query @{type = $redirectType}
+            $response = ExecuteRedirectRequest -PreserveHttpMethodOnRedirect -Uri $uri -Method 'POST'
+
+            $response.Error | Should -BeNullOrEmpty
+            # ensure user-agent is present (i.e., no false positives )
+            $response.Content.Headers."User-Agent" | Should -Not -BeNullOrEmpty
+            # ensure Authorization header has been kept.
+            $response.Content.Headers."Authorization" | Should -BeExactly 'test'
+            # ensure POST doesn't change.
+            $response.Content.Method | Should -Be 'POST'
+        }
+
+        It "Validates Invoke-WebRequest handles responses without Location header for requests with Authorization header and redirect: <redirectType>" -TestCases $redirectTests {
+            param($redirectType, $redirectedMethod)
+            # Skip relative test as it is not a valid response type.
+            if ($redirectType -eq 'relative') { return }
+
+            # When an Authorization request header is present,
+            # and -PreserveAuthorizationOnRedirect is not present,
+            # PowerShell should throw an HTTP Response Exception
+            # for a redirect response which does not contain a Location response header.
+            # The correct redirect status code should be included in the exception.
+
+            $StatusCode = [int][System.Net.HttpStatusCode]$redirectType
+            $uri = Get-WebListenerUrl -Test Response -Query @{statuscode = $StatusCode}
+            $command = "Invoke-WebRequest -Uri '$uri' -Headers @{Authorization = 'foo'}"
+            $response = ExecuteWebCommand -command $command
+
+            $response.Error.Exception | Should -BeOfType Microsoft.PowerShell.Commands.HttpResponseException
+            $response.Error.Exception.Response.StatusCode | Should -Be $StatusCode
+            $response.Error.Exception.Response.Headers.Location | Should -BeNullOrEmpty
+        }
+
+        It "Validate Invoke-WebRequest Https to Http redirect with -AllowInsecureRedirect" {
+            $httpUri = Get-WebListenerUrl -Test 'Get'
+            $uri = Get-WebListenerUrl -Test 'Redirect' -Https -Query @{destination = $httpUri}
+            $command = "Invoke-WebRequest -Uri '$uri' -SkipCertificateCheck -AllowInsecureRedirect"
+
+            $result = ExecuteWebCommand -command $command
+            $jsonContent = $result.Output.Content | ConvertFrom-Json
+            $jsonContent.headers.Host | Should -Match $httpUri.Authority
+        }
+
+        It "Validate Invoke-WebRequest Https to Http redirect without -AllowInsecureRedirect" {
+            $httpUri = Get-WebListenerUrl -Test 'Get'
+            $uri = Get-WebListenerUrl -Test 'Redirect' -Https -Query @{destination = $httpUri}
+            $command = "Invoke-WebRequest -Uri '$uri' -SkipCertificateCheck"
+
+            $result = ExecuteWebCommand -command $command
+            $result.Error.FullyQualifiedErrorId | Should -Be "InsecureRedirection,Microsoft.PowerShell.Commands.InvokeWebRequestCommand"
+        }
+
+        It "Validate Invoke-WebRequest Https to Http (No Scheme) redirect without -AllowInsecureRedirect" {
+            $httpUri = Get-WebListenerUrl -Test 'Get'
+            $uri = Get-WebListenerUrl -Test 'Redirect' -Https -Query @{destination = $httpUri.Authority}
+            $command = "Invoke-WebRequest -Uri '$uri' -SkipCertificateCheck"
+
+            $result = ExecuteWebCommand -command $command
+            $result.Error.FullyQualifiedErrorId | Should -Be "WebCmdletWebResponseException,Microsoft.PowerShell.Commands.InvokeWebRequestCommand"
+        }
     }
 
-    It "Validates Invoke-WebRequest -PreserveAuthorizationOnRedirect keeps the authorization header redirects and switches from POST to GET when it handles the redirect: <redirectType> <redirectedMethod>" -TestCases $redirectTests {
-        param($redirectType, $redirectedMethod)
-        $uri = Get-WebListenerUrl -Test 'Redirect' -Query @{type = $redirectType}
-        $response = ExecuteRedirectRequest -PreserveAuthorizationOnRedirect -Uri $uri -Method 'POST'
-
-        $response.Error | Should -BeNullOrEmpty
-        # ensure user-agent is present (i.e., no false positives )
-        $response.Content.Headers."User-Agent" | Should -Not -BeNullOrEmpty
-        # ensure Authorization header has been removed.
-        $response.Content.Headers."Authorization" | Should -BeExactly 'test'
-        # ensure POST was changed to GET for selected redirections and remains as POST for others.
-        $response.Content.Method | Should -Be $redirectedMethod
-    }
-
-    It "Validates Invoke-WebRequest handles responses without Location header for requests with Authorization header and redirect: <redirectType>" -TestCases $redirectTests {
-        param($redirectType, $redirectedMethod)
-        # Skip relative test as it is not a valid response type.
-        if ($redirectType -eq 'relative') { return }
-
-        # When an Authorization request header is present,
-        # and -PreserveAuthorizationOnRedirect is not present,
-        # PowerShell should throw an HTTP Response Exception
-        # for a redirect response which does not contain a Location response header.
-        # The correct redirect status code should be included in the exception.
-
-        $StatusCode = [int][System.Net.HttpStatusCode]$redirectType
-        $uri = Get-WebListenerUrl -Test Response -Query @{statuscode = $StatusCode}
-        $command = "Invoke-WebRequest -Uri '$uri' -Headers @{Authorization = 'foo'}"
-        $response = ExecuteWebCommand -command $command
-
-        $response.Error.Exception | Should -BeOfType 'Microsoft.PowerShell.Commands.HttpResponseException'
-        $response.Error.Exception.Response.StatusCode | Should -Be $StatusCode
-        $response.Error.Exception.Response.Headers.Location | Should -BeNullOrEmpty
-    }
-
-    #endregion Redirect tests
 
     Context "Invoke-WebRequest SkipHeaderVerification Tests" {
         BeforeAll {
@@ -952,6 +1346,28 @@ Describe "Invoke-WebRequest tests" -Tags "Feature" {
             $result.data | Should -Match 'bar'
             $result.headers.'Content-Type' | Should -BeExactly $contentType
         }
+
+        It "Verifies Invoke-WebRequest applies -ContentType when no -Body is present" {
+            $contentType = 'application/json'
+            $uri = Get-WebListenerUrl -Test 'Get'
+
+            $response = Invoke-WebRequest -Uri $uri -Method 'GET' -ContentType $contentType
+            $result = $response.Content | ConvertFrom-Json
+
+            $result.data | Should -BeNullOrEmpty
+            $result.headers.'Content-Type' | Should -BeExactly $contentType
+        }
+
+        It "Verifies Invoke-WebRequest applies an invalid -ContentType when no -Body is present and -SkipHeaderValidation is present" {
+            $contentType = 'foo'
+            $uri = Get-WebListenerUrl -Test 'Get'
+
+            $response = Invoke-WebRequest -Uri $uri -Method 'GET' -ContentType $contentType -SkipHeaderValidation
+            $result = $response.Content | ConvertFrom-Json
+
+            $result.data | Should -BeNullOrEmpty
+            $result.headers.'Content-Type' | Should -BeExactly $contentType
+        }
     }
 
     #region charset encoding tests
@@ -968,7 +1384,7 @@ Describe "Invoke-WebRequest tests" -Tags "Feature" {
 
             $response.Error | Should -BeNullOrEmpty
             $response.Output.Encoding.EncodingName | Should -Be $expectedEncoding.EncodingName
-            $response.Output | Should -BeOfType 'Microsoft.PowerShell.Commands.BasicHtmlWebResponseObject'
+            $response.Output | Should -BeOfType Microsoft.PowerShell.Commands.BasicHtmlWebResponseObject
         }
 
         It "Verifies Invoke-WebRequest detects charset meta value when newlines are encountered in the element." {
@@ -982,7 +1398,7 @@ Describe "Invoke-WebRequest tests" -Tags "Feature" {
 
             $response.Error | Should -BeNullOrEmpty
             $response.Output.Encoding.EncodingName | Should -Be $expectedEncoding.EncodingName
-            $response.Output | Should -BeOfType 'Microsoft.PowerShell.Commands.BasicHtmlWebResponseObject'
+            $response.Output | Should -BeOfType Microsoft.PowerShell.Commands.BasicHtmlWebResponseObject
         }
 
         It "Verifies Invoke-WebRequest detects charset meta value when the attribute value is unquoted." {
@@ -996,7 +1412,7 @@ Describe "Invoke-WebRequest tests" -Tags "Feature" {
 
             $response.Error | Should -BeNullOrEmpty
             $response.Output.Encoding.EncodingName | Should -Be $expectedEncoding.EncodingName
-            $response.Output | Should -BeOfType 'Microsoft.PowerShell.Commands.BasicHtmlWebResponseObject'
+            $response.Output | Should -BeOfType Microsoft.PowerShell.Commands.BasicHtmlWebResponseObject
         }
 
         It "Verifies Invoke-WebRequest detects http-equiv charset meta value when the ContentType header does not define it." {
@@ -1010,7 +1426,7 @@ Describe "Invoke-WebRequest tests" -Tags "Feature" {
 
             $response.Error | Should -BeNullOrEmpty
             $response.Output.Encoding.EncodingName | Should -Be $expectedEncoding.EncodingName
-            $response.Output | Should -BeOfType 'Microsoft.PowerShell.Commands.BasicHtmlWebResponseObject'
+            $response.Output | Should -BeOfType Microsoft.PowerShell.Commands.BasicHtmlWebResponseObject
         }
 
         It "Verifies Invoke-WebRequest detects http-equiv charset meta value newlines are encountered in the element." {
@@ -1024,7 +1440,7 @@ Describe "Invoke-WebRequest tests" -Tags "Feature" {
 
             $response.Error | Should -BeNullOrEmpty
             $response.Output.Encoding.EncodingName | Should -Be $expectedEncoding.EncodingName
-            $response.Output | Should -BeOfType 'Microsoft.PowerShell.Commands.BasicHtmlWebResponseObject'
+            $response.Output | Should -BeOfType Microsoft.PowerShell.Commands.BasicHtmlWebResponseObject
         }
 
         It "Verifies Invoke-WebRequest ignores meta charset value when Content-Type header defines it." {
@@ -1039,7 +1455,7 @@ Describe "Invoke-WebRequest tests" -Tags "Feature" {
 
             $response.Error | Should -BeNullOrEmpty
             $response.Output.Encoding.EncodingName | Should -Be $expectedEncoding.EncodingName
-            $response.Output | Should -BeOfType 'Microsoft.PowerShell.Commands.BasicHtmlWebResponseObject'
+            $response.Output | Should -BeOfType Microsoft.PowerShell.Commands.BasicHtmlWebResponseObject
         }
 
         It "Verifies Invoke-WebRequest honors non-utf8 charsets in the Content-Type header" {
@@ -1054,42 +1470,13 @@ Describe "Invoke-WebRequest tests" -Tags "Feature" {
 
             $response.Error | Should -BeNullOrEmpty
             $response.Output.Encoding.EncodingName | Should -Be $expectedEncoding.EncodingName
-            $response.Output | Should -BeOfType 'Microsoft.PowerShell.Commands.BasicHtmlWebResponseObject'
+            $response.Output | Should -BeOfType Microsoft.PowerShell.Commands.BasicHtmlWebResponseObject
         }
 
-        It "Verifies Invoke-WebRequest defaults to iso-8859-1 when an unsupported/invalid charset is declared" {
+        It "Verifies Invoke-WebRequest defaults to iso-UTF-8 when an unsupported/invalid charset is declared" {
             $query = @{
                 contenttype = 'text/html'
                 body        = '<html><head><meta charset="invalid"></head></html>'
-            }
-            $uri = Get-WebListenerUrl -Test 'Response' -Query $query
-            $expectedEncoding = [System.Text.Encoding]::GetEncoding('iso-8859-1')
-            $response = ExecuteWebRequest -Uri $uri -UseBasicParsing
-
-            $response.Error | Should -BeNullOrEmpty
-            $response.Output.Encoding.EncodingName | Should -Be $expectedEncoding.EncodingName
-            $response.Output | Should -BeOfType 'Microsoft.PowerShell.Commands.BasicHtmlWebResponseObject'
-        }
-
-        It "Verifies Invoke-WebRequest defaults to iso-8859-1 when an unsupported/invalid charset is declared using http-equiv" {
-            $query = @{
-                contenttype = 'text/html'
-                body        = "<html><head>`n<meta http-equiv=`"content-type`" content=`"text/html; charset=Invalid`">`n</head>`n</html>"
-            }
-            $uri = Get-WebListenerUrl -Test 'Response' -Query $query
-            $expectedEncoding = [System.Text.Encoding]::GetEncoding('iso-8859-1')
-            $response = ExecuteWebRequest -Uri $uri -UseBasicParsing
-
-            $response.Error | Should -BeNullOrEmpty
-            $response.Output.Encoding.EncodingName | Should -Be $expectedEncoding.EncodingName
-            $response.Output | Should -BeOfType 'Microsoft.PowerShell.Commands.BasicHtmlWebResponseObject'
-        }
-
-        It "Verifies Invoke-WebRequest defaults to UTF8 on application/json when no charset is present" {
-            # when contenttype is set, WebListener suppresses charset unless it is included in the query
-            $query = @{
-                contenttype = 'application/json'
-                body        = '{"Test": "Test"}'
             }
             $uri = Get-WebListenerUrl -Test 'Response' -Query $query
             $expectedEncoding = [System.Text.Encoding]::UTF8
@@ -1097,61 +1484,97 @@ Describe "Invoke-WebRequest tests" -Tags "Feature" {
 
             $response.Error | Should -BeNullOrEmpty
             $response.Output.Encoding.EncodingName | Should -Be $expectedEncoding.EncodingName
-            $response.Output | Should -BeOfType 'Microsoft.PowerShell.Commands.BasicHtmlWebResponseObject'
-            $response.Output.Content | Should -BeExactly $query.body
+            $response.Output | Should -BeOfType Microsoft.PowerShell.Commands.BasicHtmlWebResponseObject
+        }
+
+        It "Verifies Invoke-WebRequest defaults to UTF-8 when an unsupported/invalid charset is declared using http-equiv" {
+            $query = @{
+                contenttype = 'text/html'
+                body        = "<html><head>`n<meta http-equiv=`"content-type`" content=`"text/html; charset=Invalid`">`n</head>`n</html>"
+            }
+            $uri = Get-WebListenerUrl -Test 'Response' -Query $query
+            $expectedEncoding = [System.Text.Encoding]::UTF8
+            $response = ExecuteWebRequest -Uri $uri -UseBasicParsing
+
+            $response.Error | Should -BeNullOrEmpty
+            $response.Output.Encoding.EncodingName | Should -Be $expectedEncoding.EncodingName
+            $response.Output | Should -BeOfType Microsoft.PowerShell.Commands.BasicHtmlWebResponseObject
         }
     }
 
     #endregion charset encoding tests
 
     #region Content Header Inclusion
+    Context "Content Header" {
+        It "Verifies Invoke-WebRequest includes Content headers in Headers property" {
+            $query = @{
+                contenttype = 'text/plain'
+                body        = 'OK'
+            }
+            $uri = Get-WebListenerUrl -Test 'Response' -Query $query
+            $command = "Invoke-WebRequest -Uri '$uri'"
+            $result = ExecuteWebCommand -command $command
+            ValidateResponse $result
 
-    It "Verifies Invoke-WebRequest includes Content headers in Headers property" {
-        $query = @{
-            contenttype = 'text/plain'
-            body        = 'OK'
+            $result.Output.Headers.'Content-Type' | Should -Be 'text/plain'
+            $result.Output.Headers.'Content-Length' | Should -Be 2
         }
-        $uri = Get-WebListenerUrl -Test 'Response' -Query $query
-        $command = "Invoke-WebRequest -Uri '$uri'"
-        $result = ExecuteWebCommand -command $command
-        ValidateResponse $result
 
-        $result.Output.Headers.'Content-Type' | Should -Be 'text/plain'
-        $result.Output.Headers.'Content-Length' | Should -Be 2
-    }
+        It "Verifies Invoke-WebRequest includes Content headers in RawContent property" {
+            $query = @{
+                contenttype = 'text/plain'
+                body        = 'OK'
+            }
+            $uri = Get-WebListenerUrl -Test 'Response' -Query $query
+            $command = "Invoke-WebRequest -Uri '$uri'"
+            $result = ExecuteWebCommand -command $command
+            ValidateResponse $result
 
-    It "Verifies Invoke-WebRequest includes Content headers in RawContent property" {
-        $query = @{
-            contenttype = 'text/plain'
-            body        = 'OK'
+            $result.Output.RawContent | Should -Match ([regex]::Escape('Content-Type: text/plain'))
+            $result.Output.RawContent | Should -Match ([regex]::Escape('Content-Length: 2'))
         }
-        $uri = Get-WebListenerUrl -Test 'Response' -Query $query
-        $command = "Invoke-WebRequest -Uri '$uri'"
-        $result = ExecuteWebCommand -command $command
-        ValidateResponse $result
 
-        $result.Output.RawContent | Should -Match ([regex]::Escape('Content-Type: text/plain'))
-        $result.Output.RawContent | Should -Match ([regex]::Escape('Content-Length: 2'))
-    }
+        It "Verifies Invoke-WebRequest Supports Multiple response headers with same name" {
+            $query = @{
+                contenttype = 'text/plain'
+                body        = 'OK'
+                headers     = @{
+                    'X-Fake-Header' = @('testvalue01', 'testvalue02')
+                } | ConvertTo-Json -Compress
+            }
+            $uri = Get-WebListenerUrl -Test 'Response' -Query $query
+            $command = "Invoke-WebRequest -Uri '$uri'"
+            $result = ExecuteWebCommand -command $command
+            ValidateResponse $result
 
-    It "Verifies Invoke-WebRequest Supports Multiple response headers with same name" {
-        $query = @{
-            contenttype = 'text/plain'
-            body        = 'OK'
-            headers     = @{
-                'X-Fake-Header' = @('testvalue01', 'testvalue02')
-            } | ConvertTo-Json -Compress
+            $result.Output.Headers.'X-Fake-Header'.Count | Should -Be 2
+            $result.Output.Headers.'X-Fake-Header'.Contains('testvalue01') | Should -BeTrue
+            $result.Output.Headers.'X-Fake-Header'.Contains('testvalue02') | Should -BeTrue
+            $result.Output.RawContent | Should -Match ([regex]::Escape('X-Fake-Header: testvalue01'))
+            $result.Output.RawContent | Should -Match ([regex]::Escape('X-Fake-Header: testvalue02'))
         }
-        $uri = Get-WebListenerUrl -Test 'Response' -Query $query
-        $command = "Invoke-WebRequest -Uri '$uri'"
-        $result = ExecuteWebCommand -command $command
-        ValidateResponse $result
 
-        $result.Output.Headers.'X-Fake-Header'.Count | Should -Be 2
-        $result.Output.Headers.'X-Fake-Header'.Contains('testvalue01') | Should -BeTrue
-        $result.Output.Headers.'X-Fake-Header'.Contains('testvalue02') | Should -BeTrue
-        $result.Output.RawContent | Should -Match ([regex]::Escape('X-Fake-Header: testvalue01'))
-        $result.Output.RawContent | Should -Match ([regex]::Escape('X-Fake-Header: testvalue02'))
+        It "Verifies Invoke-WebRequest does not sent expect 100-continue headers by default" {
+            $uri = Get-WebListenerUrl -Test 'Get'
+
+            $response = Invoke-WebRequest -Uri $uri
+            $result = $response.Content | ConvertFrom-Json
+
+            $result.headers.Expect | Should -BeNullOrEmpty
+            $result.method | Should -BeExactly "GET"
+            $result.url | Should -BeExactly $uri.ToString()
+        }
+
+        It "Verifies Invoke-WebRequest sends expect 100-continue header when defined in -Headers" {
+            $uri = Get-WebListenerUrl -Test 'Get'
+
+            $response = Invoke-WebRequest -Uri $uri -Headers @{Expect = '100-continue'}
+            $result = $response.Content | ConvertFrom-Json
+
+            $result.headers.Expect | Should -BeExactly '100-continue'
+            $result.method | Should -BeExactly "GET"
+            $result.url | Should -BeExactly $uri.ToString()
+        }
     }
 
     #endregion Content Header Inclusion
@@ -1224,6 +1647,11 @@ Describe "Invoke-WebRequest tests" -Tags "Feature" {
             $file2Path = Join-Path $testdrive $file2Name
             $file2Contents = "Test456"
             $file2Contents | Set-Content $file2Path -Force
+
+            $file3Name = "Kündigung_Mustermann_Max.TTA_2023_01_30.txt"
+            $file3Path = Join-Path $testdrive $file3Name
+            $file3Contents = "Test789"
+            $file3Contents | Set-Content $file3Path -Force
         }
 
         It "Verifies Invoke-WebRequest Supports Multipart String Values" {
@@ -1297,6 +1725,43 @@ Describe "Invoke-WebRequest tests" -Tags "Feature" {
             $result.Files[0].FileName | Should -BeExactly $file1Name
             $result.Files[0].ContentType | Should -BeExactly 'application/octet-stream'
             $result.Files[0].Content | Should -Match $file1Contents
+        }
+
+        It "Verifies Invoke-WebRequest -Form supports read-only file values" {
+            # Create a read-only test file
+            $readOnlyFile = Join-Path $TestDrive "readonly-test.txt"
+            "ReadOnly test content" | Out-File -FilePath $readOnlyFile -Encoding utf8
+            Set-ItemProperty -Path $readOnlyFile -Name IsReadOnly -Value $true
+
+            $form = @{TestFile = [System.IO.FileInfo]$readOnlyFile}
+            $uri = Get-WebListenerUrl -Test 'Multipart'
+            $response = Invoke-WebRequest -Uri $uri -Form $form -Method 'POST'
+            $result = $response.Content | ConvertFrom-Json
+
+            $result.Headers.'Content-Type' | Should -Match 'multipart/form-data'
+            $result.Files.Count | Should -Be 1
+
+            $result.Files[0].Name | Should -BeExactly "TestFile"
+            $result.Files[0].FileName | Should -BeExactly "readonly-test.txt"
+            $result.Files[0].ContentType | Should -BeExactly 'application/octet-stream'
+            $result.Files[0].Content | Should -Match "ReadOnly test content"
+        }
+
+        It "Verifies Invoke-WebRequest -Form sets Content-Disposition FileName and FileNameStar." {
+            $ContentDisposition = [System.Net.Http.Headers.ContentDispositionHeaderValue]::new("attachment")
+            $ContentDisposition.FileName = $fileName
+            $ContentDisposition.FileNameStar = $fileName
+
+            $form = @{TestFile = [System.IO.FileInfo]$file3Path}
+            $uri = Get-WebListenerUrl -Test 'Multipart'
+            $response = Invoke-WebRequest -Uri $uri -Form $form -Method 'POST'
+            $result = $response.Content | ConvertFrom-Json
+
+            $result.Headers.'Content-Type' | Should -Match 'multipart/form-data'
+            $result.Files.Count | Should -Be 1
+
+            $result.Files[0].ContentDisposition.FileName | Should -Be $ContentDisposition.FileName
+            $result.Files[0].ContentDisposition.FileNameStar | Should -Be $ContentDisposition.FileNameStar
         }
 
         It "Verifies Invoke-WebRequest -Form supports a collection of file values" {
@@ -1390,6 +1855,20 @@ Describe "Invoke-WebRequest tests" -Tags "Feature" {
             $result = $response.Content | ConvertFrom-Json
 
             $result.Headers.Authorization | Should -BeExactly "Basic dGVzdHVzZXI6dGVzdHBhc3N3b3Jk"
+        }
+
+        It "Verifies Invoke-WebRequest -Authentication Basic with null username" {
+            $credential = [pscredential]::new([PSCustomObject]@{UserName = $null;Password=$token.psobject.BaseObject})
+            $params = @{
+                Uri                  = $httpsUri
+                Authentication       = "Basic"
+                Credential           = $credential
+                SkipCertificateCheck = $true
+            }
+            $Response = Invoke-WebRequest @params
+            $result = $response.Content | ConvertFrom-Json
+
+            $result.Headers.Authorization | Should -BeExactly "Basic OnRlc3RwYXNzd29yZA=="
         }
 
         It "Verifies Invoke-WebRequest -Authentication <Authentication>" -TestCases $testCases {
@@ -1554,34 +2033,41 @@ Describe "Invoke-WebRequest tests" -Tags "Feature" {
 
     Context "Invoke-WebRequest -SslProtocol Test" {
         BeforeAll {
+            # We put Tls13 tests at pending due to modern OS limitations.
+            # Tracking issue https://github.com/PowerShell/PowerShell/issues/13439
+
+            $skipForTls1 = $true
+
             ## Test cases for the 1st 'It'
             $testCases1 = @(
                 @{ Test = @{SslProtocol = 'Default'; ActualProtocol = 'Default'}; Pending = $false }
-                @{ Test = @{SslProtocol = 'Tls'; ActualProtocol = 'Tls'}; Pending = $false }
-                @{ Test = @{SslProtocol = 'Tls11'; ActualProtocol = 'Tls11'}; Pending = $false }
+                @{ Test = @{SslProtocol = 'Tls'; ActualProtocol = 'Tls'}; Pending = $skipForTls1 }
+                @{ Test = @{SslProtocol = 'Tls11'; ActualProtocol = 'Tls11'}; Pending = $skipForTls1 }
                 @{ Test = @{SslProtocol = 'Tls12'; ActualProtocol = 'Tls12'}; Pending = $false }
+                @{ Test = @{SslProtocol = 'Tls13'; ActualProtocol = 'Tls13'}; Pending = $true }
                 @{ Test = @{SslProtocol = 'Tls, Tls11, Tls12'; ActualProtocol = 'Tls12'}; Pending = $false }
+                @{ Test = @{SslProtocol = 'Tls, Tls11, Tls12, Tls13'; ActualProtocol = 'Tls13'}; Pending = $true }
                 @{ Test = @{SslProtocol = 'Tls11, Tls12'; ActualProtocol = 'Tls12'}; Pending = $false }
-                @{ Test = @{SslProtocol = 'Tls, Tls11, Tls12'; ActualProtocol = 'Tls11'}; Pending = $false }
-                @{ Test = @{SslProtocol = 'Tls11, Tls12'; ActualProtocol = 'Tls11'}; Pending = $false }
-                @{ Test = @{SslProtocol = 'Tls, Tls11'; ActualProtocol = 'Tls11'}; Pending = $false }
-                @{ Test = @{SslProtocol = 'Tls, Tls11, Tls12'; ActualProtocol = 'Tls'}; Pending = $false }
-                @{ Test = @{SslProtocol = 'Tls, Tls11'; ActualProtocol = 'Tls'}; Pending = $false }
+                @{ Test = @{SslProtocol = 'Tls, Tls11, Tls12'; ActualProtocol = 'Tls11'}; Pending = $skipForTls1 }
+                @{ Test = @{SslProtocol = 'Tls, Tls11, Tls12, Tls13'; ActualProtocol = 'Tls11'}; Pending = $skipForTls1 }
+                @{ Test = @{SslProtocol = 'Tls11, Tls12'; ActualProtocol = 'Tls11'}; Pending = $skipForTls1 }
+                @{ Test = @{SslProtocol = 'Tls, Tls11'; ActualProtocol = 'Tls11'}; Pending = $skipForTls1 }
+                @{ Test = @{SslProtocol = 'Tls, Tls11, Tls12'; ActualProtocol = 'Tls'}; Pending = $skipForTls1 }
+                @{ Test = @{SslProtocol = 'Tls, Tls11, Tls13'; ActualProtocol = 'Tls'}; Pending = $true }
+                @{ Test = @{SslProtocol = 'Tls, Tls11'; ActualProtocol = 'Tls'}; Pending = $skipForTls1 }
                 # Skipping intermediary protocols is not supported on all platforms
-                @{ Test = @{SslProtocol = 'Tls, Tls12'; ActualProtocol = 'Tls'}; Pending = -not $IsWindows }
+                # Removed this as Tls now default to Tls12
+                # @{ Test = @{SslProtocol = 'Tls, Tls12'; ActualProtocol = 'Tls'}; Pending = -not $IsWindows }
                 @{ Test = @{SslProtocol = 'Tls, Tls12'; ActualProtocol = 'Tls12'}; Pending = -not $IsWindows }
             )
 
             $testCases2 = @(
-                @{ Test = @{IntendedProtocol = 'Tls'; ActualProtocol = 'Tls12'}; Pending = $false }
-                @{ Test = @{IntendedProtocol = 'Tls'; ActualProtocol = 'Tls11'}; Pending = $false }
-                @{ Test = @{IntendedProtocol = 'Tls11'; ActualProtocol = 'Tls12'}; Pending = $false }
-                @{ Test = @{IntendedProtocol = 'Tls12'; ActualProtocol = 'Tls11'}; Pending = $false }
-                @{ Test = @{IntendedProtocol = 'Tls11'; ActualProtocol = 'Tls'}; Pending = $false }
-                @{ Test = @{IntendedProtocol = 'Tls12'; ActualProtocol = 'Tls'}; Pending = $false }
-                @{ Test = @{IntendedProtocol = 'Tls11, Tls12'; ActualProtocol = 'Tls'}; Pending = $false }
-                @{ Test = @{IntendedProtocol = 'Tls, Tls12'; ActualProtocol = 'Tls11'}; Pending = $false }
-                @{ Test = @{IntendedProtocol = 'Tls, Tls11'; ActualProtocol = 'Tls12'}; Pending = $false }
+                @{ Test = @{IntendedProtocol = 'Tls'; ActualProtocol = 'Tls13'}; Pending = $true }
+                @{ Test = @{IntendedProtocol = 'Tls11'; ActualProtocol = 'Tls13'}; Pending = $true }
+                @{ Test = @{IntendedProtocol = 'Tls13'; ActualProtocol = 'Tls'}; Pending = $true }
+                @{ Test = @{IntendedProtocol = 'Tls11, Tls12, Tls13'; ActualProtocol = 'Tls'}; Pending = $true }
+                @{ Test = @{IntendedProtocol = 'Tls, Tls12'; ActualProtocol = 'Tls13'}; Pending = $true }
+                @{ Test = @{IntendedProtocol = 'Tls, Tls11'; ActualProtocol = 'Tls13'}; Pending = $true }
             )
         }
 
@@ -1621,7 +2107,7 @@ Describe "Invoke-WebRequest tests" -Tags "Feature" {
             # Download the entire file to reference in tests
             $referenceFile = Join-Path $TestDrive "reference.txt"
             $resumeUri = Get-WebListenerUrl -Test 'Resume'
-            Invoke-WebRequest -uri $resumeUri -OutFile $referenceFile -ErrorAction Stop
+            Invoke-WebRequest -Uri $resumeUri -OutFile $referenceFile -ErrorAction Stop
             $referenceFileHash = Get-FileHash -Algorithm SHA256 -Path $referenceFile
             $referenceFileSize = Get-Item $referenceFile | Select-Object -ExpandProperty Length
         }
@@ -1635,8 +2121,13 @@ Describe "Invoke-WebRequest tests" -Tags "Feature" {
                 Should -Throw -ErrorId 'WebCmdletOutFileMissingException,Microsoft.PowerShell.Commands.InvokeWebRequestCommand'
         }
 
+        It "Invoke-WebRequest -Resume should fail if -OutFile folder" {
+            { Invoke-WebRequest -Resume -Uri $resumeUri -OutFile $TestDrive -ErrorAction Stop } |
+                Should -Throw -ErrorId 'WebCmdletResumeNotFilePathException,Microsoft.PowerShell.Commands.InvokeWebRequestCommand'
+        }
+
         It "Invoke-WebRequest -Resume Downloads the whole file when the file does not exist" {
-            $response = Invoke-WebRequest -uri $resumeUri -OutFile $outFile -Resume -PassThru
+            $response = Invoke-WebRequest -Uri $resumeUri -OutFile $outFile -Resume -PassThru
 
             $outFileHash = Get-FileHash -Algorithm SHA256 -Path $outFile
             $outFileHash.Hash | Should -BeExactly $referenceFileHash.Hash
@@ -1653,7 +2144,7 @@ Describe "Invoke-WebRequest tests" -Tags "Feature" {
             1..$largerFileSize | ForEach-Object { [Byte]$_ } | Set-Content -AsByteStream $outFile
             $largerFileSize = Get-Item $outFile | Select-Object -ExpandProperty Length
 
-            $response = Invoke-WebRequest -uri $resumeUri -OutFile $outFile -Resume -PassThru
+            $response = Invoke-WebRequest -Uri $resumeUri -OutFile $outFile -Resume -PassThru
 
             $outFileHash = Get-FileHash -Algorithm SHA256 -Path $outFile
             $outFileHash.Hash | Should -BeExactly $referenceFileHash.Hash
@@ -1691,10 +2182,10 @@ Describe "Invoke-WebRequest tests" -Tags "Feature" {
             param($bytes, $statuscode)
             # Simulate partial download
             $uri = Get-WebListenerUrl -Test 'Resume' -TestValue "Bytes/$bytes"
-            $null = Invoke-WebRequest -uri $uri -OutFile $outFile
+            $null = Invoke-WebRequest -Uri $uri -OutFile $outFile
             Get-Item $outFile | Select-Object -ExpandProperty Length | Should -Be $bytes
 
-            $response = Invoke-WebRequest -uri $resumeUri -OutFile $outFile -Resume -PassThru
+            $response = Invoke-WebRequest -Uri $resumeUri -OutFile $outFile -Resume -PassThru
 
             $outFileHash = Get-FileHash -Algorithm SHA256 -Path $outFile
             $outFileHash.Hash | Should -BeExactly $referenceFileHash.Hash
@@ -1708,10 +2199,10 @@ Describe "Invoke-WebRequest tests" -Tags "Feature" {
         It "Invoke-WebRequest -Resume assumes the file was successfully completed when the local and remote file are the same size." {
             # Download the entire file
             $uri = Get-WebListenerUrl -Test 'Resume' -TestValue 'NoResume'
-            $null = Invoke-WebRequest -uri $uri -OutFile $outFile
+            $null = Invoke-WebRequest -Uri $uri -OutFile $outFile
             $fileSize = Get-Item $outFile | Select-Object -ExpandProperty Length
 
-            $response = Invoke-WebRequest -uri $resumeUri -OutFile $outFile -Resume -PassThru
+            $response = Invoke-WebRequest -Uri $resumeUri -OutFile $outFile -Resume -PassThru
 
             $outFileHash = Get-FileHash -Algorithm SHA256 -Path $outFile
             $outFileHash.Hash | Should -BeExactly $referenceFileHash.Hash
@@ -1765,12 +2256,320 @@ Describe "Invoke-WebRequest tests" -Tags "Feature" {
             $jsonResult = $result.output.Content | ConvertFrom-Json
             $jsonResult.SessionId | Should -BeExactly $sessionId
         }
+
+        It "Invoke-WebRequest respects the Retry-After header value in 429 status" {
+
+            $Query = @{
+                statusCode     = 429
+                reposnsephrase = 'Too Many Requests'
+                contenttype    = 'application/json'
+                body           = '{"message":"oops"}'
+                headers        = '{"Retry-After":"1"}'
+            }
+            $uri = Get-WebListenerUrl -Test 'Response' -Query $Query
+            $verboseFile = Join-Path $TestDrive -ChildPath verbose.txt
+            $result = Invoke-WebRequest -Uri $uri -MaximumRetryCount 1 -RetryIntervalSec 3 -SkipHttpErrorCheck -Verbose 4>$verbosefile
+
+            $verboseFile | Should -FileContentMatch 'Retrying after interval of 1 seconds. Status code for previous attempt: TooManyRequests'
+        }
+
+        It "Invoke-WebRequest ignores the Retry-After header value NOT in 429 status" {
+
+            $Query = @{
+                statusCode     = 409
+                reposnsephrase = 'Conflict'
+                contenttype    = 'application/json'
+                body           = '{"message":"oops"}'
+                headers        = '{"Retry-After":"1"}'
+            }
+            $uri = Get-WebListenerUrl -Test 'Response' -Query $Query
+            $verboseFile = Join-Path $TestDrive -ChildPath verbose.txt
+            $result = Invoke-WebRequest -Uri $uri -MaximumRetryCount 1 -RetryIntervalSec 3 -SkipHttpErrorCheck -Verbose 4>$verbosefile
+
+            $verboseFile | Should -FileContentMatch 'Retrying after interval of 3 seconds. Status code for previous attempt: Conflict'
+        }
+    }
+
+    Context "Regex Parsing" {
+
+        It 'correctly parses an image with id, class, and src attributes' {
+            $dosUri = Get-WebListenerUrl -Test 'Dos' -query @{
+                dosType = 'img-attribute'
+            }
+
+            $response = Invoke-WebRequest -Uri $dosUri
+            $response.Images | Should -Not -BeNullOrEmpty
+        }
+
+        $singleInputExpected = @(
+            @{ Name = 'foo'; Value = 'bar' }
+        )
+
+        It 'correctly parses input tag(s) for `<markup>`' -TestCases @(
+            @{
+                Markup = "<input name='foo' value='bar'>";
+                ExpectedFields = $singleInputExpected
+            },
+            @{
+                Markup = "<input name='foo' value='bar'/>";
+                ExpectedFields = $singleInputExpected
+            },
+            @{
+                Markup = "<input name='foo' value='bar'>baz</input>";
+                ExpectedFields = $singleInputExpected
+            }
+            @{
+                Markup = "<input name='item1' value='bar'><input name='item2' value='foo'><input name='item3'></input><input name='item4' value='fu'><input name='item5' value='bahr'/>";
+                ExpectedFields = @(
+                    @{ Name = 'item1'; Value = 'bar'},
+                    @{ Name = 'item2'; Value = 'foo' },
+                    @{ Name = 'item3'; Value = $null },
+                    @{ Name = 'item4'; Value = 'fu' },
+                    @{ Name = 'item5'; Value = 'bahr' }
+                )
+            }
+        ) {
+            param($markup, $expectedFields)
+            $query = @{
+                contenttype = 'text/html'
+                body        = "<html><body>${markup}</body></html>"
+            }
+            $uri = Get-WebListenerUrl -Test 'Response' -Query $query
+            $response = Invoke-WebRequest -Uri $uri -UseBasicParsing
+            $response.Error | Should -BeNullOrEmpty
+            ForEach ($expectedField in $expectedFields) {
+                $actualField = $response.InputFields.FindByName($expectedField.Name)
+                $actualField.Value | Should -Be $expectedField.Value
+            }
+        }
+    }
+
+    Context "Denial of service" -Tag 'DOS' {
+        It "Image Parsing" {
+            Set-ItResult -Pending -Because "The pathological regex runs fast due to https://github.com/dotnet/runtime/issues/33399.  Fixed in .NET 5 preview.2"
+            $dosUri = Get-WebListenerUrl -Test 'Dos' -query @{
+                dosType='img'
+                dosLength='5000'
+            }
+            $script:content = ''
+            [TimeSpan] $timeSpan = Measure-Command {
+                $response = Invoke-WebRequest -Uri $dosUri
+                $script:content = $response.content
+                $response.Images | Out-Null
+            }
+
+            $script:content | Should -Not -BeNullOrEmpty
+
+            # pathological regex
+            $regex = [RegEx]::new('<img\s+[^>]*>')
+
+            [TimeSpan] $pathologicalTimeSpan = Measure-Command {
+                $regex.Match($content)
+            }
+
+            $pathologicalRatio = $pathologicalTimeSpan.TotalMilliseconds/$timeSpan.TotalMilliseconds
+            Write-Verbose "Pathological ratio: $pathologicalRatio" -Verbose
+
+            # dosLength 4,000 on my 3.5 GHz 6-Core Intel Xeon E5 macpro produced a ratio of 12
+            # dosLength 5,000 on my 3.5 GHz 6-Core Intel Xeon E5 macpro produced a ratio of 21
+            # dosLength 10,000 on my 3.5 GHz 6-Core Intel Xeon E5 macpro produced a ratio of 75
+            # in some cases we will be running in a Docker container with modest resources
+            $pathologicalRatio | Should -BeGreaterThan 5
+        }
+
+        It "Charset Parsing" {
+            Set-ItResult -Pending -Because "We need a better way to test this and .NET has made bad regex's run faster"
+            $dosUri = Get-WebListenerUrl -Test 'Dos' -query @{
+                dosType='charset'
+                dosLength='2850'
+            }
+            $script:content = ''
+            [TimeSpan] $timeSpan = Measure-Command {
+                $response = Invoke-WebRequest -Uri $dosUri
+                $script:content = $response.content
+            }
+
+            # Pathological regex
+            $regex = [RegEx]::new('<meta\s[.\n]*[^><]*charset\s*=\s*["''\n]?(?<charset>[A-Za-z].[^\s"''\n<>]*)[\s"''\n>]')
+
+            $script:content | Should -Not -BeNullOrEmpty
+
+            [TimeSpan] $pathologicalTimeSpan = Measure-Command {
+                $regex.Match($content)
+            }
+
+            $pathologicalRatio = $pathologicalTimeSpan.TotalMilliseconds/$timeSpan.TotalMilliseconds
+            Write-Verbose "Pathological ratio: $pathologicalRatio" -Verbose
+
+            # dosLength 2,750 on my 3.5 GHz 6-Core Intel Xeon E5 macpro produced a ratio of 13
+            # dosLength 2,850 on my 3.5 GHz 6-Core Intel Xeon E5 macpro produced a ratio of 22
+            # dosLength 3,000 on my 3.5 GHz 6-Core Intel Xeon E5 macpro produced a ratio of 31
+            # in some cases we will be running in a Docker container with modest resources
+            $pathologicalRatio | Should -BeGreaterThan 5
+        }
+    }
+
+    Context 'Invoke-WebSession: Connection persistence in a WebSession' {
+        # Match verbose message from resource name WebSessionConnectionRecreated with message:
+        # The WebSession properties were changed between requests forcing all HTTP connections in the session to be recreated.
+        $matchConnRecreatedMessage = [regex]::new('WebSession.+HTTP')
+
+        function RunCheckingPersistence {
+            param(
+                [uri]$Uri,
+                [string]$Command,
+                [object]$Session,
+                [switch]$ExpectConnectionRecreated,
+                [switch]$CaptureSession
+            )
+
+            $pwsh = [PowerShell]::Create()
+            $pwsh.Runspace.SessionStateProxy.SetVariable('uri', $Uri)
+            if ($Session) {
+                $pwsh.Runspace.SessionStateProxy.SetVariable('Session', $Session)
+                $command = "$command -WebSession `$Session"
+            }
+            if ($CaptureSession) {
+                $command = "$command -SessionVariable Session"
+            }
+            $script = "`$null = $command -Verbose"
+            $pwsh.AddScript($script).Invoke()
+            $session = $pwsh.Runspace.SessionStateProxy.GetVariable('Session')
+
+            $expectedConnRecreatedCount = if ($ExpectConnectionRecreated) { 1 } else { 0 }
+            ($pwsh.Streams.Verbose | Where-Object { $matchConnRecreatedMessage.Matches($_.Message) }).Count | Should -Be $expectedConnRecreatedCount
+
+            $pwsh.Dispose()
+
+            return $session
+        }
+
+        It 'Connection persistence maintained' {
+            $uri = Get-WebListenerUrl
+            $Session = RunCheckingPersistence -Uri $uri -Command 'Invoke-WebRequest -Uri $uri' -CaptureSession
+            1 .. 3 | ForEach-Object {
+                RunCheckingPersistence -Uri $uri  -Command 'Invoke-WebRequest -Uri $uri' -Session $Session
+            }
+        }
+
+        It 'Connection persistence impacted by changing SkipCertificateCheck' {
+            $uri = Get-WebListenerUrl -Https
+            # This first request will throw because the certificate is invalid
+            $session = $null
+            $session = RunCheckingPersistence -Uri $uri  -Command 'Invoke-WebRequest -Uri $uri' -CaptureSession
+            # No change in setting
+            $session = RunCheckingPersistence -Uri $uri  -Command 'Invoke-WebRequest -Uri $uri -SkipCertificateCheck:$false' -Session $session
+            # Skipping cert check changes persistence
+            $session = RunCheckingPersistence -Uri $uri  -Command 'Invoke-WebRequest -Uri $uri -SkipCertificateCheck' -Session $session -ExpectConnectionRecreated
+            # Same settings won't lose persistence
+            $session = RunCheckingPersistence -Uri $uri  -Command 'Invoke-WebRequest -Uri $uri -SkipCertificateCheck' -Session $session
+            # Lose persistence due to changing cert check - this will also throw
+            $session = RunCheckingPersistence -Uri $uri  -Command 'Invoke-WebRequest -Uri $uri -SkipCertificateCheck:$false' -Session $session -ExpectConnectionRecreated
+        }
+
+        It 'Connection persistence is not impacted by changing request headers' {
+            $uri = Get-WebListenerUrl
+            $session = $null
+            $session = RunCheckingPersistence -Uri $uri -Command 'Invoke-WebRequest -Uri $uri' -CaptureSession
+            $session = RunCheckingPersistence -Uri $uri -Command 'Invoke-WebRequest -Uri $uri -Headers @{ A = "B" }' -Session $session
+            $session = RunCheckingPersistence -Uri $uri -Command 'Invoke-WebRequest -Uri $uri -Headers @{}' -Session $session
+            $session = RunCheckingPersistence -Uri $uri -Command 'Invoke-WebRequest -Uri $uri -Headers @{ A = "C"; B = "D"}' -Session $session
+        }
+
+        It 'Connection persistence is impacted by changing the session cookie jar' {
+            $uri = Get-WebListenerUrl
+            $session = RunCheckingPersistence -Uri $uri -Command 'Invoke-WebRequest -Uri $uri' -CaptureSession
+            $session.Cookies = New-Object System.Net.CookieContainer
+            $session = RunCheckingPersistence -Uri $uri -Command 'Invoke-WebRequest -Uri $uri' -Session $session -ExpectConnectionRecreated
+
+            # Adding a cookie to the container does not lose persistence
+            $Session.Cookies.Add('http://localhost', [system.net.cookie]::new('cookie', 'value'))
+            $session = RunCheckingPersistence -Uri $uri -Command 'Invoke-WebRequest -Uri $uri' -Session $session
+        }
+
+        It 'Connection persistence is not impacted by changing the user agent' {
+            $uri = Get-WebListenerUrl
+            $session = RunCheckingPersistence -Uri $uri -Command 'Invoke-WebRequest -Uri $uri -UserAgent Powershell' -CaptureSession
+            $session = RunCheckingPersistence -Uri $uri -Command 'Invoke-WebRequest -Uri $uri -UserAgent "PowerShell Core"' -Session $session
+            $session = RunCheckingPersistence -Uri $uri -Command 'Invoke-WebRequest -Uri $uri -UserAgent "PowerShell Core with HttpClient"' -Session $session
+            # Ensure persistence is lost when we change a different setting
+            $session = RunCheckingPersistence -Uri $uri -Command 'Invoke-WebRequest -Uri $uri -NoProxy -UserAgent "PowerShell Core"' -Session $session -ExpectConnectionRecreated
+        }
+
+        It 'Connection persistence is not impacted when NoProxy parameter is not supplied' {
+            $uri = Get-WebListenerUrl
+            $session = RunCheckingPersistence -Uri $uri -Command 'Invoke-WebRequest -Uri $uri' -CaptureSession
+            # Explicitly prevent proxy - connection lost
+            $session = RunCheckingPersistence -Uri $uri -Command 'Invoke-WebRequest -Uri $uri -NoProxy' -Session $session -ExpectConnectionRecreated
+            # Provide explicit switch value - connection maintained
+            $session = RunCheckingPersistence -Uri $uri -Command 'Invoke-WebRequest -Uri $uri -NoProxy:$true' -Session $session
+            # No spec for proxy - connection maintained
+            $session = RunCheckingPersistence -Uri $uri -Command 'Invoke-WebRequest -Uri $uri' -Session $session
+            # Two follow up calls without altering anything do not lose connection
+            $session = RunCheckingPersistence -Uri $uri -Command 'Invoke-WebRequest -Uri $uri' -Session $session
+            $session = RunCheckingPersistence -Uri $uri -Command 'Invoke-WebRequest -Uri $uri' -Session $session
+        }
+
+        It 'Connection persistence is not impacted when SslProtocol parameter is not supplied' {
+            $uri = Get-WebListenerUrl
+            $session = RunCheckingPersistence -Uri $uri -Command 'Invoke-WebRequest -Uri $uri -SslProtocol Tls12' -CaptureSession
+            # No SslProtocol provided - keeps last value - connection retained
+            $session = RunCheckingPersistence -Uri $uri -Command 'Invoke-WebRequest -Uri $uri' -Session $session
+            # Explicit default - loses connection
+            $session = RunCheckingPersistence -Uri $uri -Command 'Invoke-WebRequest -Uri $uri -SslProtocol Default' -Session $session -ExpectConnectionRecreated
+            # No SslProtocol provided - keeps last value - connection retained
+            $session = RunCheckingPersistence -Uri $uri -Command 'Invoke-WebRequest -Uri $uri' -Session $session
+            # Explicitly set to same value as last time it was set - connection retained
+            $session = RunCheckingPersistence -Uri $uri -Command 'Invoke-WebRequest -Uri $uri -SslProtocol Default' -Session $session
+        }
+
+        It 'Connection persistence is not impacted by Proxy and NoProxy unless changed parameters are used between invocations' {
+            $uri = Get-WebListenerUrl
+            $session = RunCheckingPersistence -Uri $uri -Command 'Invoke-WebRequest -Uri $uri' -CaptureSession
+            $proxy = 'http://127.0.0.1:8080'
+            $session = RunCheckingPersistence -Uri $uri -Command "Invoke-WebRequest -Uri $uri -proxy $proxy" -Session $session -ExpectConnectionRecreated
+            # same proxy - do not lose persistence
+            $session = RunCheckingPersistence -Uri $uri -Command "Invoke-WebRequest -Uri $uri -proxy $proxy" -Session $session
+            # No proxy at all - use previous setting and don't lose connection
+            $session = RunCheckingPersistence -Uri $uri -Command "Invoke-WebRequest -Uri $uri" -Session $session
+
+            # NoProxy toggles proxy off - loses connection
+            $session = RunCheckingPersistence -Uri $uri -Command "Invoke-WebRequest -Uri $uri -NoProxy" -Session $session -ExpectConnectionRecreated
+            # No setting at all - retains NoProxy setting
+            $session = RunCheckingPersistence -Uri $uri -Command "Invoke-WebRequest -Uri $uri" -Session $session
+
+            # Use proxy again - lose connection
+            $session = RunCheckingPersistence -Uri $uri -Command "Invoke-WebRequest -Uri $uri -proxy $proxy" -Session $session -ExpectConnectionRecreated
+            # No proxy specified - connection retained
+            $session = RunCheckingPersistence -Uri $uri -Command "Invoke-WebRequest -Uri $uri" -Session $session
+
+            # Proxy changed - lose connection
+            $proxy = 'http://localhost:8080'
+            $session = RunCheckingPersistence -Uri $uri -Command "Invoke-WebRequest -Uri $uri -proxy $proxy" -Session $session -ExpectConnectionRecreated
+            # No proxy specified - connection retained
+            $session = RunCheckingPersistence -Uri $uri -Command "Invoke-WebRequest -Uri $uri" -Session $session
+        }
     }
 }
 
-Describe "Invoke-RestMethod tests" -Tags "Feature" {
+Describe "Invoke-RestMethod tests" -Tags "Feature", "RequireAdminOnWindows" {
     BeforeAll {
+        $oldProgress = $ProgressPreference
+        $ProgressPreference = 'SilentlyContinue'
+
         $WebListener = Start-WebListener
+
+        $NotFoundQuery = @{
+            statuscode = 404
+            responsephrase = 'Not Found'
+            contenttype = 'application/json'
+            body = '{"message": "oops"}'
+            headers = "{}"
+        }
+    }
+
+    AfterAll {
+        $ProgressPreference = $oldProgress
     }
 
     #User-Agent changes on different platforms, so tests should only be run if on the correct platform
@@ -1804,6 +2603,17 @@ Describe "Invoke-RestMethod tests" -Tags "Feature" {
         $result.Output.headers.'User-Agent' | Should -MatchExactly '.*\(Windows NT \d+\.\d*;.*\) PowerShell\/\d+\.\d+\.\d+.*'
     }
 
+    It "Invoke-RestMethod with blank ContentType succeeds" {
+        $uri = Get-WebListenerUrl -Test 'Get'
+        $command = "Invoke-RestMethod -Uri '$uri' -ContentType ''"
+
+        $result = ExecuteWebCommand -command $command
+
+        # Validate response
+        $result.Error | Should -BeNullOrEmpty
+        $result.Output.headers.'Content-Length' | Should -Be 0
+    }
+
     It "Invoke-RestMethod returns headers dictionary" {
         $uri = Get-WebListenerUrl -Test 'Get'
         $command = "Invoke-RestMethod -Uri '$uri'"
@@ -1826,6 +2636,27 @@ Describe "Invoke-RestMethod tests" -Tags "Feature" {
         $result.Output.Headers.Connection | Should -Be "Close"
     }
 
+    It "Validate Invoke-RestMethod -HttpVersion '<httpVersion>'" -Skip:(!$IsWindows) -TestCases @(
+        @{ httpVersion = '1.1'},
+        @{ httpVersion = '2'}
+    ) {
+        param($httpVersion)
+
+        if(Test-IsWinServer2012R2 -and $httpVersion -eq '2') {
+            Set-ItResult -Skipped -Because "HTTP/2 is not supported on Windows Server 2012R2"
+            return
+        }
+
+        # Operation options
+        $uri = Get-WebListenerUrl -Test 'Get' -Https
+        $command = "Invoke-RestMethod -Uri $uri -HttpVersion $httpVersion -SkipCertificateCheck"
+
+        $result = ExecuteWebCommand -command $command
+
+        # Validate response
+        $result.Output.protocol | Should -Be "HTTP/$httpVersion"
+    }
+
     It "Validate Invoke-RestMethod -MaximumRedirection" {
         $uri = Get-WebListenerUrl -Test 'Redirect' -TestValue '3'
         $command = "Invoke-RestMethod -Uri '$uri' -MaximumRedirection 4"
@@ -1844,6 +2675,24 @@ Describe "Invoke-RestMethod tests" -Tags "Feature" {
         $result.Error.FullyQualifiedErrorId | Should -Be "WebCmdletWebResponseException,Microsoft.PowerShell.Commands.InvokeRestMethodCommand"
     }
 
+    It "Validate Invoke-RestMethod redirect with -Query destination Http" {
+        $httpUri = Get-WebListenerUrl -Test 'Get'
+        $uri = Get-WebListenerUrl -Test 'Redirect' -Query @{destination = $httpUri}
+        $command = "Invoke-RestMethod -Uri '$uri'"
+
+        $result = ExecuteWebCommand -command $command
+        $result.Output.Headers.Host | Should -Be $httpUri.Authority
+    }
+
+    It "Validate Invoke-RestMethod redirect with -Query destination Https" {
+        $httpsUri = Get-WebListenerUrl -Test 'Get' -Https
+        $uri = Get-WebListenerUrl -Test 'Redirect' -Https -Query @{destination = $httpsUri}
+        $command = "Invoke-RestMethod -Uri '$uri' -SkipCertificateCheck"
+
+        $result = ExecuteWebCommand -command $command
+        $result.Output.Headers.Host | Should -Be $httpsUri.Authority
+    }
+
     It "Invoke-RestMethod supports request that returns page containing UTF-8 data." {
         $uri = Get-WebListenerUrl -Test 'Encoding' -TestValue 'Utf8'
         $command = "Invoke-RestMethod -Uri '$uri'"
@@ -1852,12 +2701,52 @@ Describe "Invoke-RestMethod tests" -Tags "Feature" {
         $Result.Output | Should -Match '⡌⠁⠧⠑ ⠼⠁⠒  ⡍⠜⠇⠑⠹⠰⠎ ⡣⠕⠌'
     }
 
-    It "Invoke-RestMethod validate timeout option" {
+    It "Invoke-RestMethod -ContentType overwrites Content-Type from -Headers." {
+        $uri = Get-WebListenerUrl -Test 'POST'
+        $command = "Invoke-RestMethod -Uri '$uri' -ContentType 'application/json' -Headers @{'Content-Type'='plain/text'} -Method 'POST'"
+        $result = ExecuteWebCommand -command $command
+        $result.Output.headers."Content-Type" | Should -BeExactly 'application/json'
+    }
+
+    It "Invoke-RestMethod supports sending requests as UTF8" {
+        $uri = Get-WebListenerUrl -Test POST
+        # Body must contain non-ASCII characters
+        $command = "Invoke-RestMethod -Uri '$uri' -body 'проверка' -ContentType 'application/json; charset=utf-8' -method 'POST'"
+
+        $result = ExecuteWebCommand -command $command
+        $Result.Output.Data | Should -BeExactly 'проверка'
+    }
+
+    It "Invoke-RestMethod supports sending XML requests without encoding" {
+        $uri = Get-WebListenerUrl -Test POST
+        $body = '<?xml version="1.0"?><foo />'
+        $result = Invoke-RestMethod -Uri $uri -body ([xml]$body) -ContentType 'text/xml' -method 'POST'
+
+        $result.Data | Should -BeExactly $body
+    }
+
+    It "Invoke-RestMethod supports request that returns page containing Code Page 936 data." {
+        $uri = Get-WebListenerUrl -Test 'Encoding' -TestValue 'CP936'
+        $command = "Invoke-RestMethod -Uri '$uri'"
+
+        $result = ExecuteWebCommand -command $command
+        $Result.Output | Should -Match '测试123'
+    }
+
+    It "Invoke-RestMethod validate ConnectionTimeoutSeconds option" {
+        $uri = Get-WebListenerUrl -Test 'Delay' -TestValue '5'
+        $command = "Invoke-RestMethod -Uri '$uri' -ConnectionTimeoutSeconds 2"
+
+        $result = ExecuteWebCommand -command $command
+        $result.Error.FullyQualifiedErrorId | Should -Be "ConnectionTimeoutReached,Microsoft.PowerShell.Commands.InvokeRestMethodCommand"
+    }
+
+    It "Invoke-RestMethod validate TimeoutSec alias" {
         $uri = Get-WebListenerUrl -Test 'Delay' -TestValue '5'
         $command = "Invoke-RestMethod -Uri '$uri' -TimeoutSec 2"
 
         $result = ExecuteWebCommand -command $command
-        $result.Error.FullyQualifiedErrorId | Should -Be "System.Threading.Tasks.TaskCanceledException,Microsoft.PowerShell.Commands.InvokeRestMethodCommand"
+        $result.Error.FullyQualifiedErrorId | Should -Be "ConnectionTimeoutReached,Microsoft.PowerShell.Commands.InvokeRestMethodCommand"
     }
 
     It "Validate Invoke-RestMethod error with -Proxy and -NoProxy option" {
@@ -1887,18 +2776,20 @@ Describe "Invoke-RestMethod tests" -Tags "Feature" {
     # Perform the following operation for Invoke-RestMethod
     # gzip Returns gzip-encoded data.
     # deflate Returns deflate-encoded data.
+    # brotli Returns brotli-encoded data.
     # $dataEncodings = @("Chunked", "Compress", "Deflate", "GZip", "Identity")
     # Note: These are the supported options, but we do not have a web service to test them all.
     It "Invoke-RestMethod supports request that returns <DataEncoding>-encoded data." -TestCases @(
-        @{ DataEncoding = "gzip"}
-        @{ DataEncoding = "deflate"}
+        @{ DataEncoding = "gzip" }
+        @{ DataEncoding = "deflate" }
+        @{ DataEncoding = "brotli" }
     ) {
         param($dataEncoding)
         $uri = Get-WebListenerUrl -Test 'Compression' -TestValue $dataEncoding
-        $result = Invoke-RestMethod -Uri $uri -ResponseHeadersVariable 'headers'
+        $result = Invoke-RestMethod -Uri $uri
 
         # Validate response content
-        $headers.'Content-Encoding'[0] | Should -BeExactly $dataEncoding
+        # The content should be de-compressed. Otherwise, the above 'Invoke-RestMethod' would have thrown because converting to JSON internally would fail.
         $result.Headers.Host | Should -BeExactly $uri.Authority
     }
 
@@ -1916,6 +2807,7 @@ Describe "Invoke-RestMethod tests" -Tags "Feature" {
             $uri = Get-WebListenerUrl -Test $method
             $body = GetTestData -contentType $contentType
             $command = "Invoke-RestMethod -Uri $uri -Body '$body' -Method $method -ContentType $contentType"
+            $commandNoContentType = "Invoke-RestMethod -Uri $uri -Body '$body' -Method $method"
 
             It "Invoke-RestMethod -Uri $uri -Method $method -ContentType $contentType -Body [body data]" {
 
@@ -1927,6 +2819,27 @@ Describe "Invoke-RestMethod tests" -Tags "Feature" {
 
                 # Validate that the response Content.data field is the same as what we sent.
                 $result.Output.data | Should -Be $body
+            }
+
+            It "Invoke-RestMethod -Uri $uri -Method $method -Body [body data]" {
+
+                $result = ExecuteWebCommand -command $commandNoContentType
+
+                # Validate response
+                $result.Output.url | Should -Match $uri
+
+                if ($method -eq "POST")
+                {
+                    $result.Output.headers.'Content-Type' | Should -Match "application/x-www-form-urlencoded"
+                    # Validate that the response Content.form field is the same as what we sent.
+                    [string]$result.Output.form | Should -Be ([string][PSCustomObject]@{$body.Split("=")[0] = [System.Object[]]})
+                    $result.Output.data | Should -BeNullOrEmpty
+                }
+                else
+                {
+                    # Validate that the response Content.data field is the same as what we sent.
+                    $result.Output.data | Should -Be $body
+                }
             }
         }
     }
@@ -1972,6 +2885,50 @@ Describe "Invoke-RestMethod tests" -Tags "Feature" {
         $jsonContent.headers.Host | Should -Be $uri.Authority
     }
 
+    It "Invoke-RestMethod -OutFile folder Downloads the file and names it" {
+        $uri = Get-WebListenerUrl -Test 'Get'
+        $content = Invoke-WebRequest -Uri $uri
+        $outFile = Join-Path $TestDrive $content.BaseResponse.RequestMessage.RequestUri.Segments[-1]
+
+        # ensure the file does not exist
+        Remove-Item -Force -ErrorAction Ignore -Path $outFile
+        Invoke-RestMethod -Uri $uri -OutFile $TestDrive
+
+        Test-Path $outFile | Should -Be $true
+        Get-Item $outFile | Select-Object -ExpandProperty Length | Should -Be $content.Content.Length
+    }
+
+    It "Invoke-RestMethod -PassThru -OutFile Downloads the file and pipes it" {
+        $uri = Get-WebListenerUrl -Test 'Get'
+        $content = Invoke-WebRequest -Uri $uri
+        $outFile = Join-Path $TestDrive $content.BaseResponse.RequestMessage.RequestUri.Segments[-1]
+
+        # ensure the file does not exist
+        Remove-Item -Force -ErrorAction Ignore -Path $outFile
+        $response = Invoke-RestMethod -Uri $uri -PassThru -OutFile $outFile
+
+        # check if the file is downloaded.
+        Test-Path $outFile | Should -Be $true
+
+        # check if the file is correctly downloaded
+        Get-Content -Path $outFile | Should -BeExactly $content.Content
+
+        # check if the response stores the downloaded file contents
+        # response is a PSCustomObject so converted it string for comparison
+        $responseAsJsonString = $response | ConvertTo-Json -Compress
+        $responseAsJsonString | Should -BeExactly $content.Content
+    }
+
+    It "Invoke-RestMethod should fail if -OutFile is <Name>." -TestCases @(
+        @{ Name = "empty"; Value = [string]::Empty }
+        @{ Name = "null"; Value = $null }
+    ) {
+        param ($value)
+        $uri = Get-WebListenerUrl -Test 'Get'
+        $errorId = "ParameterArgumentValidationError,Microsoft.PowerShell.Commands.InvokeRestMethodCommand"
+        { Invoke-RestMethod -Uri $uri -OutFile $value} | Should -Throw -ErrorId $errorId
+    }
+
     It "Validate Invoke-RestMethod handles missing Content-Type in response header" {
         #Validate that exception is not thrown when response headers are missing Content-Type.
         $uri = Get-WebListenerUrl -Test 'ResponseHeaders' -Query @{'Content-Type' = ''}
@@ -2009,6 +2966,20 @@ Describe "Invoke-RestMethod tests" -Tags "Feature" {
         $result.Output.args.testparam | Should -Be "testvalue"
     }
 
+    It 'Validate Invoke-RestMethod empty body CustomMethod GET' {
+        $uri = Get-WebListenerUrl -Test 'Get'
+        $command = "Invoke-RestMethod -Uri '$uri' -CustomMethod GET"
+        $result = ExecuteWebCommand -command $command
+        $result.Output.Headers.'Content-Length' | Should -BeNullOrEmpty
+    }
+
+    It "Validate Invoke-RestMethod body is converted to query params for CustomMethod GET and -NoProxy" {
+        $uri = Get-WebListenerUrl -Test 'Get'
+        $command = "Invoke-RestMethod -Uri '$uri' -CustomMethod GET -Body @{'testparam'='testvalue'} -NoProxy"
+        $result = ExecuteWebCommand -command $command
+        $result.Output.Query | Should -Be "?testparam=testvalue"
+    }
+
     It "Validate Invoke-RestMethod returns HTTP errors in exception" {
         $query = @{
             body           = "I am a teapot!!!"
@@ -2020,7 +2991,7 @@ Describe "Invoke-RestMethod tests" -Tags "Feature" {
         $result = ExecuteWebCommand -command $command
 
         $result.Error.ErrorDetails.Message | Should -Be $query.body
-        $result.Error.Exception | Should -BeOfType 'Microsoft.PowerShell.Commands.HttpResponseException'
+        $result.Error.Exception | Should -BeOfType Microsoft.PowerShell.Commands.HttpResponseException
         $result.Error.Exception.Response.StatusCode | Should -Be 418
         $result.Error.Exception.Response.ReasonPhrase | Should -Be $query.responsephrase
         $result.Error.Exception.Message | Should -Match ": 418 \($($query.responsephrase)\)\."
@@ -2039,9 +3010,13 @@ Describe "Invoke-RestMethod tests" -Tags "Feature" {
         $result.Output | Should -BeExactly "foo"
     }
 
-    It "Validate Invoke-RestMethod -FollowRelLink correctly follows all the available relation links" {
+    It "Validate Invoke-RestMethod -FollowRelLink correctly follows all the available relation links <name>" -TestCases @(
         $maxLinks = 5
-        $uri = Get-WebListenerUrl -Test 'Link' -Query @{maxlinks = $maxLinks}
+        $originalUri = Get-WebListenerUrl -Test 'Link' -Query @{maxlinks = $maxLinks}
+        @{name = '(URI with scheme)'; uri = $originalUri}
+        @{name = '(URI without scheme)'; uri = $originalUri.OriginalString.Split("//")[1]}
+    ) {
+        param($uri)
         $command = "Invoke-RestMethod -Uri '$uri' -FollowRelLink"
         $result = ExecuteWebCommand -command $command
 
@@ -2072,6 +3047,85 @@ Describe "Invoke-RestMethod tests" -Tags "Feature" {
         $result.Output.linknumber | Should -BeExactly 1
     }
 
+    It "Validate Invoke-RestMethod handles whitespace for Link Headers if -FollowRelLink is specified: <type>" -TestCases @(
+        @{ type = "noWhitespace" }
+        @{ type = "extraWhitespace" }
+    ) {
+        param($type)
+        $uri = Get-WebListenerUrl -Test 'Link' -Query @{type = $type}
+        $command = "Invoke-RestMethod -Uri '$uri' -FollowRelLink"
+        $result = ExecuteWebCommand -command $command
+        1..3 | ForEach-Object { $result.Output[$_ - 1].linknumber | Should -BeExactly $_ }
+    }
+
+    It "Validate Invoke-RestMethod -FollowRelLink correctly manages commas" {
+        $maxLinks = 5
+        $uri = Get-WebListenerUrl -Test 'Link' -Query @{maxlinks = $maxLinks; type = "with,comma"}
+        $command = "Invoke-RestMethod -Uri '$uri' -FollowRelLink"
+        $result = ExecuteWebCommand -command $command
+
+        $result.Output.Count | Should -BeExactly $maxLinks
+        1..$maxLinks | ForEach-Object { $result.Output[$_ - 1].linknumber | Should -BeExactly $_ }
+    }
+
+    It "Verify Invoke-RestMethod supresses terminating errors with -SkipHttpErrorCheck" {
+        $uri =  Get-WebListenerUrl -Test 'Response' -Query $NotFoundQuery
+        $command = "Invoke-RestMethod -SkipHttpErrorCheck -Uri '$uri'"
+        $result = ExecuteWebCommand -Command $command
+        $result.output.message | Should -BeExactly "oops"
+        $result.output.error | Should -BeNullOrEmpty
+    }
+
+    It "Verify Invoke-RestMethod terminates without -SkipHttpErrorCheck" {
+        $uri =  Get-WebListenerUrl -Test 'Response' -Query $NotFoundQuery
+        $command = "Invoke-RestMethod -Uri '$uri'"
+        $result = ExecuteWebCommand -Command $command
+        $result.output | Should -BeNullOrEmpty
+        $result.error | Should -Not -BeNullOrEmpty
+    }
+
+    It "Verify Invoke-RestMethod assigns 200 status code with -StatusCodeVariable" {
+        $query = @{
+            statuscode = 200
+            responsephrase = 'OK'
+            contenttype = 'application/json'
+            body = '{"message": "works"}'
+            headers = "{}"
+        }
+
+        $uri =  Get-WebListenerUrl -Test 'Response' -Query $query
+        Invoke-RestMethod -StatusCodeVariable code -Uri "$uri"
+        $code | Should -Be 200
+    }
+
+    It "Verify Invoke-RestMethod assigns 404 status code with -StatusCodeVariable" {
+        $query = @{
+            statuscode = 404
+            responsephrase = 'Not Found'
+            contenttype = 'application/json'
+            body = '{"message": "oops"}'
+            headers = "{}"
+        }
+
+        $uri =  Get-WebListenerUrl -Test 'Response' -Query $query
+        Invoke-RestMethod -SkipHttpErrorCheck -StatusCodeVariable code -Uri "$uri"
+        $code | Should -Be 404
+    }
+
+    It "Verify Invoke-RestMethod assigns 500 status code with -StatusCodeVariable" {
+        $query = @{
+            statuscode = 500
+            responsephrase = 'Internal Server Error'
+            contenttype = 'application/json'
+            body = '{"message": "oops"}'
+            headers = "{}"
+        }
+
+        $uri =  Get-WebListenerUrl -Test 'Response' -Query $query
+        Invoke-RestMethod -SkipHttpErrorCheck -StatusCodeVariable code -Uri "$uri"
+        $code | Should -Be 500
+    }
+
     #region Redirect tests
 
     It "Validates Invoke-RestMethod with -PreserveAuthorizationOnRedirect preserves the authorization header on redirect: <redirectType> <redirectedMethod>" -TestCases $redirectTests {
@@ -2092,6 +3146,42 @@ Describe "Invoke-RestMethod tests" -Tags "Feature" {
         $response.Error | Should -BeNullOrEmpty
         # ensure Authorization header was stripped
         $response.Content.Headers."Authorization" | Should -BeExactly "test"
+    }
+
+    It "Validates Invoke-RestMethod with -WebSession and -PreserveAuthorizationOnRedirect doesn't change session variable on multiple redirects: <redirectType>" -TestCases $redirectTests {
+        param($redirectType)
+
+        #[SuppressMessage("Microsoft.Security", "CS002:SecretInNextLine", Justification="Demo/doc/test secret.")]
+        $token = "testpassword" | ConvertTo-SecureString -AsPlainText -Force
+        $credential = [pscredential]::new("testuser", $token)
+        $certificate = Get-WebListenerClientCertificate
+        $headers = @{"Authorization" = "test"}
+        $proxy = (Get-WebListenerUrl).Authority
+        $uri = Get-WebListenerUrl -Test 'Redirect' -TestValue 2 -Query @{type = $redirectType}
+
+        $session = [Microsoft.PowerShell.Commands.WebRequestSession]::new()
+        $session.MaximumRedirection = 2
+        $session.MaximumRetryCount = 2
+        $session.RetryIntervalInSeconds = 2
+        $session.UseDefaultCredentials = $true
+        $null = Invoke-RestMethod -Uri $uri -PreserveAuthorizationOnRedirect -WebSession $session -AllowUnencryptedAuthentication -Headers $headers
+        $session.MaximumRedirection | Should -BeExactly 2
+        $session.MaximumRetryCount | Should -BeExactly 2
+        $session.RetryIntervalInSeconds | Should -BeExactly 2
+        $session.UseDefaultCredentials | Should -BeExactly $true
+
+        $session = [Microsoft.PowerShell.Commands.WebRequestSession]::new()
+        $session.Credentials = $credential
+        $session.Certificates = [System.Security.Cryptography.X509Certificates.X509CertificateCollection]::new([X509Certificate]$certificate)
+        $null = Invoke-RestMethod -Uri $uri -PreserveAuthorizationOnRedirect -WebSession $session -SkipCertificateCheck -Headers $headers
+        $session.Credentials.UserName | Should -BeExactly $credential.UserName
+        $session.Credentials.Password | Should -BeExactly $credential.GetNetworkCredential().Password
+        $session.Certificates.Thumbprint | Should -BeExactly $certificate.Thumbprint
+
+        $session = [Microsoft.PowerShell.Commands.WebRequestSession]::new()
+        $session.Proxy = [System.Net.WebProxy]::new($proxy)
+        $null = Invoke-RestMethod -Uri $uri -PreserveAuthorizationOnRedirect -WebSession $session -Headers $headers
+        $session.Proxy.GetProxy($uri).Authority | Should -BeExactly $proxy
     }
 
     It "Validates Invoke-RestMethod strips the authorization header on various redirects: <redirectType>" -TestCases $redirectTests {
@@ -2130,10 +3220,38 @@ Describe "Invoke-RestMethod tests" -Tags "Feature" {
         $response.Error | Should -BeNullOrEmpty
         # ensure user-agent is present (i.e., no false positives )
         $response.Content.Headers."User-Agent" | Should -Not -BeNullOrEmpty
-        # ensure Authorization header has been removed.
+        # ensure Authorization header has been preserved.
         $response.Content.Headers."Authorization" | Should -BeExactly 'test'
         # ensure POST was changed to GET for selected redirections and remains as POST for others.
         $response.Content.Method | Should -Be $redirectedMethod
+    }
+
+    It "Validates Invoke-RestMethod -PreserveAuthorizationOnRedirect -CustomMethod POST keeps the authorization header redirects and switches from POST to GET when it handles the redirect: <redirectType> <redirectedMethod>" -TestCases $redirectTests {
+        param($redirectType, $redirectedMethod)
+        $uri = Get-WebListenerUrl -Test 'Redirect' -Query @{type = $redirectType}
+        $response = ExecuteRedirectRequest -PreserveAuthorizationOnRedirect -Cmdlet 'Invoke-RestMethod' -Uri $uri -CustomMethod 'POST'
+
+        $response.Error | Should -BeNullOrEmpty
+        # ensure user-agent is present (i.e., no false positives )
+        $response.Content.Headers."User-Agent" | Should -Not -BeNullOrEmpty
+        # ensure Authorization header has been preserved.
+        $response.Content.Headers."Authorization" | Should -BeExactly 'test'
+        # ensure POST was changed to GET for selected redirections and remains as POST for others.
+        $response.Content.Method | Should -Be $redirectedMethod
+    }
+
+    It "Validates Invoke-RestMethod -PreserveHttpMethodOnRedirect keeps the authorization header redirects and remains POST when it handles the redirect: <redirectType>" -TestCases $redirectTests {
+        param($redirectType)
+        $uri = Get-WebListenerUrl -Test 'Redirect' -Query @{type = $redirectType}
+        $response = ExecuteRedirectRequest -PreserveHttpMethodOnRedirect -Cmdlet 'Invoke-RestMethod' -Uri $uri -Method 'POST'
+
+        $response.Error | Should -BeNullOrEmpty
+        # ensure user-agent is present (i.e., no false positives )
+        $response.Content.Headers."User-Agent" | Should -Not -BeNullOrEmpty
+        # ensure Authorization header has been kept.
+        $response.Content.Headers."Authorization" | Should -BeExactly 'test'
+        # ensure POST doesn't change.
+        $response.Content.Method | Should -Be 'POST'
     }
 
     It "Validates Invoke-RestMethod handles responses without Location header for requests with Authorization header and redirect: <redirectType>" -TestCases $redirectTests {
@@ -2152,9 +3270,36 @@ Describe "Invoke-RestMethod tests" -Tags "Feature" {
         $command = "Invoke-RestMethod -Uri '$uri' -Headers @{Authorization = 'foo'}"
         $response = ExecuteWebCommand -command $command
 
-        $response.Error.Exception | Should -BeOfType 'Microsoft.PowerShell.Commands.HttpResponseException'
+        $response.Error.Exception | Should -BeOfType Microsoft.PowerShell.Commands.HttpResponseException
         $response.Error.Exception.Response.StatusCode | Should -Be $StatusCode
         $response.Error.Exception.Response.Headers.Location | Should -BeNullOrEmpty
+    }
+
+    It "Validate Invoke-RestMethod Https to Http redirect with -AllowInsecureRedirect" {
+        $httpUri = Get-WebListenerUrl -Test 'Get'
+        $uri = Get-WebListenerUrl -Test 'Redirect' -Https -Query @{destination = $httpUri}
+        $command = "Invoke-RestMethod -Uri '$uri' -SkipCertificateCheck -AllowInsecureRedirect"
+
+        $result = ExecuteWebCommand -command $command
+        $result.Output.Headers.Host | Should -Be $httpUri.Authority
+    }
+
+    It "Validate Invoke-RestMethod Https to Http redirect without -AllowInsecureRedirect" {
+        $httpUri = Get-WebListenerUrl -Test 'Get'
+        $uri = Get-WebListenerUrl -Test 'Redirect' -Https -Query @{destination = $httpUri}
+        $command = "Invoke-RestMethod -Uri '$uri' -SkipCertificateCheck"
+
+        $result = ExecuteWebCommand -command $command
+        $result.Error.FullyQualifiedErrorId | Should -Be "InsecureRedirection,Microsoft.PowerShell.Commands.InvokeRestMethodCommand"
+    }
+
+    It "Validate Invoke-RestMethod Https to Http (No Scheme) redirect without -AllowInsecureRedirect" {
+        $httpUri = Get-WebListenerUrl -Test 'Get'
+        $uri = Get-WebListenerUrl -Test 'Redirect' -Https -Query @{destination = $httpUri.Authority}
+        $command = "Invoke-RestMethod -Uri '$uri' -SkipCertificateCheck"
+
+        $result = ExecuteWebCommand -command $command
+        $result.Error.FullyQualifiedErrorId | Should -Be "WebCmdletWebResponseException,Microsoft.PowerShell.Commands.InvokeRestMethodCommand"
     }
 
     #endregion Redirect tests
@@ -2283,6 +3428,26 @@ Describe "Invoke-RestMethod tests" -Tags "Feature" {
             $result.data | Should -Match 'bar'
             $result.headers.'Content-Type' | Should -BeExactly $contentType
         }
+
+        It "Verifies Invoke-RestMethod applies -ContentType when no -Body is present" {
+            $contentType = 'application/json'
+            $uri = Get-WebListenerUrl -Test 'Get'
+
+            $result = Invoke-RestMethod -Uri $uri -Method 'GET' -ContentType $contentType
+
+            $result.data | Should -BeNullOrEmpty
+            $result.headers.'Content-Type' | Should -BeExactly $contentType
+        }
+
+        It "Verifies Invoke-RestMethod applies an invalid -ContentType when no -Body is present and -SkipHeaderValidation is present" {
+            $contentType = 'foo'
+            $uri = Get-WebListenerUrl -Test 'Get'
+
+            $result = Invoke-RestMethod -Uri $uri -Method 'GET' -ContentType $contentType -SkipHeaderValidation
+
+            $result.data | Should -BeNullOrEmpty
+            $result.headers.'Content-Type' | Should -BeExactly $contentType
+        }
     }
 
     Context "HTTPS Tests" {
@@ -2320,7 +3485,7 @@ Describe "Invoke-RestMethod tests" -Tags "Feature" {
         It "Verifies Invoke-RestMethod Certificate Authentication Successful with -Certificate" {
             $uri = Get-WebListenerUrl -Https -Test 'Cert'
             $certificate = Get-WebListenerClientCertificate
-            $result = Invoke-RestMethod -uri $uri -Certificate $certificate -SkipCertificateCheck
+            $result = Invoke-RestMethod -Uri $uri -Certificate $certificate -SkipCertificateCheck
 
             $result.Status | Should -Be 'OK'
             $result.Thumbprint | Should -Be $certificate.Thumbprint
@@ -2349,6 +3514,11 @@ Describe "Invoke-RestMethod tests" -Tags "Feature" {
             $file2Path = Join-Path $testdrive $file2Name
             $file2Contents = "Test456"
             $file2Contents | Set-Content $file2Path -Force
+
+            $file3Name = "Kündigung_Mustermann_Max.TTA_2023_01_30.txt"
+            $file3Path = Join-Path $testdrive $file3Name
+            $file3Contents = "Test789"
+            $file3Contents | Set-Content $file3Path -Force
         }
 
         It "Verifies Invoke-RestMethod Supports Multipart String Values" {
@@ -2418,6 +3588,41 @@ Describe "Invoke-RestMethod tests" -Tags "Feature" {
             $result.Files[0].Content | Should -Match $file1Contents
         }
 
+        It "Verifies Invoke-RestMethod -Form supports read-only file values" {
+            # Create a read-only test file
+            $readOnlyFile = Join-Path $TestDrive "readonly-test.txt"
+            "ReadOnly test content" | Out-File -FilePath $readOnlyFile -Encoding utf8
+            Set-ItemProperty -Path $readOnlyFile -Name IsReadOnly -Value $true
+
+            $form = @{TestFile = [System.IO.FileInfo]$readOnlyFile}
+            $uri = Get-WebListenerUrl -Test 'Multipart'
+            $result = Invoke-RestMethod -Uri $uri -Form $form -Method 'POST'
+
+            $result.Headers.'Content-Type' | Should -Match 'multipart/form-data'
+            $result.Files.Count | Should -Be 1
+
+            $result.Files[0].Name | Should -Be "TestFile"
+            $result.Files[0].FileName | Should -Be "readonly-test.txt"
+            $result.Files[0].ContentType | Should -Be 'application/octet-stream'
+            $result.Files[0].Content | Should -Match "ReadOnly test content"
+        }
+
+        It "Verifies Invoke-RestMethod -Form sets Content-Disposition FileName and FileNameStar." {
+            $ContentDisposition = [System.Net.Http.Headers.ContentDispositionHeaderValue]::new("attachment")
+            $ContentDisposition.FileName = $fileName
+            $ContentDisposition.FileNameStar = $fileName
+
+            $form = @{TestFile = [System.IO.FileInfo]$file3Path}
+            $uri = Get-WebListenerUrl -Test 'Multipart'
+            $result = Invoke-RestMethod -Uri $uri -Form $form -Method 'POST'
+
+            $result.Headers.'Content-Type' | Should -Match 'multipart/form-data'
+            $result.Files.Count | Should -Be 1
+
+            $result.Files[0].ContentDisposition.FileName | Should -Be $ContentDisposition.FileName
+            $result.Files[0].ContentDisposition.FileNameStar | Should -Be $ContentDisposition.FileNameStar
+        }
+
         It "Verifies Invoke-RestMethod -Form supports a collection of file values" {
             $form = @{TestFiles = [System.IO.FileInfo]$file1Path, [System.IO.FileInfo]$file2Path}
             $uri = Get-WebListenerUrl -Test 'Multipart'
@@ -2479,6 +3684,26 @@ Describe "Invoke-RestMethod tests" -Tags "Feature" {
             {Invoke-RestMethod -Uri $uri -Form $form -InFile $file1Path -ErrorAction 'Stop'} |
                 Should -Throw -ErrorId 'WebCmdletFormInFileConflictException,Microsoft.PowerShell.Commands.InvokeRestMethodCommand'
         }
+    }
+
+    It "Verifies Invoke-RestMethod does not sent expect 100-continue headers by default" {
+        $uri = Get-WebListenerUrl -Test 'Get'
+
+        $result = Invoke-RestMethod -Uri $uri
+
+        $result.headers.Expect | Should -BeNullOrEmpty
+        $result.method | Should -BeExactly "GET"
+        $result.url | Should -BeExactly $uri.ToString()
+    }
+
+    It "Verifies Invoke-RestMethod sends expect 100-continue header when defined in -Headers" {
+        $uri = Get-WebListenerUrl -Test 'Get'
+
+        $result = Invoke-RestMethod -Uri $uri -Headers @{Expect = '100-continue'}
+
+        $result.headers.Expect | Should -BeExactly '100-continue'
+        $result.method | Should -BeExactly "GET"
+        $result.url | Should -BeExactly $uri.ToString()
     }
 
     #region charset encoding tests
@@ -2577,37 +3802,10 @@ Describe "Invoke-RestMethod tests" -Tags "Feature" {
             $response.Encoding.EncodingName | Should -Be $expectedEncoding.EncodingName
         }
 
-        It "Verifies Invoke-RestMethod defaults to iso-8859-1 when an unsupported/invalid charset is declared" {
+        It "Verifies Invoke-RestMethod defaults to UTF-8 when an unsupported/invalid charset is declared" {
             $query = @{
                 contenttype = 'text/html'
                 body        = '<html><head><meta charset="invalid"></head></html>'
-            }
-            $uri = Get-WebListenerUrl -Test 'Response' -Query $query
-            $expectedEncoding = [System.Text.Encoding]::GetEncoding('iso-8859-1')
-            $response = ExecuteRestMethod -Uri $uri -UseBasicParsing
-
-            $response.Error | Should -BeNullOrEmpty
-            $response.Encoding.EncodingName | Should -Be $expectedEncoding.EncodingName
-        }
-
-        It "Verifies Invoke-RestMethod defaults to iso-8859-1 when an unsupported/invalid charset is declared using http-equiv" {
-            $query = @{
-                contenttype = 'text/html'
-                body        = "<html><head>`n<meta http-equiv=`"content-type`" content=`"text/html; charset=Invalid`">`n</head>`n</html>"
-            }
-            $uri = Get-WebListenerUrl -Test 'Response' -Query $query
-            $expectedEncoding = [System.Text.Encoding]::GetEncoding('iso-8859-1')
-            $response = ExecuteRestMethod -Uri $uri -UseBasicParsing
-
-            $response.Error | Should -BeNullOrEmpty
-            $response.Encoding.EncodingName | Should -Be $expectedEncoding.EncodingName
-        }
-
-        It "Verifies Invoke-RestMethod defaults to UTF8 on application/json when no charset is present" {
-            # when contenttype is set, WebListener suppresses charset unless it is included in the query
-            $query = @{
-                contenttype = 'application/json'
-                body        = '{"Test": "Test"}'
             }
             $uri = Get-WebListenerUrl -Test 'Response' -Query $query
             $expectedEncoding = [System.Text.Encoding]::UTF8
@@ -2615,7 +3813,19 @@ Describe "Invoke-RestMethod tests" -Tags "Feature" {
 
             $response.Error | Should -BeNullOrEmpty
             $response.Encoding.EncodingName | Should -Be $expectedEncoding.EncodingName
-            $response.output.Test | Should -BeExactly 'Test'
+        }
+
+        It "Verifies Invoke-RestMethod defaults to UTF-8 when an unsupported/invalid charset is declared using http-equiv" {
+            $query = @{
+                contenttype = 'text/html'
+                body        = "<html><head>`n<meta http-equiv=`"content-type`" content=`"text/html; charset=Invalid`">`n</head>`n</html>"
+            }
+            $uri = Get-WebListenerUrl -Test 'Response' -Query $query
+            $expectedEncoding = [System.Text.Encoding]::UTF8
+            $response = ExecuteRestMethod -Uri $uri -UseBasicParsing
+
+            $response.Error | Should -BeNullOrEmpty
+            $response.Encoding.EncodingName | Should -Be $expectedEncoding.EncodingName
         }
     }
 
@@ -2666,6 +3876,19 @@ Describe "Invoke-RestMethod tests" -Tags "Feature" {
             $result = Invoke-RestMethod @params
 
             $result.Headers.Authorization | Should -BeExactly "Basic dGVzdHVzZXI6dGVzdHBhc3N3b3Jk"
+        }
+
+        It "Verifies Invoke-RestMethod -Authentication Basic with null username" {
+            $credential = [pscredential]::new([PSCustomObject]@{UserName = $null;Password=$token.psobject.BaseObject})
+            $params = @{
+                Uri                  = $httpsUri
+                Authentication       = "Basic"
+                Credential           = $credential
+                SkipCertificateCheck = $true
+            }
+            $Response = Invoke-RestMethod @params
+
+            $Response.Headers.Authorization | Should -BeExactly "Basic OnRlc3RwYXNzd29yZA=="
         }
 
         It "Verifies Invoke-RestMethod -Authentication <Authentication>" -TestCases $testCases {
@@ -2824,33 +4047,38 @@ Describe "Invoke-RestMethod tests" -Tags "Feature" {
 
     Context "Invoke-RestMethod -SslProtocol Test" {
         BeforeAll {
+            # We put Tls13 tests at pending due to modern OS limitations.
+            # Tracking issue https://github.com/PowerShell/PowerShell/issues/13439
+
+            $skipForTls1 = $true
+
             $testCases1 = @(
                 @{ Test = @{SslProtocol = 'Default'; ActualProtocol = 'Default'}; Pending = $false }
-                @{ Test = @{SslProtocol = 'Tls'; ActualProtocol = 'Tls'}; Pending = $false }
-                @{ Test = @{SslProtocol = 'Tls11'; ActualProtocol = 'Tls11'}; Pending = $false }
+                @{ Test = @{SslProtocol = 'Tls'; ActualProtocol = 'Tls'}; Pending = $skipForTls1 }
+                @{ Test = @{SslProtocol = 'Tls11'; ActualProtocol = 'Tls11'}; Pending = $skipForTls1 }
                 @{ Test = @{SslProtocol = 'Tls12'; ActualProtocol = 'Tls12'}; Pending = $false }
+                @{ Test = @{SslProtocol = 'Tls13'; ActualProtocol = 'Tls13'}; Pending = $true }
                 @{ Test = @{SslProtocol = 'Tls, Tls11, Tls12'; ActualProtocol = 'Tls12'}; Pending = $false }
+                @{ Test = @{SslProtocol = 'Tls, Tls11, Tls12, Tls13'; ActualProtocol = 'Tls13'}; Pending = $true }
                 @{ Test = @{SslProtocol = 'Tls11, Tls12'; ActualProtocol = 'Tls12'}; Pending = $false }
-                @{ Test = @{SslProtocol = 'Tls, Tls11, Tls12'; ActualProtocol = 'Tls11'}; Pending = $false }
-                @{ Test = @{SslProtocol = 'Tls11, Tls12'; ActualProtocol = 'Tls11'}; Pending = $false }
-                @{ Test = @{SslProtocol = 'Tls, Tls11'; ActualProtocol = 'Tls11'}; Pending = $false }
-                @{ Test = @{SslProtocol = 'Tls, Tls11, Tls12'; ActualProtocol = 'Tls'}; Pending = $false }
-                @{ Test = @{SslProtocol = 'Tls, Tls11'; ActualProtocol = 'Tls'}; Pending = $false }
+                @{ Test = @{SslProtocol = 'Tls, Tls11, Tls12'; ActualProtocol = 'Tls11'}; Pending = $skipForTls1 }
+                @{ Test = @{SslProtocol = 'Tls, Tls11, Tls12, Tls13'; ActualProtocol = 'Tls11'}; Pending = $skipForTls1 }
+                @{ Test = @{SslProtocol = 'Tls11, Tls12'; ActualProtocol = 'Tls11'}; Pending = $skipForTls1 }
+                @{ Test = @{SslProtocol = 'Tls, Tls11'; ActualProtocol = 'Tls11'}; Pending = $skipForTls1 }
+                @{ Test = @{SslProtocol = 'Tls, Tls11, Tls12'; ActualProtocol = 'Tls'}; Pending = $skipForTls1 }
+                @{ Test = @{SslProtocol = 'Tls, Tls11, Tls13'; ActualProtocol = 'Tls'}; Pending = $true }
+                @{ Test = @{SslProtocol = 'Tls, Tls11'; ActualProtocol = 'Tls'}; Pending = $skipForTls1 }
                 # Skipping intermediary protocols is not supported on all platforms
-                @{ Test = @{SslProtocol = 'Tls, Tls12'; ActualProtocol = 'Tls'}; Pending = -not $IsWindows }
+                # Removed this as Tls now default to Tls12
+                # @{ Test = @{SslProtocol = 'Tls, Tls12'; ActualProtocol = 'Tls'}; Pending = -not $IsWindows }
                 @{ Test = @{SslProtocol = 'Tls, Tls12'; ActualProtocol = 'Tls12'}; Pending = -not $IsWindows }
             )
 
             $testCases2 = @(
-                @{ Test = @{IntendedProtocol = 'Tls'; ActualProtocol = 'Tls12'}; Pending = $false }
-                @{ Test = @{IntendedProtocol = 'Tls'; ActualProtocol = 'Tls11'}; Pending = $false }
-                @{ Test = @{IntendedProtocol = 'Tls11'; ActualProtocol = 'Tls12'}; Pending = $false }
-                @{ Test = @{IntendedProtocol = 'Tls12'; ActualProtocol = 'Tls11'}; Pending = $false }
-                @{ Test = @{IntendedProtocol = 'Tls11'; ActualProtocol = 'Tls'}; Pending = $false }
-                @{ Test = @{IntendedProtocol = 'Tls12'; ActualProtocol = 'Tls'}; Pending = $false }
-                @{ Test = @{IntendedProtocol = 'Tls11, Tls12'; ActualProtocol = 'Tls'}; Pending = $false }
-                @{ Test = @{IntendedProtocol = 'Tls, Tls12'; ActualProtocol = 'Tls11'}; Pending = $false }
-                @{ Test = @{IntendedProtocol = 'Tls, Tls11'; ActualProtocol = 'Tls12'}; Pending = $false }
+                @{ Test = @{IntendedProtocol = 'Tls'; ActualProtocol = 'Tls13'}; Pending = $true }
+                @{ Test = @{IntendedProtocol = 'Tls11'; ActualProtocol = 'Tls13'}; Pending = $true }
+                @{ Test = @{IntendedProtocol = 'Tls13'; ActualProtocol = 'Tls'}; Pending = $true }
+                @{ Test = @{IntendedProtocol = 'Tls, Tls12'; ActualProtocol = 'Tls13'}; Pending = $true }
             )
         }
 
@@ -2912,7 +4140,7 @@ Describe "Invoke-RestMethod tests" -Tags "Feature" {
             # Download the entire file to reference in tests
             $referenceFile = Join-Path $TestDrive "reference.txt"
             $resumeUri = Get-WebListenerUrl -Test 'Resume'
-            Invoke-RestMethod -uri $resumeUri -OutFile $referenceFile -ErrorAction Stop
+            Invoke-RestMethod -Uri $resumeUri -OutFile $referenceFile -ErrorAction Stop
             $referenceFileHash = Get-FileHash -Algorithm SHA256 -Path $referenceFile
             $referenceFileSize = Get-Item $referenceFile | Select-Object -ExpandProperty Length
         }
@@ -2926,11 +4154,16 @@ Describe "Invoke-RestMethod tests" -Tags "Feature" {
                 Should -Throw -ErrorId 'WebCmdletOutFileMissingException,Microsoft.PowerShell.Commands.InvokeRestMethodCommand'
         }
 
+        It "Invoke-RestMethod -Resume should fail if -OutFile folder" {
+            { Invoke-RestMethod -Resume -Uri $resumeUri -OutFile $TestDrive -ErrorAction Stop } |
+                Should -Throw -ErrorId 'WebCmdletResumeNotFilePathException,Microsoft.PowerShell.Commands.InvokeRestMethodCommand'
+        }
+
         It "Invoke-RestMethod -Resume Downloads the whole file when the file does not exist" {
             # ensure the file does not exist
             Remove-Item -Force -ErrorAction 'SilentlyContinue' -Path $outFile
 
-            Invoke-RestMethod -uri $resumeUri -OutFile $outFile -ResponseHeadersVariable 'Headers' -Resume
+            Invoke-RestMethod -Uri $resumeUri -OutFile $outFile -ResponseHeadersVariable 'Headers' -Resume
 
             $outFileHash = Get-FileHash -Algorithm SHA256 -Path $outFile
             $outFileHash.Hash | Should -BeExactly $referenceFileHash.Hash
@@ -2946,7 +4179,7 @@ Describe "Invoke-RestMethod tests" -Tags "Feature" {
             1..$largerFileSize | ForEach-Object { [Byte]$_ } | Set-Content -AsByteStream $outFile
             $largerFileSize = Get-Item $outFile | Select-Object -ExpandProperty Length
 
-            $response = Invoke-RestMethod -uri $resumeUri -OutFile $outFile -ResponseHeadersVariable 'Headers' -Resume
+            $response = Invoke-RestMethod -Uri $resumeUri -OutFile $outFile -ResponseHeadersVariable 'Headers' -Resume
 
             $outFileHash = Get-FileHash -Algorithm SHA256 -Path $outFile
             $outFileHash.Hash | Should -BeExactly $referenceFileHash.Hash
@@ -2963,7 +4196,7 @@ Describe "Invoke-RestMethod tests" -Tags "Feature" {
             $largerFileSize = Get-Item $outFile | Select-Object -ExpandProperty Length
 
             $uri = Get-WebListenerUrl -Test 'Resume' -TestValue 'NoResume'
-            $response = Invoke-RestMethod -uri $uri -OutFile $outFile -ResponseHeadersVariable 'Headers' -Resume
+            $response = Invoke-RestMethod -Uri $uri -OutFile $outFile -ResponseHeadersVariable 'Headers' -Resume
 
             $outFileHash = Get-FileHash -Algorithm SHA256 -Path $outFile
             $outFileHash.Hash | Should -BeExactly $referenceFileHash.Hash
@@ -2983,13 +4216,13 @@ Describe "Invoke-RestMethod tests" -Tags "Feature" {
             param($bytes)
             # Simulate partial download
             $uri = Get-WebListenerUrl -Test 'Resume' -TestValue "Bytes/$bytes"
-            $null = Invoke-RestMethod -uri $uri -OutFile $outFile
+            $null = Invoke-RestMethod -Uri $uri -OutFile $outFile
             Get-Item $outFile | Select-Object -ExpandProperty Length | Should -Be $bytes
 
-            $response = Invoke-RestMethod -uri $resumeUri -OutFile $outFile -ResponseHeadersVariable 'Headers' -Resume
+            $response = Invoke-RestMethod -Uri $resumeUri -OutFile $outFile -ResponseHeadersVariable 'Headers' -Resume
 
             $outFileHash = Get-FileHash -Algorithm SHA256 -Path $outFile
-            $outFileHash.Hash | Should BeExactly $referenceFileHash.Hash
+            $outFileHash.Hash | Should -BeExactly $referenceFileHash.Hash
             Get-Item $outFile | Select-Object -ExpandProperty Length | Should -Be $referenceFileSize
             $Headers.'X-WebListener-Has-Range'[0] | Should -BeExactly 'true'
             $Headers.'X-WebListener-Request-Range'[0] | Should -BeExactly "bytes=$bytes-"
@@ -2999,10 +4232,10 @@ Describe "Invoke-RestMethod tests" -Tags "Feature" {
         It "Invoke-RestMethod -Resume assumes the file was successfully completed when the local and remote file are the same size." {
             # Download the entire file
             $uri = Get-WebListenerUrl -Test 'Resume' -TestValue 'NoResume'
-            $null = Invoke-RestMethod -uri $uri -OutFile $outFile
+            $null = Invoke-RestMethod -Uri $uri -OutFile $outFile
             $fileSize = Get-Item $outFile | Select-Object -ExpandProperty Length
 
-            $response = Invoke-RestMethod -uri $resumeUri -OutFile $outFile -ResponseHeadersVariable 'Headers' -Resume
+            $response = Invoke-RestMethod -Uri $resumeUri -OutFile $outFile -ResponseHeadersVariable 'Headers' -Resume
 
             $outFileHash = Get-FileHash -Algorithm SHA256 -Path $outFile
             $outFileHash.Hash | Should -BeExactly $referenceFileHash.Hash
@@ -3038,12 +4271,50 @@ Describe "Invoke-RestMethod tests" -Tags "Feature" {
             $result.output.failureResponsesSent | Should -Be 1
             $result.output.sessionId | Should -BeExactly $sessionId
         }
+
+        It "Invoke-RestMethod respects the Retry-After header value in 429 status" {
+
+            $Query = @{
+                statusCode     = 429
+                reposnsephrase = 'Too Many Requests'
+                contenttype    = 'application/json'
+                body           = '{"message":"oops"}'
+                headers        = '{"Retry-After":"1"}'
+            }
+            $uri = Get-WebListenerUrl -Test 'Response' -Query $Query
+            $verboseFile = Join-Path $TestDrive -ChildPath verbose.txt
+            $result = Invoke-RestMethod -Uri $uri -MaximumRetryCount 1 -RetryIntervalSec 3 -SkipHttpErrorCheck -Verbose 4>$verbosefile
+
+            $verboseFile | Should -FileContentMatch 'Retrying after interval of 1 seconds. Status code for previous attempt: TooManyRequests'
+        }
+
+        It "Invoke-RestMethod ignores the Retry-After header value NOT in 429 status" {
+
+            $Query = @{
+                statusCode     = 409
+                reposnsephrase = 'Conflict'
+                contenttype    = 'application/json'
+                body           = '{"message":"oops"}'
+                headers        = '{"Retry-After":"1"}'
+            }
+            $uri = Get-WebListenerUrl -Test 'Response' -Query $Query
+            $verboseFile = Join-Path $TestDrive -ChildPath verbose.txt
+            $result = Invoke-RestMethod -Uri $uri -MaximumRetryCount 1 -RetryIntervalSec 3 -SkipHttpErrorCheck -Verbose 4>$verbosefile
+
+            $verboseFile | Should -FileContentMatch 'Retrying after interval of 3 seconds. Status code for previous attempt: Conflict'
+        }
     }
 }
 
-Describe "Validate Invoke-WebRequest and Invoke-RestMethod -InFile" -Tags "Feature" {
+Describe "Validate Invoke-WebRequest and Invoke-RestMethod -InFile" -Tags "Feature", "RequireAdminOnWindows" {
     BeforeAll {
+        $oldProgress = $ProgressPreference
+        $ProgressPreference = 'SilentlyContinue'
         $WebListener = Start-WebListener
+    }
+
+    AfterAll {
+        $ProgressPreference = $oldProgress
     }
 
     Context "InFile parameter negative tests" {
@@ -3052,9 +4323,15 @@ Describe "Validate Invoke-WebRequest and Invoke-RestMethod -InFile" -Tags "Featu
             $testCases = @(
                 #region INVOKE-WEBREQUEST
                 @{
+                    Name                          = 'Validate error for Invoke-WebRequest -InFile null'
+                    ScriptBlock                   = {Invoke-WebRequest -Uri $uri -Method Post -InFile $null}
+                    ExpectedFullyQualifiedErrorId = 'ParameterArgumentValidationError,Microsoft.PowerShell.Commands.InvokeWebRequestCommand'
+                }
+
+                @{
                     Name                          = 'Validate error for Invoke-WebRequest -InFile ""'
                     ScriptBlock                   = {Invoke-WebRequest -Uri $uri -Method Post -InFile ""}
-                    ExpectedFullyQualifiedErrorId = 'WebCmdletInFileNotFilePathException,Microsoft.PowerShell.Commands.InvokeWebRequestCommand'
+                    ExpectedFullyQualifiedErrorId = 'ParameterArgumentValidationError,Microsoft.PowerShell.Commands.InvokeWebRequestCommand'
                 }
 
                 @{
@@ -3064,29 +4341,47 @@ Describe "Validate Invoke-WebRequest and Invoke-RestMethod -InFile" -Tags "Featu
                 }
 
                 @{
-                    Name                          = "Validate error for Invoke-WebRequest -InFile  $TestDrive\content.txt"
-                    ScriptBlock                   = {Invoke-WebRequest -Uri $uri -Method Post -InFile  $TestDrive\content.txt}
+                    Name                          = "Validate error for Invoke-WebRequest -InFile $TestDrive\content.txt"
+                    ScriptBlock                   = {Invoke-WebRequest -Uri $uri -Method Post -InFile $TestDrive\content.txt}
                     ExpectedFullyQualifiedErrorId = 'PathNotFound,Microsoft.PowerShell.Commands.InvokeWebRequestCommand'
+                }
+
+                @{
+                    Name                          = "Validate error for Invoke-WebRequest -InFile $TestDrive"
+                    ScriptBlock                   = {Invoke-WebRequest -Uri $uri -Method Post -InFile $TestDrive}
+                    ExpectedFullyQualifiedErrorId = 'WebCmdletInFileNotFilePathException,Microsoft.PowerShell.Commands.InvokeWebRequestCommand'
                 }
                 #endregion
 
                 #region INVOKE-RESTMETHOD
                 @{
-                    Name                          = "Validate error for Invoke-RestMethod -InFile ''"
-                    ScriptBlock                   = {Invoke-RestMethod -Uri $uri -Method Post -InFile ''}
-                    ExpectedFullyQualifiedErrorId = 'WebCmdletInFileNotFilePathException,Microsoft.PowerShell.Commands.InvokeRestMethodCommand'
+                    Name                          = "Validate error for Invoke-RestMethod -InFile null"
+                    ScriptBlock                   = {Invoke-RestMethod -Uri $uri -Method Post -InFile $null}
+                    ExpectedFullyQualifiedErrorId = 'ParameterArgumentValidationError,Microsoft.PowerShell.Commands.InvokeRestMethodCommand'
                 }
 
                 @{
-                    Name                          = "Validate error for Invoke-RestMethod -InFile <null>"
+                    Name                          = "Validate error for Invoke-RestMethod -InFile ''"
+                    ScriptBlock                   = {Invoke-RestMethod -Uri $uri -Method Post -InFile ''}
+                    ExpectedFullyQualifiedErrorId = 'ParameterArgumentValidationError,Microsoft.PowerShell.Commands.InvokeRestMethodCommand'
+                }
+
+                @{
+                    Name                          = "Validate error for Invoke-RestMethod -InFile"
                     ScriptBlock                   = {Invoke-RestMethod -Uri $uri -Method Post -InFile}
                     ExpectedFullyQualifiedErrorId = 'MissingArgument,Microsoft.PowerShell.Commands.InvokeRestMethodCommand'
                 }
 
                 @{
-                    Name                          = "Validate error for Invoke-RestMethod -InFile  $TestDrive\content.txt"
+                    Name                          = "Validate error for Invoke-RestMethod -InFile $TestDrive\content.txt"
                     ScriptBlock                   = {Invoke-RestMethod -Uri $uri -Method Post -InFile $TestDrive\content.txt}
                     ExpectedFullyQualifiedErrorId = 'PathNotFound,Microsoft.PowerShell.Commands.InvokeRestMethodCommand'
+                }
+
+                @{
+                    Name                          = "Validate error for Invoke-RestMethod -InFile $TestDrive"
+                    ScriptBlock                   = {Invoke-RestMethod -Uri $uri -Method Post -InFile $TestDrive}
+                    ExpectedFullyQualifiedErrorId = 'WebCmdletInFileNotFilePathException,Microsoft.PowerShell.Commands.InvokeRestMethodCommand'
                 }
                 #endregion
             )
@@ -3121,7 +4416,7 @@ Describe "Validate Invoke-WebRequest and Invoke-RestMethod -InFile" -Tags "Featu
     }
 }
 
-Describe "Web cmdlets tests using the cmdlet's aliases" -Tags "CI" {
+Describe "Web cmdlets tests using the cmdlet's aliases" -Tags "CI", "RequireAdminOnWindows" {
     BeforeAll {
         $WebListener = Start-WebListener
     }
@@ -3132,7 +4427,7 @@ Describe "Web cmdlets tests using the cmdlet's aliases" -Tags "CI" {
             contenttype = 'text/plain'
         }
         $uri = Get-WebListenerUrl -Test 'Response' -Query $query
-        $result = iwr $uri
+        $result = Invoke-WebRequest $uri
         $result.StatusCode | Should -Be "200"
         $result.Content | Should -Be "hello"
     }
@@ -3143,8 +4438,316 @@ Describe "Web cmdlets tests using the cmdlet's aliases" -Tags "CI" {
             body        = @{Hello = "world"} | ConvertTo-Json -Compress
         }
         $uri = Get-WebListenerUrl -Test 'Response' -Query $query
-        $result = irm $uri
+        $result = Invoke-RestMethod $uri
         $result.Hello | Should -Be "world"
+    }
+
+    It "Web cmdlets ignore headers with null value" {
+        $query = @{
+            body        = "hello"
+            contenttype = 'text/plain'
+        }
+        $uri = Get-WebListenerUrl -Test 'Response' -Query $query
+
+        # Core throws if a header has null value.
+        # We ignore such headers so no exception is expected.
+        { Invoke-WebRequest -Uri $uri -Headers @{ "Location" = $null } } | Should -Not -Throw
+        { Invoke-WebRequest -Uri $uri -ContentType $null } | Should -Not -Throw
+        { Invoke-RestMethod -Uri $uri -Headers @{ "Location" = $null } } | Should -Not -Throw
+        { Invoke-RestMethod -Uri $uri -ContentType $null } | Should -Not -Throw
     }
 }
 
+Describe 'Invoke-WebRequest and Invoke-RestMethod support Cancellation through CTRL-C' -Tags "CI", "RequireAdminOnWindows" {
+    BeforeAll {
+        $oldProgress = $ProgressPreference
+        $ProgressPreference = 'SilentlyContinue'
+        $WebListener = Start-WebListener
+    }
+
+    AfterAll {
+        $ProgressPreference = $oldProgress
+    }
+
+    function RunWithCancellation {
+        param(
+            [string]$Command = 'Invoke-WebRequest',
+            [string]$Arguments = '',
+            [uri]$Uri,
+            [int]$DelayBeforeStopSimulationMs = 5000,
+            [switch]$WillComplete
+        )
+
+        $pwsh = [PowerShell]::Create()
+        $invoke = "`$result = $Command -Uri `"$Uri`" $Arguments"
+        $task = $pwsh.AddScript($invoke).InvokeAsync()
+        $delay = [System.Threading.Tasks.Task]::Delay($DelayBeforeStopSimulationMs)
+
+        # Simulate CTRL-C as soon as the timeout expires or the main task ends
+        $null = [System.Threading.Tasks.Task]::WaitAny($task, $delay)
+        $task.IsCompleted | Should -Be $WillComplete.ToBool()
+        $pwsh.Stop()
+
+        # The download stall is normally 30 seconds from the web listener based
+        # on the first slash separated parameter in the -TestValue provided to
+        # Get-WebListenerUrl -test Stall -TestValue duration/content-type.
+        Wait-UntilTrue { [bool]($Task.IsCompleted) } | Should -BeTrue
+        $result = $pwsh.Runspace.SessionStateProxy.GetVariable('result')
+        $pwsh.Dispose()
+        return $result
+    }
+
+    It 'Invoke-WebRequest: CTRL-C Cancels request before request headers received' {
+        $uri = Get-WebListenerUrl -test Delay -TestValue 30
+        RunWithCancellation -Uri $uri -DelayBeforeStopSimulationMs 1000
+    }
+
+    It 'Invoke-WebRequest: CTRL-C Cancels request after request headers received' {
+        $uri = Get-WebListenerUrl -test Stall -TestValue '30/application%2fjson'
+        RunWithCancellation -Uri $uri
+    }
+
+    It 'Invoke-WebRequest: HTTPS CTRL-C Cancels request after request headers' {
+        $uri = Get-WebListenerUrl -Https -Test Stall -TestValue '30/application%2fjson'
+        RunWithCancellation -Uri $uri -Arguments "-SkipCertificateCheck"
+    }
+
+    It 'Invoke-WebRequest: Brotli Compression CTRL-C Cancels request after request headers' {
+        $uri = Get-WebListenerUrl -Test StallBrotli -TestValue '30/application%2fjson'
+        RunWithCancellation -Uri $uri
+    }
+
+    It 'Invoke-WebRequest: Gzip Compression CTRL-C Cancels request after request headers' {
+        $uri = Get-WebListenerUrl -Test StallGzip -TestValue '30/application%2fjson'
+        RunWithCancellation -Uri $uri
+    }
+
+    It 'Invoke-WebRequest: Gzip Compression CTRL-C Cancels request after request headers with Content-Length' {
+        $uri = Get-WebListenerUrl -Test StallGzip -TestValue '30/application%2fjson' -Query @{ contentLength = $true }
+        RunWithCancellation -Uri $uri
+    }
+
+    It 'Invoke-WebRequest: Deflate Compression CTRL-C Cancels request after request headers' {
+        $uri = Get-WebListenerUrl -Test StallDeflate -TestValue '30/application%2fjson'
+        RunWithCancellation -Uri $uri
+    }
+
+    It 'Invoke-WebRequest: HTTPS with Brotli compression CTRL-C Cancels request after request headers' {
+        $uri = Get-WebListenerUrl -Https -Test StallBrotli -TestValue '30/application%2fjson'
+        RunWithCancellation -Uri $uri -Arguments '-SkipCertificateCheck'
+    }
+
+    It 'Invoke-WebRequest: HTTPS with Gzip compression CTRL-C Cancels request after request headers' {
+        $uri = Get-WebListenerUrl -Https -Test StallGzip -TestValue '30/application%2fjson'
+        RunWithCancellation -Uri $uri -Arguments '-SkipCertificateCheck'
+    }
+
+    It 'Invoke-WebRequest: HTTPS with Deflate compression CTRL-C Cancels request after request headers' {
+        $uri = Get-WebListenerUrl -Https -Test StallDeflate -TestValue '30/application%2fjson'
+        RunWithCancellation -Uri $uri -Arguments '-SkipCertificateCheck'
+    }
+
+    It 'Invoke-WebRequest: CTRL-C Cancels file download request after request headers received' {
+        $uri = Get-WebListenerUrl -Test Stall -TestValue '30'
+        $outFile = Join-Path $TestDrive "output.txt"
+        RunWithCancellation -Uri $uri -Arguments "-OutFile $outFile"
+        # No guarantee the file will be present since the D/L is interrupted
+        if (Test-Path -Path $outFile) {
+            Remove-Item -Path $outFile
+        }
+    }
+
+    It 'Invoke-WebRequest: CTRL-C after stalled file download completes gives entire file' {
+        $uri = Get-WebListenerUrl -test Stall -TestValue '1'
+        $outFile = Join-Path $TestDrive "output.txt"
+        RunWithCancellation -Uri $uri -Arguments "-OutFile $outFile" -WillComplete
+        Get-content -Path $outFile | should -be 'Hello worldHello world'
+        Remove-Item -Path $outFile
+    }
+
+    It 'Invoke-RestMethod: CTRL-C Cancels request before request headers received' {
+        $uri = Get-WebListenerUrl -test Delay -TestValue 30
+        RunWithCancellation -Command 'Invoke-RestMethod' -Uri $uri -DelayBeforeStopSimulationMs 1000
+    }
+
+    It 'Invoke-RestMethod: CTRL-C Cancels request after JSON request headers received' {
+        $uri = Get-WebListenerUrl -test Stall -TestValue '30/application%2fjson'
+        RunWithCancellation -Command 'Invoke-RestMethod' -Uri $uri
+    }
+
+    It 'Invoke-RestMethod: CTRL-C after stalled JSON download processes JSON response' {
+        $uri = Get-WebListenerUrl -test Stall -TestValue '1/application%2fjson'
+        $result = RunWithCancellation -Command 'Invoke-RestMethod' -Uri $uri -WillComplete
+        $result.name3 | should -be 'value3'
+    }
+
+    It 'Invoke-RestMethod: CTRL-C Cancels request after plain request headers received' {
+        $uri = Get-WebListenerUrl -test Stall -TestValue '30'
+        RunWithCancellation -Command 'Invoke-RestMethod' -Uri $uri
+    }
+
+    It 'Invoke-RestMethod: CTRL-C after stalled atom feed download processes atom response' {
+        $uri = Get-WebListenerUrl -test Stall -TestValue '1/application%2fxml'
+        $result = RunWithCancellation -Command 'Invoke-RestMethod' -Uri $uri -WillComplete
+        $result.title | should -be 'Atom-Powered Robots Run Amok'
+    }
+
+    It 'Invoke-RestMethod: CTRL-C Cancels request in XML atom processing' {
+        $uri = Get-WebListenerUrl -test Stall -TestValue '30/application%2fxml'
+        RunWithCancellation -Command 'Invoke-RestMethod' -Uri $uri
+    }
+}
+
+Describe "Web cmdlets Unix Sockets tests" -Tags "CI", "RequireAdminOnWindows" {
+    BeforeAll {
+        $isWin2016 = Test-IsWindows2016
+        $isWin2012 = Test-IsWinServer2012R2
+        $skipTests = $isWin2016 -or $isWin2012
+        Write-Verbose -Verbose -Message "IsWin2016: $isWin2016 - IsWin2012: $isWin2012 - SkipTests: $skipTests"
+        if ($skipTests){
+            return
+        }
+
+        try {
+            $unixSocket = Get-UnixSocketName -ErrorAction Stop
+            $WebListener = Start-UnixSocket $unixSocket -ErrorAction Stop
+        }
+        catch {
+            Write-Verbose -Verbose -Message "Exception: $_"
+            $WebListener = $null
+            $skipTests = $true
+        }
+    }
+
+    It "Execute Invoke-WebRequest with -UnixSocket" {
+        if ($skipTests) {
+            Set-ItResult -Skipped -Because "Unix sockets are not supported on this platform."
+            return
+        }
+
+        $uri = Get-UnixSocketUri
+        $result = Invoke-WebRequest $uri -UnixSocket $unixSocket
+        $result.StatusCode | Should -Be "200"
+        $result.Content | Should -Be "Hello World Unix Socket."
+    }
+
+    It "Execute Invoke-RestMethod with -UnixSocket" {
+        if ($skipTests) {
+            Set-ItResult -Skipped -Because "Unix sockets are not supported on this platform."
+            return
+        }
+
+        $uri = Get-UnixSocketUri
+        $result = Invoke-RestMethod  $uri -UnixSocket $unixSocket
+        $result | Should -Be "Hello World Unix Socket."
+    }
+}
+
+Describe 'Invoke-WebRequest and Invoke-RestMethod support OperationTimeoutSeconds' -Tags "CI", "RequireAdminOnWindows" {
+    BeforeAll {
+        $oldProgress = $ProgressPreference
+        $ProgressPreference = 'SilentlyContinue'
+        $WebListener = Start-WebListener
+    }
+
+    AfterAll {
+        $ProgressPreference = $oldProgress
+    }
+
+    function RunWithNetworkTimeout {
+        param(
+            [ValidateSet('Invoke-WebRequest', 'Invoke-RestMethod')]
+            [string]$Command = 'Invoke-WebRequest',
+            [string]$Arguments = '',
+            [uri]$Uri,
+            [int]$OperationTimeoutSeconds,
+            [switch]$WillTimeout
+        )
+
+        $invoke = "$Command -Uri `"$Uri`" $Arguments"
+        if ($PSBoundParameters.ContainsKey('OperationTimeoutSeconds')) {
+            $invoke = "$invoke -OperationTimeoutSeconds $OperationTimeoutSeconds"
+        }
+
+        $result = ExecuteWebCommand -command $invoke
+        if ($WillTimeout) {
+            $result.Error | Should -Not -BeNullOrEmpty
+            $fqErrorClass = if ($Command -eq 'Invoke-WebRequest') { 'InvokeWebRequestCommand'} else { 'InvokeRestMethodCommand'}
+            $result.Error.FullyQualifiedErrorId | Should -Be "OperationTimeoutReached,Microsoft.PowerShell.Commands.$fqErrorClass"
+            $result.Output | Should -BeNullOrEmpty
+        } else {
+            $result.Error | Should -BeNullOrEmpty
+            $result.Output | Should -Not -BeNullOrEmpty
+        }
+    }
+
+    It 'Invoke-WebRequest: OperationTimeoutSeconds does not cancel if stalls shorter than timeout but download takes longer than timeout' {
+        $uri = Get-WebListenerUrl -Test Stall -TestValue '2' -Query @{ chunks = 5 }
+        RunWithNetworkTimeout -Uri $uri -OperationTimeoutSeconds 4
+    }
+
+    It 'Invoke-WebRequest: OperationTimeoutSeconds cancels if stall lasts longer than OperationTimeoutSeconds value' {
+        $uri = Get-WebListenerUrl -Test Stall -TestValue 30
+        RunWithNetworkTimeout -Uri $uri -OperationTimeoutSeconds 3 -WillTimeout
+    }
+
+    It 'Invoke-WebRequest: OperationTimeoutSeconds cancels if stall lasts longer than OperationTimeoutSeconds value for HTTPS/gzip compression' {
+        $uri = Get-WebListenerUrl -Https -Test StallGzip -TestValue 30
+        RunWithNetworkTimeout -Uri $uri -OperationTimeoutSeconds 3 -WillTimeout -Arguments '-SkipCertificateCheck'
+    }
+
+    It 'Invoke-RestMethod: OperationTimeoutSeconds does not cancel if stalls shorter than timeout but download takes longer than timeout' {
+        $uri = Get-WebListenerUrl -Test Stall -TestValue '2' -Query @{ chunks = 5 }
+        RunWithNetworkTimeout -Command Invoke-RestMethod -Uri $uri -OperationTimeoutSeconds 4
+    }
+
+    It 'Invoke-RestMethod: OperationTimeoutSeconds cancels if stall lasts longer than OperationTimeoutSeconds value' {
+        $uri = Get-WebListenerUrl -Test Stall -TestValue 30
+        RunWithNetworkTimeout -Command Invoke-RestMethod -Uri $uri -OperationTimeoutSeconds 2 -WillTimeout
+    }
+
+    It 'Invoke-RestMethod: OperationTimeoutSeconds cancels when doing XML atom processing' {
+        $uri = Get-WebListenerUrl -Test Stall -TestValue '30/application%2fxml'
+        RunWithNetworkTimeout -Command Invoke-RestMethod -Uri $uri -OperationTimeoutSeconds 2 -WillTimeout
+    }
+
+    It 'Invoke-RestMethod: OperationTimeoutSeconds cancels when doing JSON processing' {
+        $uri = Get-WebListenerUrl -Test Stall -TestValue '30/application%2fjson'
+        RunWithNetworkTimeout -Command Invoke-RestMethod -Uri $uri -OperationTimeoutSeconds 2 -WillTimeout
+    }
+
+    It 'Invoke-RestMethod: OperationTimeoutSeconds cancels when doing XML atom processing for HTTPS/gzip compression' {
+        $uri = Get-WebListenerUrl -Https -Test StallGzip -TestValue 30/application%2fXML
+        RunWithNetworkTimeout -Command Invoke-RestMethod -Uri $uri -OperationTimeoutSeconds 2 -WillTimeout -Arguments '-SkipCertificateCheck'
+    }
+}
+
+Describe "Invoke-RestMethod should run in the default synchronization context (threadpool)" -Tag "CI" {
+    BeforeAll {
+        $oldProgress = $ProgressPreference
+        $ProgressPreference = 'SilentlyContinue'
+        $WebListener = Start-WebListener
+    }
+
+    AfterAll {
+        $ProgressPreference = $oldProgress
+    }
+
+    It "Invoke-RestMethod works after constructing a WindowsForm object" -Skip:(!$IsWindows) {
+        $env:URI_TO_TEST = Get-WebListenerUrl -Test 'Get'
+        $irmResult = $null
+        try {
+            $pwsh = Join-Path $PSHOME "pwsh"
+            $irmResult = & $pwsh -NoProfile {
+                Add-Type -AssemblyName System.Windows.Forms
+                $null = New-Object System.Windows.Forms.Form
+                Invoke-RestMethod $env:URI_TO_TEST
+            }
+        } finally {
+            $env:URI_TO_TEST = $null
+        }
+
+        # Simply making it this far is good enough to ensure we didn't hit a deadlock
+        $irmResult | Should -Not -BeNullOrEmpty
+    }
+}

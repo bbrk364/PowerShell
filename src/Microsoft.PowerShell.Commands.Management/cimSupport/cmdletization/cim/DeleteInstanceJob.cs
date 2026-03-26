@@ -1,16 +1,18 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
+
 using Microsoft.Management.Infrastructure;
+
 using Dbg = System.Management.Automation.Diagnostics;
 
 namespace Microsoft.PowerShell.Cmdletization.Cim
 {
     /// <summary>
-    /// Job wrapping invocation of a DeleteInstance intrinsic CIM method
+    /// Job wrapping invocation of a DeleteInstance intrinsic CIM method.
     /// </summary>
-    internal class DeleteInstanceJob : MethodInvocationJobBase<object>
+    internal sealed class DeleteInstanceJob : MethodInvocationJobBase<object>
     {
         private readonly CimInstance _objectToDelete;
 

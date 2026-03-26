@@ -1,19 +1,20 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
-using System.IO;
-using System.Reflection;
-using System.ComponentModel;
-using System.Runtime.InteropServices;
-using System.Runtime.CompilerServices;
-using System.Management.Automation;
-using System.Management.Automation.Provider;
-using System.Xml;
 using System.Collections;
 using System.Collections.Generic;
-using System.Management.Automation.Runspaces;
+using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
+using System.Management.Automation;
+using System.Management.Automation.Provider;
+using System.Management.Automation.Runspaces;
+using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Xml;
+
 using Dbg = System.Management.Automation;
 
 namespace Microsoft.WSMan.Management
@@ -22,7 +23,7 @@ namespace Microsoft.WSMan.Management
 
     /// <summary>
     /// Common base class for all WSMan cmdlets that
-    /// take Authentication, CertificateThumbprint and Credential parameters
+    /// take Authentication, CertificateThumbprint and Credential parameters.
     /// </summary>
     public class AuthenticatingWSManCommand : PSCmdlet
     {
@@ -37,13 +38,18 @@ namespace Microsoft.WSMan.Management
         [Alias("cred", "c")]
         public virtual PSCredential Credential
         {
-            get { return credential; }
+            get
+            {
+                return credential;
+            }
+
             set
             {
                 credential = value;
                 ValidateSpecifiedAuthentication();
             }
         }
+
         private PSCredential credential;
 
         /// <summary>
@@ -66,13 +72,18 @@ namespace Microsoft.WSMan.Management
         [Alias("auth", "am")]
         public virtual AuthenticationMechanism Authentication
         {
-            get { return authentication; }
+            get
+            {
+                return authentication;
+            }
+
             set
             {
                 authentication = value;
                 ValidateSpecifiedAuthentication();
             }
         }
+
         private AuthenticationMechanism authentication = AuthenticationMechanism.Default;
 
         /// <summary>
@@ -83,13 +94,18 @@ namespace Microsoft.WSMan.Management
         [ValidateNotNullOrEmpty]
         public virtual string CertificateThumbprint
         {
-            get { return thumbPrint; }
+            get
+            {
+                return thumbPrint;
+            }
+
             set
             {
                 thumbPrint = value;
                 ValidateSpecifiedAuthentication();
             }
         }
+
         private string thumbPrint = null;
 
         internal void ValidateSpecifiedAuthentication()
@@ -105,12 +121,11 @@ namespace Microsoft.WSMan.Management
 
     #region Connect-WsMan
     /// <summary>
-    /// connect wsman cmdlet
+    /// Connect wsman cmdlet.
     /// </summary>
-    [Cmdlet(VerbsCommunications.Connect, "WSMan", DefaultParameterSetName = "ComputerName", HelpUri = "https://go.microsoft.com/fwlink/?LinkId=141437")]
+    [Cmdlet(VerbsCommunications.Connect, "WSMan", DefaultParameterSetName = "ComputerName", HelpUri = "https://go.microsoft.com/fwlink/?LinkId=2096841")]
     public class ConnectWSManCommand : AuthenticatingWSManCommand
     {
-
         #region Parameters
 
         /// <summary>
@@ -119,12 +134,14 @@ namespace Microsoft.WSMan.Management
         /// </summary>
         [Parameter(ParameterSetName = "ComputerName")]
         [ValidateNotNullOrEmpty]
-        public String ApplicationName
+        public string ApplicationName
         {
             get { return applicationname; }
+
             set { applicationname = value; }
         }
-        private String applicationname = null;
+
+        private string applicationname = null;
 
         /// <summary>
         /// The following is the definition of the input parameter "ComputerName".
@@ -134,19 +151,24 @@ namespace Microsoft.WSMan.Management
         /// </summary>
         [Parameter(ParameterSetName = "ComputerName", Position = 0)]
         [Alias("cn")]
-        public String ComputerName
+        public string ComputerName
         {
-            get { return computername; }
+            get
+            {
+                return computername;
+            }
+
             set
             {
                 computername = value;
-                if ((string.IsNullOrEmpty(computername)) || (computername.Equals(".", StringComparison.CurrentCultureIgnoreCase)))
+                if ((string.IsNullOrEmpty(computername)) || (computername.Equals(".", StringComparison.OrdinalIgnoreCase)))
                 {
                     computername = "localhost";
                 }
             }
         }
-        private String computername = null;
+
+        private string computername = null;
 
         /// <summary>
         /// The following is the definition of the input parameter "ConnectionURI".
@@ -160,8 +182,10 @@ namespace Microsoft.WSMan.Management
         public Uri ConnectionURI
         {
             get { return connectionuri; }
+
             set { connectionuri = value; }
         }
+
         private Uri connectionuri;
 
         /// <summary>
@@ -176,8 +200,10 @@ namespace Microsoft.WSMan.Management
         public Hashtable OptionSet
         {
             get { return optionset; }
+
             set { optionset = value; }
         }
+
         private Hashtable optionset;
 
         /// <summary>
@@ -187,18 +213,20 @@ namespace Microsoft.WSMan.Management
         [Parameter]
         [ValidateNotNullOrEmpty]
         [Parameter(ParameterSetName = "ComputerName")]
-        [ValidateRange(1, Int32.MaxValue)]
-        public Int32 Port
+        [ValidateRange(1, int.MaxValue)]
+        public int Port
         {
             get { return port; }
+
             set { port = value; }
         }
-        private Int32 port = 0;
+
+        private int port = 0;
 
         /// <summary>
         /// The following is the definition of the input parameter "SessionOption".
         /// Defines a set of extended options for the WSMan session.  This hashtable can
-        /// be created using New-WSManSessionOption
+        /// be created using New-WSManSessionOption.
         /// </summary>
         [Parameter]
         [ValidateNotNullOrEmpty]
@@ -207,8 +235,10 @@ namespace Microsoft.WSMan.Management
         public SessionOption SessionOption
         {
             get { return sessionoption; }
+
             set { sessionoption = value; }
         }
+
         private SessionOption sessionoption;
 
         /// <summary>
@@ -222,8 +252,10 @@ namespace Microsoft.WSMan.Management
         public SwitchParameter UseSSL
         {
             get { return usessl; }
+
             set { usessl = value; }
         }
+
         private SwitchParameter usessl;
 
         #endregion
@@ -233,15 +265,14 @@ namespace Microsoft.WSMan.Management
         /// </summary>
         protected override void BeginProcessing()
         {
-
             WSManHelper helper = new WSManHelper(this);
             if (connectionuri != null)
             {
                 try
                 {
-                    //always in the format http://server:port/applicationname
-                    string[] constrsplit = connectionuri.OriginalString.Split(new string[] { ":" + port + "/" + applicationname }, StringSplitOptions.None);
-                    string[] constrsplit1 = constrsplit[0].Split(new string[] { "//" }, StringSplitOptions.None);
+                    // always in the format http://server:port/applicationname
+                    string[] constrsplit = connectionuri.OriginalString.Split(":" + port + "/" + applicationname, StringSplitOptions.None);
+                    string[] constrsplit1 = constrsplit[0].Split("//", StringSplitOptions.None);
                     computername = constrsplit1[1].Trim();
                 }
                 catch (IndexOutOfRangeException)
@@ -249,30 +280,27 @@ namespace Microsoft.WSMan.Management
                     helper.AssertError(helper.GetResourceMsgFromResourcetext("NotProperURI"), false, connectionuri);
                 }
             }
-            string crtComputerName = computername;
-            if (crtComputerName == null)
-            {
-                crtComputerName = "localhost";
-            }
-            if (this.SessionState.Path.CurrentProviderLocation(WSManStringLiterals.rootpath).Path.StartsWith(this.SessionState.Drive.Current.Name + ":" + WSManStringLiterals.DefaultPathSeparator + crtComputerName, StringComparison.CurrentCultureIgnoreCase))
+
+            string crtComputerName = computername ?? "localhost";
+
+            if (this.SessionState.Path.CurrentProviderLocation(WSManStringLiterals.rootpath).Path.StartsWith(this.SessionState.Drive.Current.Name + ":" + WSManStringLiterals.DefaultPathSeparator + crtComputerName, StringComparison.OrdinalIgnoreCase))
             {
                 helper.AssertError(helper.GetResourceMsgFromResourcetext("ConnectFailure"), false, computername);
             }
-            helper.CreateWsManConnection(ParameterSetName, connectionuri, port, computername, applicationname, usessl.IsPresent, Authentication, sessionoption, Credential, CertificateThumbprint);
-        }//End BeginProcessing()
 
-    }//end class
+            helper.CreateWsManConnection(ParameterSetName, connectionuri, port, computername, applicationname, usessl.IsPresent, Authentication, sessionoption, Credential, CertificateThumbprint);
+        }
+    }
     #endregion
 
-    # region Disconnect-WSMAN
+    #region Disconnect-WSMAN
     /// <summary>
     /// The following is the definition of the input parameter "ComputerName".
     /// Executes the management operation on the specified computer(s). The default
     /// is the local computer. Type the fully qualified domain name, NETBIOS name or
     /// IP address to indicate the remote host(s)
     /// </summary>
-
-    [Cmdlet(VerbsCommunications.Disconnect, "WSMan", HelpUri = "https://go.microsoft.com/fwlink/?LinkId=141439")]
+    [Cmdlet(VerbsCommunications.Disconnect, "WSMan", HelpUri = "https://go.microsoft.com/fwlink/?LinkId=2096839")]
     public class DisconnectWSManCommand : PSCmdlet, IDisposable
     {
         /// <summary>
@@ -282,35 +310,39 @@ namespace Microsoft.WSMan.Management
         /// IP address to indicate the remote host(s)
         /// </summary>
         [Parameter(Position = 0)]
-        public String ComputerName
+        public string ComputerName
         {
-            get { return computername; }
+            get
+            {
+                return computername;
+            }
+
             set
             {
-
                 computername = value;
-                if ((string.IsNullOrEmpty(computername)) || (computername.Equals(".", StringComparison.CurrentCultureIgnoreCase)))
+                if ((string.IsNullOrEmpty(computername)) || (computername.Equals(".", StringComparison.OrdinalIgnoreCase)))
                 {
                     computername = "localhost";
                 }
             }
         }
-        private String computername = null;
+
+        private string computername = null;
 
         #region IDisposable Members
 
         /// <summary>
-        /// public dispose method
+        /// Public dispose method.
         /// </summary>
         public
         void
         Dispose()
         {
-            //CleanUp();
+            // CleanUp();
             GC.SuppressFinalize(this);
         }
         /// <summary>
-        /// public dispose method
+        /// Public dispose method.
         /// </summary>
         public
         void
@@ -318,7 +350,6 @@ namespace Microsoft.WSMan.Management
         {
             session = null;
             this.Dispose();
-
         }
 
         #endregion IDisposable Members
@@ -329,15 +360,14 @@ namespace Microsoft.WSMan.Management
         protected override void BeginProcessing()
         {
             WSManHelper helper = new WSManHelper(this);
-            if (computername == null)
-            {
-                computername = "localhost";
-            }
-            if (this.SessionState.Path.CurrentProviderLocation(WSManStringLiterals.rootpath).Path.StartsWith(WSManStringLiterals.rootpath + ":" + WSManStringLiterals.DefaultPathSeparator + computername, StringComparison.CurrentCultureIgnoreCase))
+            computername ??= "localhost";
+
+            if (this.SessionState.Path.CurrentProviderLocation(WSManStringLiterals.rootpath).Path.StartsWith(WSManStringLiterals.rootpath + ":" + WSManStringLiterals.DefaultPathSeparator + computername, StringComparison.OrdinalIgnoreCase))
             {
                 helper.AssertError(helper.GetResourceMsgFromResourcetext("DisconnectFailure"), false, computername);
             }
-            if (computername.Equals("localhost", StringComparison.CurrentCultureIgnoreCase))
+
+            if (computername.Equals("localhost", StringComparison.OrdinalIgnoreCase))
             {
                 helper.AssertError(helper.GetResourceMsgFromResourcetext("LocalHost"), false, computername);
             }
@@ -351,8 +381,7 @@ namespace Microsoft.WSMan.Management
             {
                 helper.AssertError(helper.GetResourceMsgFromResourcetext("InvalidComputerName"), false, computername);
             }
-        }//End BeginProcessing()
-
-    }//End Class
+        }
+    }
     #endregion Disconnect-WSMAN
 }

@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Globalization;
@@ -28,15 +28,12 @@ namespace System.Management.Automation
         {
             Diagnostics.Assert(s != null, "caller to verify argument is not null");
 
-            if (times < 0)
-            {
-                // TODO: this should be a runtime error.
-                throw new ArgumentOutOfRangeException("times");
-            }
+            // TODO: this should be a runtime error.
+            ArgumentOutOfRangeException.ThrowIfNegative(times);
 
             if (times == 0 || s.Length == 0)
             {
-                return String.Empty;
+                return string.Empty;
             }
 
             var context = LocalPipeline.GetExecutionContextFromTLS();
@@ -53,12 +50,16 @@ namespace System.Management.Automation
                 return new string(s[0], times);
             }
 
-            // Convert the string to a char array, use the array multiplication code,
-            // then construct a new string from the resulting char array.  This uses
-            // extra memory compared to the naive algorithm, but is faster (measured
-            // against a V2 CLR, should be measured against V4 as the StringBuilder
-            // implementation changed.)
-            return new string(ArrayOps.Multiply(s.ToCharArray(), (uint)times));
+            return string.Create(s.Length * times, (s, times), (dst, args) =>
+                {
+                    ReadOnlySpan<char> src = args.s.AsSpan();
+                    int length = src.Length;
+                    for (int i = 0; i < args.times; i++)
+                    {
+                        src.CopyTo(dst);
+                        dst = dst.Slice(length);
+                    }
+                });
         }
 
         internal static string FormatOperator(string formatString, object formatArgs)
@@ -84,7 +85,7 @@ namespace System.Management.Automation
         /// StringComparison.InvariantCulture is not in CoreCLR, so we need to use
         ///    CultureInfo.InvariantCulture.CompareInfo.Compare(string, string, CompareOptions)
         /// to substitute
-        ///    String.Compare(string, string, StringComparison)
+        ///    string.Compare(string, string, StringComparison)
         /// </summary>
         internal static int Compare(string strA, string strB, CultureInfo culture, CompareOptions option)
         {
@@ -96,7 +97,7 @@ namespace System.Management.Automation
         /// StringComparison.InvariantCulture is not in CoreCLR, so we need to use
         ///    CultureInfo.InvariantCulture.CompareInfo.Compare(string, string, CompareOptions) == 0
         /// to substitute
-        ///    String.Equals(string, string, StringComparison)
+        ///    string.Equals(string, string, StringComparison)
         /// </summary>
         internal static bool Equals(string strA, string strB, CultureInfo culture, CompareOptions option)
         {

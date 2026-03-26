@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Globalization;
@@ -7,12 +7,12 @@ using System.Management.Automation.SecurityAccountsManager.Native;
 namespace System.Management.Automation.SecurityAccountsManager
 {
     /// <summary>
-    /// Contains utility functions for formatting localizable strings
+    /// Contains utility functions for formatting localizable strings.
     /// </summary>
     internal class StringUtil
     {
         /// <summary>
-        /// Private constructor to precent auto-generation of a default constructor with greater accessability.
+        /// Private constructor to present auto-generation of a default constructor with greater accessibility.
         /// </summary>
         private StringUtil()
         {
@@ -38,6 +38,7 @@ namespace System.Management.Automation.SecurityAccountsManager
         {
             return string.Format(CultureInfo.CurrentCulture, fmt, p0);
         }
+
         internal static string Format(string fmt, int p0)
         {
             return string.Format(CultureInfo.CurrentCulture, fmt, p0);

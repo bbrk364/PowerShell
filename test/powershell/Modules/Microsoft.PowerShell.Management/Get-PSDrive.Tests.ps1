@@ -1,4 +1,4 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 Describe "Get-PSDrive" -Tags "CI" {
 
@@ -55,5 +55,62 @@ Describe "Get-PSDrive" -Tags "CI" {
     It "Should be able to determine the amount of Used space of a drive" {
         $dInfo = Get-PSDrive TESTDRIVE
         $dInfo.Used -ge 0 | Should -BeTrue
+    }
+}
+
+Describe "Temp: drive" -Tag Feature {
+    It "TEMP: drive exists" {
+        $res = Get-PSDrive Temp
+        $res.Name | Should -BeExactly "Temp"
+        $res.Root | Should -BeExactly ([System.IO.Path]::GetTempPath())
+    }
+}
+
+Describe "Get-PSDrive for network path" -Tags "CI","RequireAdminOnWindows" {
+
+    It 'Check P/Invoke GetDosDevice/QueryDosDevice' -Skip:(-not $IsWindows) {
+        $UsedDrives  = Get-PSDrive | Select-Object -ExpandProperty Name
+        $PSDriveName = 'D'..'Z' | Where-Object -FilterScript {$_ -notin $UsedDrives} | Get-Random
+
+        subst "$($PSDriveName):" \\localhost\c$\Windows
+
+        $drive = Get-PSDrive $PSDriveName
+        $drive.DisplayRoot | Should -BeExactly '\\localhost\c$\Windows'
+        subst "$($PSDriveName):" /D
+    }
+
+    It 'Check P/Invoke for WNetGetConnection with small buffer: <SmallBuffer>' -Skip:(-not $IsWindows) -TestCases @(
+        @{ SmallBuffer = $false }
+        @{ SmallBuffer = $true }
+    ) {
+        param ($SmallBuffer)
+
+        $UsedDrives  = Get-PSDrive | Select-Object -ExpandProperty Name
+        $PSDriveName = 'D'..'Z' | Where-Object -FilterScript {$_ -notin $UsedDrives} | Get-Random
+
+        $drive = New-PSDrive -Name $PSDriveName -PSProvider FileSystem -Root \\localhost\c$\Windows -Persist
+        try {
+            if ($SmallBuffer) {
+                [System.Management.Automation.Internal.InternalTestHooks]::SetTestHook('WNetGetConnectionBufferSize', 4)
+            }
+
+            # The result is cached in the current instance, use a new
+            # PowerShell instance to test out WNetGetConnection code.
+            $ps = [PowerShell]::Create()
+            $actual = $ps.AddCommand('Get-PSDrive').AddParameter('Name', $PSDriveName).Invoke()
+            if ($ps.HadErrors) {
+                throw $ps.Streams.Error[0]
+            }
+
+            $actual.Name | Should -BeExactly $PSDriveName
+            $actual.DisplayRoot | Should -BeExactly '\\localhost\c$\Windows'
+        }
+        finally {
+            $drive | Remove-PSDrive
+
+            if ($SmallBuffer) {
+                [System.Management.Automation.Internal.InternalTestHooks]::SetTestHook('WNetGetConnectionBufferSize', -1)
+            }
+        }
     }
 }

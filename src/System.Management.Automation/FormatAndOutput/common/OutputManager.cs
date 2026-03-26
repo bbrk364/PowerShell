@@ -1,26 +1,26 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
-using System.Collections.Specialized;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Management.Automation;
 using System.Management.Automation.Internal;
 
 namespace Microsoft.PowerShell.Commands.Internal.Format
 {
     /// <summary>
-    /// inner command class used to manage the sub pipelines
+    /// Inner command class used to manage the sub pipelines
     /// it determines which command should process the incoming objects
     /// based on the object type
     ///
-    /// This class is the implementation class for out-console and out-file
+    /// This class is the implementation class for out-console and out-file.
     /// </summary>
     internal sealed class OutputManagerInner : ImplementationCommandBase
     {
         #region tracer
         [TraceSource("format_out_OutputManagerInner", "OutputManagerInner")]
-        internal static PSTraceSource tracer = PSTraceSource.GetTracer("format_out_OutputManagerInner", "OutputManagerInner");
+        internal static readonly PSTraceSource tracer = PSTraceSource.GetTracer("format_out_OutputManagerInner", "OutputManagerInner");
         #endregion tracer
 
         #region LineOutput
@@ -44,8 +44,8 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         #endregion
 
         /// <summary>
-        /// handler for processing each object coming through the pipeline
-        /// it forwards the call to the pipeline manager object
+        /// Handler for processing each object coming through the pipeline
+        /// it forwards the call to the pipeline manager object.
         /// </summary>
         internal override void ProcessRecord()
         {
@@ -86,30 +86,26 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         }
 
         /// <summary>
-        /// handler for processing shut down. It forwards the call to the
-        /// pipeline manager object
+        /// Handler for processing shut down. It forwards the call to the
+        /// pipeline manager object.
         /// </summary>
         internal override void EndProcessing()
         {
             // shut down only if we ever processed a pipeline object
-            if (_mgr != null)
-                _mgr.ShutDown();
+            _mgr?.ShutDown();
         }
 
         internal override void StopProcessing()
         {
             lock (_syncRoot)
             {
-                if (_lo != null)
-                {
-                    _lo.StopProcessing();
-                }
+                _lo?.StopProcessing();
                 _isStopped = true;
             }
         }
 
         /// <summary>
-        /// make sure we dispose of the sub pipeline manager
+        /// Make sure we dispose of the sub pipeline manager.
         /// </summary>
         protected override void InternalDispose()
         {
@@ -122,46 +118,45 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         }
 
         /// <summary>
-        /// instance of the pipeline manager object
+        /// Instance of the pipeline manager object.
         /// </summary>
         private SubPipelineManager _mgr = null;
 
         /// <summary>
-        /// True if the cmdlet has been stopped
+        /// True if the cmdlet has been stopped.
         /// </summary>
         private bool _isStopped = false;
 
         /// <summary>
-        /// Lock object
+        /// Lock object.
         /// </summary>
-        private object _syncRoot = new object();
+        private readonly object _syncRoot = new object();
     }
 
     /// <summary>
-    /// object managing the sub-pipelines that execute
+    /// Object managing the sub-pipelines that execute
     /// different output commands (or different instances of the
     /// default one)
     /// </summary>
     internal sealed class SubPipelineManager : IDisposable
     {
         /// <summary>
-        /// entry defining a command to be run in a separate pipeline
+        /// Entry defining a command to be run in a separate pipeline.
         /// </summary>
         private sealed class CommandEntry : IDisposable
         {
             /// <summary>
-            /// instance of pipeline wrapper object
+            /// Instance of pipeline wrapper object.
             /// </summary>
             internal CommandWrapper command = new CommandWrapper();
 
             /// <summary>
-            ///
             /// </summary>
-            /// <param name="typeName">ETS type name of the object to process</param>
-            /// <returns>true if there is a match</returns>
+            /// <param name="typeName">ETS type name of the object to process.</param>
+            /// <returns>True if there is a match.</returns>
             internal bool AppliesToType(string typeName)
             {
-                foreach (String s in _applicableTypes)
+                foreach (string s in _applicableTypes)
                 {
                     if (string.Equals(s, typeName, StringComparison.OrdinalIgnoreCase))
                         return true;
@@ -171,7 +166,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
             }
 
             /// <summary>
-            /// just dispose of the inner command wrapper
+            /// Just dispose of the inner command wrapper.
             /// </summary>
             public void Dispose()
             {
@@ -183,16 +178,16 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
             }
 
             /// <summary>
-            /// ordered list of ETS type names this object is handling
+            /// Ordered list of ETS type names this object is handling.
             /// </summary>
-            private StringCollection _applicableTypes = new StringCollection();
+            private readonly StringCollection _applicableTypes = new StringCollection();
         }
 
         /// <summary>
-        /// Initialize the pipeline manager before any object is processed
+        /// Initialize the pipeline manager before any object is processed.
         /// </summary>
-        /// <param name="lineOutput">LineOutput to pass to the child pipelines</param>
-        /// <param name="context">ExecutionContext to pass to the child pipelines</param>
+        /// <param name="lineOutput">LineOutput to pass to the child pipelines.</param>
+        /// <param name="context">ExecutionContext to pass to the child pipelines.</param>
         internal void Initialize(LineOutput lineOutput, ExecutionContext context)
         {
             _lo = lineOutput;
@@ -200,9 +195,9 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         }
 
         /// <summary>
-        /// hard wired registration helper for specialized types
+        /// Hard wired registration helper for specialized types.
         /// </summary>
-        /// <param name="context">ExecutionContext to pass to the child pipeline</param>
+        /// <param name="context">ExecutionContext to pass to the child pipeline.</param>
         private void InitializeCommandsHardWired(ExecutionContext context)
         {
             // set the default handler
@@ -213,10 +208,10 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
             additional types. Adding a handler here would cause a new sub-pipeline
             to be created.
 
-            For example, the following line would add a new handler named "out-foobar"
-            to be invoked when the incoming object type is "MyNamespace.Whatever.FooBar"
+            For example, the following line would add a new handler named "out-example"
+            to be invoked when the incoming object type is "MyNamespace.Whatever.Example"
 
-            RegisterCommandForTypes (context, "out-foobar", new string[] { "MyNamespace.Whatever.FooBar" });
+            RegisterCommandForTypes (context, "out-example", new string[] { "MyNamespace.Whatever.Example" });
 
             And the method can be like this:
             private void RegisterCommandForTypes (ExecutionContext context, string commandName, Type commandType, string[] types)
@@ -236,11 +231,11 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         }
 
         /// <summary>
-        /// register the default output command
+        /// Register the default output command.
         /// </summary>
-        /// <param name="context">ExecutionContext to pass to the child pipeline</param>
-        /// <param name="commandName">name of the command to execute</param>
-        /// <param name="commandType">Type of the command to execute</param>
+        /// <param name="context">ExecutionContext to pass to the child pipeline.</param>
+        /// <param name="commandName">Name of the command to execute.</param>
+        /// <param name="commandType">Type of the command to execute.</param>
         private void RegisterCommandDefault(ExecutionContext context, string commandName, Type commandType)
         {
             CommandEntry ce = new CommandEntry();
@@ -251,9 +246,9 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         }
 
         /// <summary>
-        /// process an incoming parent pipeline object
+        /// Process an incoming parent pipeline object.
         /// </summary>
-        /// <param name="so">pipeline object to process</param>
+        /// <param name="so">Pipeline object to process.</param>
         internal void Process(PSObject so)
         {
             // select which pipeline should handle the object
@@ -266,7 +261,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         }
 
         /// <summary>
-        /// shut down the child pipelines
+        /// Shut down the child pipelines.
         /// </summary>
         internal void ShutDown()
         {
@@ -299,11 +294,11 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         }
 
         /// <summary>
-        /// it selects the applicable out command (it can be the default one)
-        /// to process the current pipeline object
+        /// It selects the applicable out command (it can be the default one)
+        /// to process the current pipeline object.
         /// </summary>
-        /// <param name="so">pipeline object to be processed</param>
-        /// <returns>applicable command entry</returns>
+        /// <param name="so">Pipeline object to be processed.</param>
+        /// <returns>Applicable command entry.</returns>
         private CommandEntry GetActiveCommandEntry(PSObject so)
         {
             string typeName = PSObjectHelper.PSObjectIsOfExactType(so.InternalTypeNames);
@@ -320,12 +315,12 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         private LineOutput _lo = null;
 
         /// <summary>
-        /// list of command entries, each with a set of applicable types
+        /// List of command entries, each with a set of applicable types.
         /// </summary>
-        private List<CommandEntry> _commandEntryList = new List<CommandEntry>();
+        private readonly List<CommandEntry> _commandEntryList = new List<CommandEntry>();
 
         /// <summary>
-        /// default command entry to be executed when all type matches fail
+        /// Default command entry to be executed when all type matches fail.
         /// </summary>
         private CommandEntry _defaultCommandEntry = new CommandEntry();
     }

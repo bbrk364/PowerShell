@@ -1,14 +1,25 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
+
+Import-Module HelpersCommon
+
 try
 {
     # Skip all tests on non-windows and non-PowerShellCore and non-elevated platforms.
-    $originalDefaultParameterValues = $PSDefaultParameterValues.Clone()
     $originalWarningPreference = $WarningPreference
     $WarningPreference = "SilentlyContinue"
-    $IsNotSkipped = ($IsWindows -and $IsCoreCLR -and (Test-IsElevated))
-    $PSDefaultParameterValues["it:skip"] = !$IsNotSkipped
+    # Skip all tests if can't write to $PSHOME as Register-PSSessionConfiguration writes to $PSHOME
+    # or if the processor architecture is Arm64
+    $IsNotSkipped = (
+        $IsWindows -and
+        $IsCoreCLR -and
+        (Test-IsElevated) -and
+        (Test-CanWriteToPsHome) -and
+        -not (Test-IsWindowsArm64) -and
+        -not (Test-IsWinWow64)
+    )
 
+    Push-DefaultParameterValueStack @{ "it:skip" = ! $IsNotSkipped }
     #
     # TODO: Enable-PSRemoting should be performed at a higher set up for all tests.
     # Tests whether PowerShell remoting is enabled for this instance of PowerShell.
@@ -17,7 +28,7 @@ try
     #
     if ($IsNotSkipped)
     {
-        $endpointName = "PowerShell.$($psversiontable.GitCommitId)"
+        $endpointName = "PowerShell.$($PSVersionTable.GitCommitId)"
 
         $matchedEndpoint = Get-PSSessionConfiguration $endpointName -ErrorAction SilentlyContinue
 
@@ -53,6 +64,7 @@ try
 
                 $result.MaxShells | Should -Be 40
                 $result.IdleTimeoutms | Should -Be 3600000
+                $result.UseSharedProcess | Should -Be 'False'
             }
         }
         Describe "Validate Get-PSSessionConfiguration, Enable-PSSessionConfiguration, Disable-PSSessionConfiguration, Unregister-PSSessionConfiguration cmdlets" -Tags @("CI", 'RequireAdminOnWindows') {
@@ -63,29 +75,20 @@ try
                     # Register new session configuration
                     function RegisterNewConfiguration {
                         param (
-
-                            [string]
-                            $Name,
-
-                            [string]
-                            $ConfigFilePath,
-
-                            [switch]
-                            $Enabled
+                            [string] $Name,
+                            [string] $ConfigFilePath,
+                            [switch] $Enabled
                         )
 
                         $TestConfig = Get-PSSessionConfiguration -Name $Name -ErrorAction SilentlyContinue
-                        if($TestConfig)
-                        {
+                        if($TestConfig) {
                             $null = Unregister-PSSessionConfiguration -Name $Name
                         }
 
-                        if($Enabled)
-                        {
+                        if($Enabled) {
                             $null = Register-PSSessionConfiguration -Name $Name -Path $ConfigFilePath
                         }
-                        else
-                        {
+                        else {
                             $null = Register-PSSessionConfiguration -Name $Name -Path $ConfigFilePath -AccessMode Disabled
                         }
                     }
@@ -93,9 +96,7 @@ try
                     # Unregister session configuration
                     function UnregisterPSSessionConfiguration{
                         param (
-
-                            [string]
-                            $Name
+                            [string] $Name
                         )
 
                         Unregister-PSSessionConfiguration -Name $Name -Force -NoServiceRestart -ErrorAction SilentlyContinue
@@ -104,13 +105,12 @@ try
                     # Create new Config File
                     function CreateTestConfigFile {
 
-                        $TestConfigFileLoc = join-path $TestDrive "Remoting"
-                        if(-not (Test-path $TestConfigFileLoc))
-                        {
+                        $TestConfigFileLoc = Join-Path $TestDrive "Remoting"
+                        if(-not (Test-path $TestConfigFileLoc)) {
                             $null = New-Item -Path $TestConfigFileLoc -ItemType Directory -Force -ErrorAction Stop
                         }
 
-                        $TestConfigFile = join-path $TestConfigFileLoc "TestConfigFile.pssc"
+                        $TestConfigFile = Join-Path $TestConfigFileLoc "TestConfigFile.pssc"
                         $null = New-PSSessionConfigurationFile -Path $TestConfigFile -SessionType Default
 
                         return $TestConfigFile
@@ -159,24 +159,12 @@ try
 
                 function VerifyEnableAndDisablePSSessionConfig {
                     param (
-                        [string]
-                        $SessionConfigName,
-
-                        [string]
-                        $ConfigFilePath,
-
-                        [Bool]
-                        $InitialSessionStateEnabled,
-
-                        [Bool]
-                        $FinalSessionStateEnabled,
-
-                        [string]
-                        $TestDescription,
-
-                        [bool]
-                        $EnablePSSessionConfig
-                    )
+                        [string] $SessionConfigName,
+                        [string] $ConfigFilePath,
+                        [Bool] $InitialSessionStateEnabled,
+                        [Bool] $FinalSessionStateEnabled,
+                        [string] $TestDescription,
+                        [bool] $EnablePSSessionConfig)
 
                     It "$TestDescription" {
 
@@ -184,15 +172,13 @@ try
 
                         $TestConfigStateBeforeChange = (Get-PSSessionConfiguration -Name $SessionConfigName).Enabled
 
-                        if($EnablePSSessionConfig)
-                        {
+                        if($EnablePSSessionConfig) {
                             $isSkipNetworkCheck = $true
                             # TODO: Get-NetConnectionProfile is not available during typical PS Core deployments. Once it is, this check should be used.
                             #Get-NetConnectionProfile | Where-Object { $_.NetworkCategory -eq "Public" } | ForEach-Object { $isSkipNetworkCheck = $true }
                             Enable-PSSessionConfiguration -Name $SessionConfigName -NoServiceRestart -SkipNetworkProfileCheck:$isSkipNetworkCheck
                         }
-                        else
-                        {
+                        else {
                             Disable-PSSessionConfiguration -Name $SessionConfigName -NoServiceRestart
                         }
 
@@ -225,8 +211,7 @@ try
                     }
                 )
 
-                foreach ($testcase in $testData)
-                {
+                foreach ($testcase in $testData) {
                     VerifyEnableAndDisablePSSessionConfig @testcase
                 }
             }
@@ -234,12 +219,13 @@ try
             Context "Validate Unregister-PSSessionConfiguration cmdlet" {
 
                 BeforeEach {
-                    Register-PSSessionConfiguration -Name "TestUnregisterPSSessionConfig"
+                    if ($IsNotSkipped) {
+                        Register-PSSessionConfiguration -Name "TestUnregisterPSSessionConfig"
+                    }
                 }
 
                 AfterAll {
-                    if ($IsNotSkipped)
-                    {
+                    if ($IsNotSkipped) {
                         Unregister-PSSessionConfiguration -name "TestUnregisterPSSessionConfig" -ErrorAction SilentlyContinue | Out-Null
                     }
                 }
@@ -251,33 +237,27 @@ try
                     It "$Description" {
 
                         $Result = [PSObject] @{Output = $true ; Error = $null}
-                        $Error.Clear()
-                        try
-                        {
+                        $error.Clear()
+                        try {
                             $null = Unregister-PSSessionConfiguration -name $SessionConfigName -ErrorAction stop
                         }
-                        catch
-                        {
+                        catch {
                             $Result.Error = $_.Exception
                         }
 
-                        if(-not $Result.Error)
-                        {
+                        if(-not $Result.Error) {
                             $ValidEndpoints = [PSObject]@(Get-PSSessionConfiguration)
 
-                            foreach ($endpoint in $ValidEndpoints)
-                            {
+                            foreach ($endpoint in $ValidEndpoints) {
                                 # Setting it to false means the unregister was unsuccessful
                                 # and there is still an endpoint with name matching the one we wanted to remove.
-                                if($endpoint.name -like $SessionConfigName)
-                                {
+                                if($endpoint.name -like $SessionConfigName) {
                                     $Result.Output = $false
                                     break
                                 }
                             }
                         }
-                        else
-                        {
+                        else {
                             $Result.Output = $false
                         }
 
@@ -366,7 +346,7 @@ try
 `$script:testvariable = "testValue"
 "@
 
-                        $TestScript = join-path $script:TestDir "StartupTestScript.ps1"
+                        $TestScript = Join-Path $script:TestDir "StartupTestScript.ps1"
                         $null = Set-Content -path $TestScript -Value $ScriptContent
 
                         return $TestScript
@@ -375,7 +355,7 @@ try
                     # Create new Config File
                     function CreateTestConfigFile {
 
-                        $TestConfigFile = join-path $script:TestDir "TestConfigFile.pssc"
+                        $TestConfigFile = Join-Path $script:TestDir "TestConfigFile.pssc"
                         $null = New-PSSessionConfigurationFile -Path $TestConfigFile -SessionType Default
                         return $TestConfigFile
                     }
@@ -394,7 +374,7 @@ Export-ModuleMember IsTestModuleImported
                             $null = New-Item -Path $TestModuleFileLoc -ItemType Directory -Force -ErrorAction Stop
                         }
 
-                        $TestModuleFile = join-path $TestModuleFileLoc "TestModule.psm1"
+                        $TestModuleFile = Join-Path $TestModuleFileLoc "TestModule.psm1"
                         $null = Set-Content -path $TestModuleFile -Value $ScriptContent
 
                         return $TestModuleFile
@@ -424,21 +404,21 @@ namespace PowershellTestConfigNamespace
     }
 }
 "@
-                        $script:SourceFile = join-path $script:TestAssemblyDir "PowershellTestConfig.cs"
+                        $script:SourceFile = Join-Path $script:TestAssemblyDir "PowershellTestConfig.cs"
                         $PscConfigDef | out-file $script:SourceFile -Encoding ascii -Force
                         $TestAssemblyName = "TestAssembly.dll"
-                        $TestAssemblyPath = join-path $script:TestAssemblyDir $TestAssemblyName
+                        $TestAssemblyPath = Join-Path $script:TestAssemblyDir $TestAssemblyName
                         Add-Type -path $script:SourceFile -OutputAssembly $TestAssemblyPath
                         return $TestAssemblyName
                     }
 
-                    $script:TestDir = join-path $TestDrive "Remoting"
+                    $script:TestDir = Join-Path $TestDrive "Remoting"
                     if(-not (Test-Path $script:TestDir))
                     {
                         $null = New-Item -path $script:TestDir -ItemType Directory
                     }
 
-                    $script:TestAssemblyDir = [System.IO.Path]::GetTempPath()
+                    $script:TestAssemblyDir = Join-Path $TestDrive "AssemblyDir"
                     if(-not (Test-Path $script:TestAssemblyDir))
                     {
                         $null = New-Item -path $script:TestAssemblyDir -ItemType Directory
@@ -448,14 +428,6 @@ namespace PowershellTestConfigNamespace
                     $LocalStartupScriptPath = CreateStartupScript
                     $LocalTestModulePath = CreateTestModule
                     $LocalTestAssemblyName = CreateTestAssembly
-                    $LocalTestDir = $script:TestDir
-                }
-            }
-
-            AfterAll {
-                if ($IsNotSkipped)
-                {
-                    Remove-Item $LocalTestDir -Recurse -Force -ErrorAction SilentlyContinue
                 }
             }
 
@@ -494,13 +466,9 @@ namespace PowershellTestConfigNamespace
                     $Result.Session.UseSharedProcess | Should -Be $UseSharedProcess
                 }
 
-                It "Validate Register-PSSessionConfiguration -PSVersion" {
+                It "Verifies that Register-PSSessionConfiguration -PSVersion parameter is not supported" {
 
-                    Register-PSSessionConfiguration -Name $TestSessionConfigName -PSVersion 5.1
-                    $Session = Get-PSSessionConfiguration -Name $TestSessionConfigName
-
-                    $Session.Name | Should -Be $TestSessionConfigName
-                    $Session.PSVersion | Should -BeExactly 5.1
+                    { Register-PSSessionConfiguration -Name $TestSessionConfigName -PSVersion 5.1 } | Should -Throw -ErrorId 'ParameterBindingFailed,Microsoft.PowerShell.Commands.RegisterPSSessionConfigurationCommand'
                 }
 
                 It "Validate Register-PSSessionConfiguration -startupscript parameter" -Pending {
@@ -570,13 +538,9 @@ namespace PowershellTestConfigNamespace
                     $Result.Session.UseSharedProcess | Should -Be $UseSharedProcess
                 }
 
-                It "Validate Set-PSSessionConfiguration -PSVersion" {
+                It "Verifies that Set-PSSessionConfiguration -PSVersion parameter is not supported" {
 
-                    Set-PSSessionConfiguration -Name $TestSessionConfigName -PSVersion 5.1
-                    $Session = (Get-PSSessionConfiguration -Name $TestSessionConfigName)
-
-                    $Session.Name | Should -Be $TestSessionConfigName
-                    $Session.PSVersion | Should -BeExactly 5.1
+                    { Set-PSSessionConfiguration -Name $TestSessionConfigName -PSVersion 5.1 } | Should -Throw -ErrorId 'ParameterBindingFailed,Microsoft.PowerShell.Commands.SetPSSessionConfigurationCommand'
                 }
 
                 It "Validate Set-PSSessionConfiguration -startupscript parameter" -Pending {
@@ -621,11 +585,11 @@ namespace PowershellTestConfigNamespace
 
         It "Validate New-PSSessionConfigurationFile can successfully create a valid PSSessionConfigurationFile" {
 
-            $configFilePath = join-path $TestDrive "SamplePSSessionConfigurationFile.pssc"
+            $configFilePath = Join-Path $TestDrive "SamplePSSessionConfigurationFile.pssc"
             try
             {
                 New-PSSessionConfigurationFile $configFilePath
-                $result = get-content $configFilePath | Out-String
+                $result = Get-Content $configFilePath | Out-String
             }
             finally
             {
@@ -633,7 +597,7 @@ namespace PowershellTestConfigNamespace
             }
 
             $resultContent = invoke-expression ($result)
-            $resultContent | Should -BeOfType "System.Collections.Hashtable"
+            $resultContent | Should -BeOfType System.Collections.Hashtable
 
             # The default created hashtable in the session configuration file would have the
             # following keys which we are validating below.
@@ -660,7 +624,7 @@ namespace PowershellTestConfigNamespace
                     SessionType = 'Default'
                     Author = 'User'
                     CompanyName = 'Microsoft Corporation'
-                    Copyright = 'Copyright (c) Microsoft Corporation. All rights reserved.'
+                    Copyright = 'Copyright (c) Microsoft Corporation.'
                     Description = 'This is a sample session configuration file.'
                     GUID = '73cba863-aa49-4cbf-9917-269ddcf2b1e3'
                     SchemaVersion = '1.0.0.0'
@@ -704,12 +668,12 @@ namespace PowershellTestConfigNamespace
                     FunctionDefinitions=@(
                         @{
                             Name = "sysmodules";
-                            ScriptBlock = 'pushd $pshome\Modules';
+                            ScriptBlock = 'pushd $PSHOME\Modules';
                             Options = "AllScope";
                         },
                         @{
                             Name = "mymodules";
-                            ScriptBlock = 'pushd $home\Documents\WindowsPowerShell\Modules';
+                            ScriptBlock = 'pushd $HOME\Documents\WindowsPowerShell\Modules';
                             Options = "ReadOnly";
                         }
                     )
@@ -753,7 +717,7 @@ namespace PowershellTestConfigNamespace
 
         It "Validate FullyQualifiedErrorId from Test-PSSessionConfigurationFile when an invalid pssc file is provided as input and -Verbose parameter is specified" {
 
-            $configFilePath = join-path $TestDrive "SamplePSSessionConfigurationFile.pssc"
+            $configFilePath = Join-Path $TestDrive "SamplePSSessionConfigurationFile.pssc"
             "InvalidData" | Out-File $configFilePath
 
             Test-PSSessionConfigurationFile $configFilePath -Verbose -ErrorAction Stop | Should -BeFalse
@@ -762,7 +726,7 @@ namespace PowershellTestConfigNamespace
         It "Test case verifies that the generated config file passes validation" {
 
             # Path the config file
-            $configFilePath = join-path $TestDrive "SamplePSSessionConfigurationFile.pssc"
+            $configFilePath = Join-Path $TestDrive "SamplePSSessionConfigurationFile.pssc"
 
             $updatedFunctionDefn = @()
             foreach($currentDefination in $parmMap.FunctionDefinitions)
@@ -841,13 +805,25 @@ namespace PowershellTestConfigNamespace
 
     Describe "Validate Enable-PSSession Cmdlet" -Tags @("Feature", 'RequireAdminOnWindows') {
         BeforeAll {
+            if (Test-IsWindowsArm64) {
+                Write-Verbose "remoting is not setup on ARM64, skipping tests" -Verbose
+                Push-DefaultParameterValueStack @{ "it:skip" = $true }
+                return
+            }
+
             if ($IsNotSkipped) {
-                Enable-PSRemoting
+                Enable-PSRemoting -SkipNetworkProfileCheck -Force
+            }
+        }
+
+        AfterAll {
+            if (Test-IsWindowsArm64) {
+                Pop-DefaultParameterValueStack
             }
         }
 
         It "Enable-PSSession Cmdlet creates a PSSession configuration with a name tied to PowerShell version." {
-            $endpointName = "PowerShell." + $PSVersionTable.GitCommitId
+            $endpointName = "PowerShell." + $PSVersionTable.GitCommitId.ToString()
             $matchedEndpoint = Get-PSSessionConfiguration $endpointName -ErrorAction SilentlyContinue
             $matchedEndpoint | Should -Not -BeNullOrEmpty
         }
@@ -855,6 +831,11 @@ namespace PowershellTestConfigNamespace
         It "Enable-PSSession Cmdlet creates a default PSSession configuration untied to a specific PowerShell version." {
             $dotPos = $PSVersionTable.PSVersion.ToString().IndexOf(".")
             $endpointName = "PowerShell." + $PSVersionTable.PSVersion.ToString().Substring(0, $dotPos)
+            # any pre-release (a version with a dash) is a preview release
+            if ($PSVersionTable.GitCommitId.Contains("-"))
+            {
+                $endpointName += "-preview"
+            }
             $matchedEndpoint = Get-PSSessionConfiguration $endpointName -ErrorAction SilentlyContinue
             $matchedEndpoint | Should -Not -BeNullOrEmpty
         }
@@ -862,7 +843,7 @@ namespace PowershellTestConfigNamespace
 }
 finally
 {
-    $global:PSDefaultParameterValues = $originalDefaultParameterValues
+    Pop-DefaultParameterValueStack
     $WarningPreference = $originalWarningPreference
 }
 

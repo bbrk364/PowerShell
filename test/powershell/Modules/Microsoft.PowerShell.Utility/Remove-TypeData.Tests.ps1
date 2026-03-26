@@ -1,4 +1,4 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 Describe "Remove-TypeData DRT Unit Tests" -Tags "CI" {
     BeforeAll {
@@ -36,7 +36,7 @@ Describe "Remove-TypeData DRT Unit Tests" -Tags "CI" {
 
     BeforeEach {
         $ps = [powershell]::Create()
-        $iss = [system.management.automation.runspaces.initialsessionstate]::CreateDefault2()
+        $iss = [initialsessionstate]::CreateDefault2()
         $rs = [system.management.automation.runspaces.runspacefactory]::CreateRunspace($iss)
         $rs.Open()
         $ps.Runspace = $rs

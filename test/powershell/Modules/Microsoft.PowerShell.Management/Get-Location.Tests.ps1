@@ -1,13 +1,13 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 Describe "Get-Location" -Tags "CI" {
     $currentDirectory=[System.IO.Directory]::GetCurrentDirectory()
     BeforeEach {
-	pushd $currentDirectory
+	Push-Location $currentDirectory
     }
 
     AfterEach {
-	popd
+	Pop-Location
     }
 
     It "Should list the output of the current working directory" {

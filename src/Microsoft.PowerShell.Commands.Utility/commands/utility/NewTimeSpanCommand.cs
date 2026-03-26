@@ -1,17 +1,18 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
 using System.Management.Automation;
+
 using Dbg = System.Management.Automation;
 
 namespace Microsoft.PowerShell.Commands
 {
     /// <summary>
-    /// implementation for the new-timespan command
+    /// Implementation for the new-timespan command.
     /// </summary>
     [Cmdlet(VerbsCommon.New, "TimeSpan", DefaultParameterSetName = "Date",
-        HelpUri = "https://go.microsoft.com/fwlink/?LinkID=113360", RemotingCapability = RemotingCapability.None)]
+        HelpUri = "https://go.microsoft.com/fwlink/?LinkID=2096709", RemotingCapability = RemotingCapability.None)]
     [OutputType(typeof(TimeSpan))]
     public sealed class NewTimeSpanCommand : PSCmdlet
     {
@@ -19,7 +20,7 @@ namespace Microsoft.PowerShell.Commands
 
         /// <summary>
         /// This parameter indicates the date the time span begins;
-        /// it is used if two times are being compared
+        /// it is used if two times are being compared.
         /// </summary>
         [Parameter(Position = 0, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true, ParameterSetName = "Date")]
         [Alias("LastWriteTime")]
@@ -29,12 +30,14 @@ namespace Microsoft.PowerShell.Commands
             {
                 return _start;
             }
+
             set
             {
                 _start = value;
                 _startSpecified = true;
             }
         }
+
         private DateTime _start;
         private bool _startSpecified;
 
@@ -50,45 +53,53 @@ namespace Microsoft.PowerShell.Commands
             {
                 return _end;
             }
+
             set
             {
                 _end = value;
                 _endSpecified = true;
             }
         }
+
         private DateTime _end;
         private bool _endSpecified = false;
 
         /// <summary>
-        /// Allows the user to override the day
+        /// Allows the user to override the day.
         /// </summary>
         [Parameter(ParameterSetName = "Time")]
-        public int Days { get; set; } = 0;
+        public int Days { get; set; }
 
         /// <summary>
-        /// Allows the user to override the hour
+        /// Allows the user to override the hour.
         /// </summary>
         [Parameter(ParameterSetName = "Time")]
-        public int Hours { get; set; } = 0;
+        public int Hours { get; set; }
 
         /// <summary>
-        /// Allows the user to override the minute
+        /// Allows the user to override the minute.
         /// </summary>
         [Parameter(ParameterSetName = "Time")]
-        public int Minutes { get; set; } = 0;
+        public int Minutes { get; set; }
 
         /// <summary>
-        /// Allows the user to override the second
+        /// Allows the user to override the second.
         /// </summary>
         [Parameter(ParameterSetName = "Time")]
-        public int Seconds { get; set; } = 0;
+        public int Seconds { get; set; }
+
+        /// <summary>
+        /// Allows the user to override the millisecond.
+        /// </summary>
+        [Parameter(ParameterSetName = "Time")]
+        public int Milliseconds { get; set; }
 
         #endregion
 
         #region methods
 
         /// <summary>
-        /// Calculate and write out the appropriate timespan
+        /// Calculate and write out the appropriate timespan.
         /// </summary>
         protected override void ProcessRecord()
         {
@@ -104,6 +115,7 @@ namespace Microsoft.PowerShell.Commands
                     {
                         startTime = Start;
                     }
+
                     if (_endSpecified)
                     {
                         endTime = End;
@@ -113,7 +125,7 @@ namespace Microsoft.PowerShell.Commands
                     break;
 
                 case "Time":
-                    result = new TimeSpan(Days, Hours, Minutes, Seconds);
+                    result = new TimeSpan(Days, Hours, Minutes, Seconds, Milliseconds);
                     break;
 
                 default:
@@ -123,7 +135,6 @@ namespace Microsoft.PowerShell.Commands
 
             WriteObject(result);
         }
-
         #endregion
     }
 }

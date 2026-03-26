@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Diagnostics.CodeAnalysis;
@@ -9,13 +9,13 @@ using System.Runtime.Serialization;
 namespace System.Management.Automation
 {
     /// <summary>
-    /// Defines the exception thrown when a syntax error occurs while parsing msh script text.
+    /// Defines the exception thrown when a syntax error occurs while parsing PowerShell script text.
     /// </summary>
-    [Serializable]
     public class ParseException : RuntimeException
     {
         private const string errorIdString = "Parse";
-        private ParseError[] _errors;
+
+        private readonly ParseError[] _errors;
 
         /// <summary>
         /// The list of parser errors.
@@ -30,28 +30,14 @@ namespace System.Management.Automation
         /// Initializes a new instance of the ParseException class and defines the serialization information,
         /// and streaming context.
         /// </summary>
-        /// <param name="info">The serialization information to use when initializing this object</param>
-        /// <param name="context">The streaming context to use when initializing this object</param>
-        /// <returns> constructed object </returns>
+        /// <param name="info">The serialization information to use when initializing this object.</param>
+        /// <param name="context">The streaming context to use when initializing this object.</param>
+        /// <returns>Constructed object.</returns>
+        [Obsolete("Legacy serialization support is deprecated since .NET 8", DiagnosticId = "SYSLIB0051")]
         protected ParseException(SerializationInfo info,
                            StreamingContext context)
-                : base(info, context)
         {
-            _errors = (ParseError[])info.GetValue("Errors", typeof(ParseError[]));
-        }
-
-        /// <summary>
-        /// Add private data for serialization.
-        /// </summary>
-        public override void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            if (info == null)
-            {
-                throw new PSArgumentNullException("info");
-            }
-
-            base.GetObjectData(info, context);
-            info.AddValue("Errors", _errors);
+            throw new NotSupportedException();
         }
 
         #endregion Serialization
@@ -59,9 +45,9 @@ namespace System.Management.Automation
         #region ctor
 
         /// <summary>
-        /// Initializes a new instance of the class ParseException
+        /// Initializes a new instance of the class ParseException.
         /// </summary>
-        /// <returns> constructed object </returns>
+        /// <returns>Constructed object.</returns>
         public ParseException() : base()
         {
             base.SetErrorId(errorIdString);
@@ -71,8 +57,8 @@ namespace System.Management.Automation
         /// <summary>
         /// Initializes a new instance of the ParseException class and defines the error message.
         /// </summary>
-        /// <param name="message">The error message to use when initializing this object</param>
-        /// <returns> constructed object </returns>
+        /// <param name="message">The error message to use when initializing this object.</param>
+        /// <returns>Constructed object.</returns>
         public ParseException(string message) : base(message)
         {
             base.SetErrorId(errorIdString);
@@ -83,9 +69,9 @@ namespace System.Management.Automation
         /// Initializes a new instance of the ParseException class and defines the error message and
         /// errorID.
         /// </summary>
-        /// <param name="message">The error message to use when initializing this object</param>
-        /// <param name="errorId">The errorId to use when initializing this object</param>
-        /// <returns> constructed object </returns>
+        /// <param name="message">The error message to use when initializing this object.</param>
+        /// <param name="errorId">The errorId to use when initializing this object.</param>
+        /// <returns>Constructed object.</returns>
         internal ParseException(string message, string errorId) : base(message)
         {
             base.SetErrorId(errorId);
@@ -96,10 +82,10 @@ namespace System.Management.Automation
         /// Initializes a new instance of the ParseException class and defines the error message,
         /// error ID and inner exception.
         /// </summary>
-        /// <param name="message">The error message to use when initializing this object</param>
-        /// <param name="errorId">The errorId to use when initializing this object</param>
-        /// <param name="innerException">The inner exception to use when initializing this object</param>
-        /// <returns> constructed object </returns>
+        /// <param name="message">The error message to use when initializing this object.</param>
+        /// <param name="errorId">The errorId to use when initializing this object.</param>
+        /// <param name="innerException">The inner exception to use when initializing this object.</param>
+        /// <returns>Constructed object.</returns>
         internal ParseException(string message, string errorId, Exception innerException)
             : base(message, innerException)
         {
@@ -111,9 +97,9 @@ namespace System.Management.Automation
         /// Initializes a new instance of the ParseException class and defines the error message and
         /// inner exception.
         /// </summary>
-        /// <param name="message">The error message to use when initializing this object</param>
-        /// <param name="innerException">The inner exception to use when initializing this object</param>
-        /// <returns> constructed object </returns>
+        /// <param name="message">The error message to use when initializing this object.</param>
+        /// <param name="innerException">The inner exception to use when initializing this object.</param>
+        /// <returns>Constructed object.</returns>
         public ParseException(string message,
                         Exception innerException)
                 : base(message, innerException)
@@ -126,13 +112,11 @@ namespace System.Management.Automation
         /// Initializes a new instance of the ParseException class with a collection of error messages.
         /// </summary>
         /// <param name="errors">The collection of error messages.</param>
-        [SuppressMessage("Microsoft.Usage", "CA2214:DoNotCallOverridableMethodsInConstructors",
-            Justification = "ErrorRecord is not overridden in classes deriving from ParseException")]
-        public ParseException(Language.ParseError[] errors)
+        public ParseException(ParseError[] errors)
         {
-            if ((errors == null) || (errors.Length == 0))
+            if (errors is null || errors.Length == 0)
             {
-                throw new ArgumentNullException("errors");
+                throw new ArgumentNullException(nameof(errors));
             }
 
             _errors = errors;
@@ -160,23 +144,22 @@ namespace System.Management.Automation
 
                 // Report at most the first 10 errors
                 var errorsToReport = (_errors.Length > 10)
-                    ? _errors.Take(10).Select(e => e.ToString()).Append(ParserStrings.TooManyErrors)
-                    : _errors.Select(e => e.ToString());
+                    ? _errors.Take(10).Select(static e => e.ToString()).Append(ParserStrings.TooManyErrors)
+                    : _errors.Select(static e => e.ToString());
 
                 return string.Join(Environment.NewLine + Environment.NewLine, errorsToReport);
             }
         }
-    } // ParseException
+    }
 
     /// <summary>
-    /// Defines the exception thrown when a incomplete parse error occurs while parsing msh script text.
+    /// Defines the exception thrown when a incomplete parse error occurs while parsing PowerShell script text.
     /// </summary>
     /// <remarks>
     /// This is a variation on a parsing error that indicates that the parse was incomplete
     /// rather than irrecoverably wrong. A host can catch this exception and then prompt for additional
     /// input to complete the parse.
     /// </remarks>
-    [Serializable]
     public class IncompleteParseException
             : ParseException
     {
@@ -191,20 +174,21 @@ namespace System.Management.Automation
         /// Initializes a new instance of the IncompleteParseException class and defines the serialization information,
         /// and streaming context.
         /// </summary>
-        /// <param name="info">The serialization information to use when initializing this object</param>
-        /// <param name="context">The streaming context to use when initializing this object</param>
-        /// <returns> constructed object </returns>
+        /// <param name="info">The serialization information to use when initializing this object.</param>
+        /// <param name="context">The streaming context to use when initializing this object.</param>
+        /// <returns>Constructed object.</returns>
+        [Obsolete("Legacy serialization support is deprecated since .NET 8", DiagnosticId = "SYSLIB0051")]
         protected IncompleteParseException(SerializationInfo info,
                            StreamingContext context)
-                : base(info, context)
         {
+            throw new NotSupportedException();
         }
         #endregion Serialization
 
         /// <summary>
-        /// Initializes a new instance of the class IncompleteParseException
+        /// Initializes a new instance of the class IncompleteParseException.
         /// </summary>
-        /// <returns> constructed object </returns>
+        /// <returns>Constructed object.</returns>
         public IncompleteParseException() : base()
         {
             // Error category is set in base constructor
@@ -214,8 +198,8 @@ namespace System.Management.Automation
         /// <summary>
         /// Initializes a new instance of the IncompleteParseException class and defines the error message.
         /// </summary>
-        /// <param name="message">The error message to use when initializing this object</param>
-        /// <returns> constructed object </returns>
+        /// <param name="message">The error message to use when initializing this object.</param>
+        /// <returns>Constructed object.</returns>
         public IncompleteParseException(string message) : base(message)
         {
             // Error category is set in base constructor
@@ -226,9 +210,9 @@ namespace System.Management.Automation
         /// Initializes a new instance of the IncompleteParseException class and defines the error message and
         /// errorID.
         /// </summary>
-        /// <param name="message">The error message to use when initializing this object</param>
-        /// <param name="errorId">The errorId to use when initializing this object</param>
-        /// <returns> constructed object </returns>
+        /// <param name="message">The error message to use when initializing this object.</param>
+        /// <param name="errorId">The errorId to use when initializing this object.</param>
+        /// <returns>Constructed object.</returns>
         internal IncompleteParseException(string message, string errorId) : base(message, errorId)
         {
             // Error category is set in base constructor
@@ -238,10 +222,10 @@ namespace System.Management.Automation
         /// Initializes a new instance of the IncompleteParseException class and defines the error message,
         /// error ID and inner exception.
         /// </summary>
-        /// <param name="message">The error message to use when initializing this object</param>
-        /// <param name="errorId">The errorId to use when initializing this object</param>
-        /// <param name="innerException">The inner exception to use when initializing this object</param>
-        /// <returns> constructed object </returns>
+        /// <param name="message">The error message to use when initializing this object.</param>
+        /// <param name="errorId">The errorId to use when initializing this object.</param>
+        /// <param name="innerException">The inner exception to use when initializing this object.</param>
+        /// <returns>Constructed object.</returns>
         internal IncompleteParseException(string message, string errorId, Exception innerException)
             : base(message, errorId, innerException)
         {
@@ -252,9 +236,9 @@ namespace System.Management.Automation
         /// Initializes a new instance of the IncompleteParseException class and defines the error message and
         /// inner exception.
         /// </summary>
-        /// <param name="message">The error message to use when initializing this object</param>
-        /// <param name="innerException">The inner exception to use when initializing this object</param>
-        /// <returns> constructed object </returns>
+        /// <param name="message">The error message to use when initializing this object.</param>
+        /// <param name="innerException">The inner exception to use when initializing this object.</param>
+        /// <returns>Constructed object.</returns>
         public IncompleteParseException(string message,
                         Exception innerException)
                 : base(message, innerException)
@@ -264,4 +248,4 @@ namespace System.Management.Automation
         }
         #endregion ctor
     }
-} // System.Management.Automation
+}

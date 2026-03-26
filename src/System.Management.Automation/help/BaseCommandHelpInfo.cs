@@ -1,10 +1,10 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Management.Automation.Runspaces;
-using System.Globalization;
 using System.Text;
 
 using Dbg = System.Management.Automation.Diagnostics;
@@ -214,8 +214,7 @@ namespace System.Management.Automation
             string commandToSearch = commandName;
             if (!string.IsNullOrEmpty(moduleName))
             {
-                commandToSearch = string.Format(CultureInfo.InvariantCulture,
-                    "{0}\\{1}", moduleName, commandName);
+                commandToSearch = string.Create(CultureInfo.InvariantCulture, $"{moduleName}\\{commandName}");
             }
 
             ExecutionContext context = LocalPipeline.GetExecutionContextFromTLS();
@@ -252,7 +251,7 @@ namespace System.Management.Automation
                         // Split the string based on <s> (space). We decided to go with this approach as
                         // UX localization authors use spaces. Correctly extracting only the wellformed URI
                         // is out-of-scope for this fix.
-                        string[] tempUriSplitArray = uriString.Split(Utils.Separators.Space);
+                        string[] tempUriSplitArray = uriString.Split(' ');
                         uriString = tempUriSplitArray[0];
                     }
 
@@ -319,7 +318,7 @@ namespace System.Management.Automation
                             // Split the string based on <s> (space). We decided to go with this approach as
                             // UX localization authors use spaces. Correctly extracting only the wellformed URI
                             // is out-of-scope for this fix.
-                            string[] tempUriSplitArray = uriString.Split(Utils.Separators.Space);
+                            string[] tempUriSplitArray = uriString.Split(' ');
                             uriString = tempUriSplitArray[0];
                         }
 
@@ -345,7 +344,7 @@ namespace System.Management.Automation
         /// The underlying code will usually run pattern.IsMatch() on
         /// content it wants to search.
         /// Cmdlet help info looks for pattern in Synopsis and
-        /// DetailedDescription
+        /// DetailedDescription.
         /// </summary>
         /// <param name="pattern"></param>
         /// <returns></returns>
@@ -356,24 +355,18 @@ namespace System.Management.Automation
             string synopsis = Synopsis;
             string detailedDescription = DetailedDescription;
 
-            if (synopsis == null)
-            {
-                synopsis = string.Empty;
-            }
+            synopsis ??= string.Empty;
 
-            if (detailedDescription == null)
-            {
-                detailedDescription = string.Empty;
-            }
+            detailedDescription ??= string.Empty;
 
             return pattern.IsMatch(synopsis) || pattern.IsMatch(detailedDescription);
         }
 
         /// <summary>
-        /// Returns help information for a parameter(s) identified by pattern
+        /// Returns help information for a parameter(s) identified by pattern.
         /// </summary>
-        /// <param name="pattern">pattern to search for parameters</param>
-        /// <returns>A collection of parameters that match pattern</returns>
+        /// <param name="pattern">Pattern to search for parameters.</param>
+        /// <returns>A collection of parameters that match pattern.</returns>
         internal override PSObject[] GetParameter(string pattern)
         {
             // this object knows Maml format...
@@ -393,8 +386,19 @@ namespace System.Management.Automation
                 return base.GetParameter(pattern);
             }
 
+            // The Maml format simplifies array fields containing only one object
+            // by transforming them into the objects themselves. To ensure the consistency
+            // of the help command result we change it back into an array.
+            var param = prmts.Properties["parameter"].Value;
+            PSObject[] paramAsPSObjArray = new PSObject[1];
+
+            if (param is PSObject paramPSObj)
+            {
+                paramAsPSObjArray[0] = paramPSObj;
+            }
+
             PSObject[] prmtArray = (PSObject[])LanguagePrimitives.ConvertTo(
-                prmts.Properties["parameter"].Value,
+                paramAsPSObjArray[0] != null ? paramAsPSObjArray : param,
                 typeof(PSObject[]),
                 CultureInfo.InvariantCulture);
 
@@ -451,7 +455,7 @@ namespace System.Management.Automation
                     return string.Empty;
                 }
 
-                // I think every cmdlet description should atleast have 400 characters...
+                // I think every cmdlet description should at least have 400 characters...
                 // so starting with this assumption..I did an average of all the cmdlet
                 // help content available at the time of writing this code and came up
                 // with this number.

@@ -1,10 +1,10 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Runtime.Serialization;
-using System.Text;
 using System.Collections.ObjectModel;
+using System.Runtime.Serialization;
 using System.Security.Permissions;
+using System.Text;
 
 namespace System.Management.Automation.Runspaces
 {
@@ -20,7 +20,6 @@ namespace System.Management.Automation.Runspaces
     ///     1. PSSnapin name
     ///     2. Inner exception.
     /// -->
-    [Serializable]
     public class PSConsoleLoadException : SystemException, IContainsErrorRecord
     {
         /// <summary>
@@ -33,7 +32,7 @@ namespace System.Management.Automation.Runspaces
         /// <summary>
         /// Initiate an instance of PSConsoleLoadException.
         /// </summary>
-        /// <param name="message">Error message</param>
+        /// <param name="message">Error message.</param>
         public PSConsoleLoadException(string message)
             : base(message)
         {
@@ -42,8 +41,8 @@ namespace System.Management.Automation.Runspaces
         /// <summary>
         /// Initiate an instance of PSConsoleLoadException.
         /// </summary>
-        /// <param name="message">Error message</param>
-        /// <param name="innerException">Inner exception</param>
+        /// <param name="message">Error message.</param>
+        /// <param name="innerException">Inner exception.</param>
         public PSConsoleLoadException(string message, Exception innerException)
             : base(message, innerException)
         {
@@ -78,7 +77,7 @@ namespace System.Management.Automation.Runspaces
             {
                 foreach (PSSnapInException e in PSSnapInExceptions)
                 {
-                    sb.Append("\n");
+                    sb.Append('\n');
                     sb.Append(e.Message);
                 }
             }
@@ -86,7 +85,8 @@ namespace System.Management.Automation.Runspaces
             _errorRecord = new ErrorRecord(new ParentContainsErrorRecordException(this), "ConsoleLoadFailure", ErrorCategory.ResourceUnavailable, null);
         }
 
-        private Collection<PSSnapInException> _PSSnapInExceptions = new Collection<PSSnapInException>();
+        private readonly Collection<PSSnapInException> _PSSnapInExceptions = new Collection<PSSnapInException>();
+
         internal Collection<PSSnapInException> PSSnapInExceptions
         {
             get
@@ -114,4 +114,3 @@ namespace System.Management.Automation.Runspaces
         }
     }
 }
-

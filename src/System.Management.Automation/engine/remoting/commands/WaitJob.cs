@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
@@ -7,6 +7,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Management.Automation;
 using System.Threading;
+
 using Dbg = System.Management.Automation.Diagnostics;
 
 namespace Microsoft.PowerShell.Commands
@@ -14,7 +15,7 @@ namespace Microsoft.PowerShell.Commands
     /// <summary>
     /// This cmdlet waits for job to complete.
     /// </summary>
-    [Cmdlet(VerbsLifecycle.Wait, "Job", DefaultParameterSetName = JobCmdletBase.SessionIdParameterSet, HelpUri = "https://go.microsoft.com/fwlink/?LinkID=113422")]
+    [Cmdlet(VerbsLifecycle.Wait, "Job", DefaultParameterSetName = JobCmdletBase.SessionIdParameterSet, HelpUri = "https://go.microsoft.com/fwlink/?LinkID=2096902")]
     [OutputType(typeof(Job))]
     public class WaitJobCommand : JobCmdletBase, IDisposable
     {
@@ -22,7 +23,7 @@ namespace Microsoft.PowerShell.Commands
 
         /// <summary>
         /// Specifies the Jobs objects which need to be
-        /// removed
+        /// removed.
         /// </summary>
         [Parameter(Mandatory = true,
             Position = 0,
@@ -45,18 +46,20 @@ namespace Microsoft.PowerShell.Commands
         /// </summary>
         [Parameter]
         [Alias("TimeoutSec")]
-        [ValidateRangeAttribute(-1, Int32.MaxValue)]
+        [ValidateRange(-1, Int32.MaxValue)]
         public int Timeout
         {
             get
             {
                 return _timeoutInSeconds;
             }
+
             set
             {
                 _timeoutInSeconds = value;
             }
         }
+
         private int _timeoutInSeconds = -1; // -1: infinite, this default is to wait for as long as it takes.
 
         /// <summary>
@@ -67,7 +70,6 @@ namespace Microsoft.PowerShell.Commands
         public SwitchParameter Force { get; set; }
 
         /// <summary>
-        ///
         /// </summary>
         public override string[] Command { get; set; }
         #endregion Parameters
@@ -103,10 +105,7 @@ namespace Microsoft.PowerShell.Commands
             }
 
             // Invoke action outside lock.
-            if (endProcessingAction != null)
-            {
-                endProcessingAction();
-            }
+            endProcessingAction?.Invoke();
         }
 
         private void CleanUpEndProcessing()
@@ -156,6 +155,7 @@ namespace Microsoft.PowerShell.Commands
                     {
                         _warnNotTerminal = true;
                     }
+
                     _finishedJobs.Add(job);
                 }
                 else
@@ -236,6 +236,7 @@ namespace Microsoft.PowerShell.Commands
             {
                 jobsToOutput = _jobsToWaitFor.Where(j => ((!Force && j.IsPersistentState(j.JobStateInfo.State)) || (Force && j.IsFinishedState(j.JobStateInfo.State)))).ToList();
             }
+
             return jobsToOutput;
         }
 
@@ -243,7 +244,7 @@ namespace Microsoft.PowerShell.Commands
         {
             lock (_jobTrackingLock)
             {
-                return _jobsToWaitFor.FirstOrDefault(j => j.JobStateInfo.State == JobState.Blocked);
+                return _jobsToWaitFor.Find(static j => j.JobStateInfo.State == JobState.Blocked);
             }
         }
 
@@ -306,7 +307,7 @@ namespace Microsoft.PowerShell.Commands
         /// </summary>
         protected override void ProcessRecord()
         {
-            //List of jobs to wait
+            // List of jobs to wait
             List<Job> matches;
 
             switch (ParameterSetName)

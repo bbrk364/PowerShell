@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Collections.Concurrent;
@@ -65,7 +65,7 @@ namespace System.Management.Automation.PerformanceData
         public string GetCounterSetInstanceName()
         {
             Process currentProcess = Process.GetCurrentProcess();
-            string pid = String.Format(CultureInfo.InvariantCulture, "{0}", currentProcess.Id);
+            string pid = string.Create(CultureInfo.InvariantCulture, $"{currentProcess.Id}");
             return pid;
         }
 
@@ -78,10 +78,11 @@ namespace System.Management.Automation.PerformanceData
             counterSetId = new Guid();
             if (counterSetName == null)
             {
-                ArgumentNullException argNullException = new ArgumentNullException("counterSetName");
+                ArgumentNullException argNullException = new ArgumentNullException(nameof(counterSetName));
                 _tracer.TraceException(argNullException);
                 return false;
             }
+
             return _CounterSetNameToIdMapping.TryGetValue(counterSetName, out counterSetId);
         }
 
@@ -113,7 +114,7 @@ namespace System.Management.Automation.PerformanceData
             if (this.IsCounterSetRegistered(counterSetId, out counterSetInst))
             {
                 InvalidOperationException invalidOperationException = new InvalidOperationException(
-                    String.Format(
+                    string.Format(
                     CultureInfo.InvariantCulture,
                     "A Counter Set Instance with id '{0}' is already registered",
                     counterSetId));
@@ -131,15 +132,17 @@ namespace System.Management.Automation.PerformanceData
                     {
                         InvalidOperationException invalidOperationException =
                             new InvalidOperationException(
-                                String.Format(
+                                string.Format(
                                 CultureInfo.InvariantCulture,
                                 "A Counter Set Instance with name '{0}' is already registered",
                                 counterSetName));
                         _tracer.TraceException(invalidOperationException);
                         return false;
                     }
+
                     _CounterSetNameToIdMapping.TryAdd(counterSetName, counterSetId);
                 }
+
                 _CounterSetIdToInstanceMapping.TryAdd(
                     counterSetId,
                     counterSetRegistrarInstance.CounterSetInstance);
@@ -149,6 +152,7 @@ namespace System.Management.Automation.PerformanceData
                 _tracer.TraceException(overflowException);
                 return false;
             }
+
             return true;
         }
 
@@ -158,7 +162,6 @@ namespace System.Management.Automation.PerformanceData
         /// by 'stepAmount'.
         /// Otherwise, updates the denominator component by 'stepAmount'.
         /// </summary>
-        [SuppressMessage("Microsoft.Design", "CA1026:DefaultParametersShouldNotBeUsed")]
         public bool UpdateCounterByValue(
             Guid counterSetId,
             int counterId,
@@ -174,7 +177,7 @@ namespace System.Management.Automation.PerformanceData
             {
                 InvalidOperationException invalidOperationException =
                     new InvalidOperationException(
-                        String.Format(
+                        string.Format(
                         CultureInfo.InvariantCulture,
                         "No Counter Set Instance with id '{0}' is registered",
                         counterSetId));
@@ -189,7 +192,6 @@ namespace System.Management.Automation.PerformanceData
         /// by 'stepAmount'.
         /// Otherwise, updates the denominator component by 'stepAmount'.
         /// </summary>
-        [SuppressMessage("Microsoft.Design", "CA1026:DefaultParametersShouldNotBeUsed")]
         public bool UpdateCounterByValue(
             Guid counterSetId,
             string counterName,
@@ -205,7 +207,7 @@ namespace System.Management.Automation.PerformanceData
             {
                 InvalidOperationException invalidOperationException =
                     new InvalidOperationException(
-                        String.Format(
+                        string.Format(
                         CultureInfo.InvariantCulture,
                         "No Counter Set Instance with id '{0}' is registered",
                         counterSetId));
@@ -220,7 +222,6 @@ namespace System.Management.Automation.PerformanceData
         /// by 'stepAmount'.
         /// Otherwise, updates the denominator component by 'stepAmount'.
         /// </summary>
-        [SuppressMessage("Microsoft.Design", "CA1026:DefaultParametersShouldNotBeUsed")]
         public bool UpdateCounterByValue(
             string counterSetName,
             int counterId,
@@ -229,11 +230,11 @@ namespace System.Management.Automation.PerformanceData
         {
             if (counterSetName == null)
             {
-                ArgumentNullException argNullException =
-                    new ArgumentNullException("counterSetName");
+                ArgumentNullException argNullException = new ArgumentNullException(nameof(counterSetName));
                 _tracer.TraceException(argNullException);
                 return false;
             }
+
             Guid counterSetId;
             if (this.IsCounterSetRegistered(counterSetName, out counterSetId))
             {
@@ -244,7 +245,7 @@ namespace System.Management.Automation.PerformanceData
             {
                 InvalidOperationException invalidOperationException =
                     new InvalidOperationException(
-                        String.Format(
+                        string.Format(
                         CultureInfo.InvariantCulture,
                         "No Counter Set Instance with id '{0}' is registered",
                          counterSetId));
@@ -260,7 +261,6 @@ namespace System.Management.Automation.PerformanceData
         /// by 'stepAmount'.
         /// Otherwise, updates the denominator component by 'stepAmount'.
         /// </summary>
-        [SuppressMessage("Microsoft.Design", "CA1026:DefaultParametersShouldNotBeUsed")]
         public bool UpdateCounterByValue(
             string counterSetName,
             string counterName,
@@ -270,8 +270,7 @@ namespace System.Management.Automation.PerformanceData
             Guid counterSetId;
             if (counterSetName == null)
             {
-                ArgumentNullException argNullException =
-                    new ArgumentNullException("counterSetName");
+                ArgumentNullException argNullException = new ArgumentNullException(nameof(counterSetName));
                 _tracer.TraceException(argNullException);
                 return false;
             }
@@ -285,7 +284,7 @@ namespace System.Management.Automation.PerformanceData
             {
                 InvalidOperationException invalidOperationException =
                     new InvalidOperationException(
-                        String.Format(
+                        string.Format(
                         CultureInfo.InvariantCulture,
                         "No Counter Set Instance with name {0} is registered",
                         counterSetName));
@@ -300,7 +299,6 @@ namespace System.Management.Automation.PerformanceData
         /// to 'counterValue'.
         /// Otherwise, updates the denominator component to 'counterValue'.
         /// </summary>
-        [SuppressMessage("Microsoft.Design", "CA1026:DefaultParametersShouldNotBeUsed")]
         public bool SetCounterValue(
             Guid counterSetId,
             int counterId,
@@ -316,7 +314,7 @@ namespace System.Management.Automation.PerformanceData
             {
                 InvalidOperationException invalidOperationException =
                     new InvalidOperationException(
-                        String.Format(
+                        string.Format(
                         CultureInfo.InvariantCulture,
                         "No Counter Set Instance with id '{0}' is registered",
                         counterSetId));
@@ -331,7 +329,6 @@ namespace System.Management.Automation.PerformanceData
         /// to 'counterValue'.
         /// Otherwise, updates the denominator component to 'counterValue'.
         /// </summary>
-        [SuppressMessage("Microsoft.Design", "CA1026:DefaultParametersShouldNotBeUsed")]
         public bool SetCounterValue(
             Guid counterSetId,
             string counterName,
@@ -347,7 +344,7 @@ namespace System.Management.Automation.PerformanceData
             {
                 InvalidOperationException invalidOperationException =
                  new InvalidOperationException(
-                    String.Format(
+                    string.Format(
                     CultureInfo.InvariantCulture,
                     "No Counter Set Instance with id '{0}' is registered",
                     counterSetId));
@@ -362,7 +359,6 @@ namespace System.Management.Automation.PerformanceData
         /// to 'counterValue'.
         /// Otherwise, updates the denominator component to 'counterValue'.
         /// </summary>
-        [SuppressMessage("Microsoft.Design", "CA1026:DefaultParametersShouldNotBeUsed")]
         public bool SetCounterValue(
             string counterSetName,
             int counterId,
@@ -371,8 +367,7 @@ namespace System.Management.Automation.PerformanceData
         {
             if (counterSetName == null)
             {
-                ArgumentNullException argNullException =
-                    new ArgumentNullException("counterSetName");
+                ArgumentNullException argNullException = new ArgumentNullException(nameof(counterSetName));
                 _tracer.TraceException(argNullException);
                 return false;
             }
@@ -387,7 +382,7 @@ namespace System.Management.Automation.PerformanceData
             {
                 InvalidOperationException invalidOperationException =
                     new InvalidOperationException(
-                    String.Format(
+                    string.Format(
                     CultureInfo.InvariantCulture,
                     "No Counter Set Instance with name '{0}' is registered",
                     counterSetName));
@@ -402,7 +397,6 @@ namespace System.Management.Automation.PerformanceData
         /// to 'counterValue'.
         /// Otherwise, updates the denominator component to 'counterValue'.
         /// </summary>
-        [SuppressMessage("Microsoft.Design", "CA1026:DefaultParametersShouldNotBeUsed")]
         public bool SetCounterValue(
             string counterSetName,
             string counterName,
@@ -411,8 +405,7 @@ namespace System.Management.Automation.PerformanceData
         {
             if (counterSetName == null)
             {
-                ArgumentNullException argNullException =
-                    new ArgumentNullException("counterSetName");
+                ArgumentNullException argNullException = new ArgumentNullException(nameof(counterSetName));
                 _tracer.TraceException(argNullException);
                 return false;
             }
@@ -427,7 +420,7 @@ namespace System.Management.Automation.PerformanceData
             {
                 InvalidOperationException invalidOperationException =
                     new InvalidOperationException(
-                        String.Format(
+                        string.Format(
                         CultureInfo.InvariantCulture,
                         "No Counter Set Instance with name '{0}' is registered",
                         counterSetName));
@@ -451,6 +444,7 @@ namespace System.Management.Automation.PerformanceData
                 CounterSetInstanceBase currentCounterSetInstance = _CounterSetIdToInstanceMapping[counterSetId];
                 currentCounterSetInstance.Dispose();
             }
+
             _CounterSetIdToInstanceMapping.Clear();
             _CounterSetNameToIdMapping.Clear();
         }

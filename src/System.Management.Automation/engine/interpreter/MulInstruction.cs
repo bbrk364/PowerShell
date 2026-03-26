@@ -19,9 +19,10 @@ namespace System.Management.Automation.Interpreter
 {
     internal abstract class MulInstruction : Instruction
     {
-        private static Instruction s_int16,s_int32,s_int64,s_UInt16,s_UInt32,s_UInt64,s_single,s_double;
+        private static Instruction s_int16, s_int32, s_int64, s_UInt16, s_UInt32, s_UInt64, s_single, s_double;
 
         public override int ConsumedStack { get { return 2; } }
+
         public override int ProducedStack { get { return 1; } }
 
         private MulInstruction()
@@ -118,7 +119,7 @@ namespace System.Management.Automation.Interpreter
             {
                 object l = frame.Data[frame.StackIndex - 2];
                 object r = frame.Data[frame.StackIndex - 1];
-                frame.Data[frame.StackIndex - 2] = (Double)l * (Double)r;
+                frame.Data[frame.StackIndex - 2] = (double)l * (double)r;
                 frame.StackIndex--;
                 return +1;
             }
@@ -129,14 +130,14 @@ namespace System.Management.Automation.Interpreter
             Debug.Assert(!type.IsEnum);
             switch (type.GetTypeCode())
             {
-                case TypeCode.Int16: return s_int16 ?? (s_int16 = new MulInt16());
-                case TypeCode.Int32: return s_int32 ?? (s_int32 = new MulInt32());
-                case TypeCode.Int64: return s_int64 ?? (s_int64 = new MulInt64());
-                case TypeCode.UInt16: return s_UInt16 ?? (s_UInt16 = new MulUInt16());
-                case TypeCode.UInt32: return s_UInt32 ?? (s_UInt32 = new MulUInt32());
-                case TypeCode.UInt64: return s_UInt64 ?? (s_UInt64 = new MulUInt64());
-                case TypeCode.Single: return s_single ?? (s_single = new MulSingle());
-                case TypeCode.Double: return s_double ?? (s_double = new MulDouble());
+                case TypeCode.Int16: return s_int16 ??= new MulInt16();
+                case TypeCode.Int32: return s_int32 ??= new MulInt32();
+                case TypeCode.Int64: return s_int64 ??= new MulInt64();
+                case TypeCode.UInt16: return s_UInt16 ??= new MulUInt16();
+                case TypeCode.UInt32: return s_UInt32 ??= new MulUInt32();
+                case TypeCode.UInt64: return s_UInt64 ??= new MulUInt64();
+                case TypeCode.Single: return s_single ??= new MulSingle();
+                case TypeCode.Double: return s_double ??= new MulDouble();
 
                 default:
                     throw Assert.Unreachable;
@@ -151,9 +152,10 @@ namespace System.Management.Automation.Interpreter
 
     internal abstract class MulOvfInstruction : Instruction
     {
-        private static Instruction s_int16,s_int32,s_int64,s_UInt16,s_UInt32,s_UInt64,s_single,s_double;
+        private static Instruction s_int16, s_int32, s_int64, s_UInt16, s_UInt32, s_UInt64, s_single, s_double;
 
         public override int ConsumedStack { get { return 2; } }
+
         public override int ProducedStack { get { return 1; } }
 
         private MulOvfInstruction()
@@ -250,7 +252,7 @@ namespace System.Management.Automation.Interpreter
             {
                 object l = frame.Data[frame.StackIndex - 2];
                 object r = frame.Data[frame.StackIndex - 1];
-                frame.Data[frame.StackIndex - 2] = (Double)l * (Double)r;
+                frame.Data[frame.StackIndex - 2] = (double)l * (double)r;
                 frame.StackIndex--;
                 return +1;
             }
@@ -261,14 +263,14 @@ namespace System.Management.Automation.Interpreter
             Debug.Assert(!type.IsEnum);
             switch (type.GetTypeCode())
             {
-                case TypeCode.Int16: return s_int16 ?? (s_int16 = new MulOvfInt16());
-                case TypeCode.Int32: return s_int32 ?? (s_int32 = new MulOvfInt32());
-                case TypeCode.Int64: return s_int64 ?? (s_int64 = new MulOvfInt64());
-                case TypeCode.UInt16: return s_UInt16 ?? (s_UInt16 = new MulOvfUInt16());
-                case TypeCode.UInt32: return s_UInt32 ?? (s_UInt32 = new MulOvfUInt32());
-                case TypeCode.UInt64: return s_UInt64 ?? (s_UInt64 = new MulOvfUInt64());
-                case TypeCode.Single: return s_single ?? (s_single = new MulOvfSingle());
-                case TypeCode.Double: return s_double ?? (s_double = new MulOvfDouble());
+                case TypeCode.Int16: return s_int16 ??= new MulOvfInt16();
+                case TypeCode.Int32: return s_int32 ??= new MulOvfInt32();
+                case TypeCode.Int64: return s_int64 ??= new MulOvfInt64();
+                case TypeCode.UInt16: return s_UInt16 ??= new MulOvfUInt16();
+                case TypeCode.UInt32: return s_UInt32 ??= new MulOvfUInt32();
+                case TypeCode.UInt64: return s_UInt64 ??= new MulOvfUInt64();
+                case TypeCode.Single: return s_single ??= new MulOvfSingle();
+                case TypeCode.Double: return s_double ??= new MulOvfDouble();
 
                 default:
                     throw Assert.Unreachable;

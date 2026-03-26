@@ -1,38 +1,30 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Management.Automation;
-using Dbg = System.Management.Automation.Diagnostics;
 
 namespace Microsoft.PowerShell.Commands
 {
     /// <summary>
-    /// A base class for cmdlets that has helper methods for globbing
-    /// trace source instances
+    /// A base class for cmdlets that has helper methods for globbing trace source instances.
     /// </summary>
     public class TraceCommandBase : PSCmdlet
     {
         /// <summary>
-        /// Gets the matching PSTraceSource instances for the
-        /// specified patterns.
+        /// Gets the matching PSTraceSource instances for the specified patterns.
         /// </summary>
-        ///
         /// <param name="patternsToMatch">
         /// The patterns used to match the PSTraceSource name.
         /// </param>
-        ///
         /// <param name="writeErrorIfMatchNotFound">
         /// If true and the pattern does not contain wildcard patterns and no
         /// match is found, then WriteError will be called.
         /// </param>
-        ///
         /// <returns>
         /// A collection of the matching PSTraceSource instances.
         /// </returns>
-        ///
         internal Collection<PSTraceSource> GetMatchingTraceSource(
             string[] patternsToMatch,
             bool writeErrorIfMatchNotFound)
@@ -42,27 +34,21 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        /// Gets the matching PSTraceSource instances for the
-        /// specified patterns.
+        /// Gets the matching PSTraceSource instances for the specified patterns.
         /// </summary>
-        ///
         /// <param name="patternsToMatch">
         /// The patterns used to match the PSTraceSource name.
         /// </param>
-        ///
         /// <param name="writeErrorIfMatchNotFound">
         /// If true and the pattern does not contain wildcard patterns and no
         /// match is found, then WriteError will be called.
         /// </param>
-        ///
         /// <param name="notMatched">
         /// The patterns for which a match was not found.
         /// </param>
-        ///
         /// <returns>
         /// A collection of the matching PSTraceSource instances.
         /// </returns>
-        ///
         internal Collection<PSTraceSource> GetMatchingTraceSource(
             string[] patternsToMatch,
             bool writeErrorIfMatchNotFound,
@@ -70,12 +56,12 @@ namespace Microsoft.PowerShell.Commands
         {
             notMatched = new Collection<string>();
 
-            Collection<PSTraceSource> results = new Collection<PSTraceSource>();
+            Collection<PSTraceSource> results = new();
             foreach (string patternToMatch in patternsToMatch)
             {
                 bool matchFound = false;
 
-                if (String.IsNullOrEmpty(patternToMatch))
+                if (string.IsNullOrEmpty(patternToMatch))
                 {
                     notMatched.Add(patternToMatch);
                     continue;
@@ -86,7 +72,7 @@ namespace Microsoft.PowerShell.Commands
                         patternToMatch,
                         WildcardOptions.IgnoreCase);
 
-                Dictionary<String, PSTraceSource> traceCatalog = PSTraceSource.TraceCatalog;
+                Dictionary<string, PSTraceSource> traceCatalog = PSTraceSource.TraceCatalog;
 
                 foreach (PSTraceSource source in traceCatalog.Values)
                 {
@@ -116,12 +102,12 @@ namespace Microsoft.PowerShell.Commands
                         !WildcardPattern.ContainsWildcardCharacters(patternToMatch))
                     {
                         ItemNotFoundException itemNotFound =
-                            new ItemNotFoundException(
+                            new(
                                 patternToMatch,
                                 "TraceSourceNotFound",
                                 SessionStateStrings.TraceSourceNotFound);
 
-                        ErrorRecord errorRecord = new ErrorRecord(itemNotFound.ErrorRecord, itemNotFound);
+                        ErrorRecord errorRecord = new(itemNotFound.ErrorRecord, itemNotFound);
                         WriteError(errorRecord);
                     }
                 }

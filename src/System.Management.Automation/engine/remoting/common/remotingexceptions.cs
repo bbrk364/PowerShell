@@ -1,8 +1,8 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Runtime.Serialization;
 using System.Management.Automation.Internal;
+using System.Runtime.Serialization;
 using System.Security.Permissions;
 
 namespace System.Management.Automation.Remoting
@@ -18,6 +18,7 @@ namespace System.Management.Automation.Remoting
         // OS related 1-9
         DefaultRemotingExceptionMessage = 0,
         OutOfMemory = 1,
+        UnsupportedOSForRemoteEnumeration = 2,
 
         // Pipeline related range: 10-99
         PipelineIdsDoNotMatch = 10,
@@ -127,6 +128,7 @@ namespace System.Management.Automation.Remoting
         CannotSetStdOutHandle = 822,
         CannotSetStdErrHandle = 823,
         InvalidConfigurationName = 824,
+        ConnectSkipCheckFailed = 825,
         // Error codes added to support new WSMan Fan-In Model API
         CreateSessionFailed = 851,
         CreateExFailed = 853,
@@ -208,7 +210,6 @@ namespace System.Management.Automation.Remoting
         RemoteRunspaceHasMultipleMatchesForSpecifiedName = 955,
         RemoteRunspaceDoesNotSupportPushRunspace = 956,
         HostInNestedPrompt = 957,
-        RemoteHostDoesNotSupportPushRunspace = 958,
         InvalidVMId = 959,
         InvalidVMNameNoVM = 960,
         InvalidVMNameMultipleVM = 961,
@@ -266,7 +267,7 @@ namespace System.Management.Automation.Remoting
         /// This parameter holds the string in the resource file.
         /// </param>
         /// <param name="args">
-        /// Optional parameters required by the resource string formating information.
+        /// Optional parameters required by the resource string formatting information.
         /// </param>
         /// <returns>
         /// The formatted localized string.
@@ -282,7 +283,6 @@ namespace System.Management.Automation.Remoting
     /// <summary>
     /// This exception is used by remoting code to indicated a data structure handler related error.
     /// </summary>
-    [Serializable]
     public class PSRemotingDataStructureException : RuntimeException
     {
         #region Constructors
@@ -297,7 +297,7 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        /// This constuctor takes a localized string as the error message.
+        /// This constructor takes a localized string as the error message.
         /// </summary>
         /// <param name="message">
         /// A localized string as an error message.
@@ -309,7 +309,7 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        /// This constuctor takes a localized string as the error message, and an inner exception.
+        /// This constructor takes a localized string as the error message, and an inner exception.
         /// </summary>
         /// <param name="message">
         /// A localized string as an error message.
@@ -339,7 +339,7 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        /// This constuctor takes an inner exception and an error id.
+        /// This constructor takes an inner exception and an error id.
         /// </summary>
         /// <param name="innerException">
         /// Inner exception.
@@ -361,9 +361,10 @@ namespace System.Management.Automation.Remoting
         /// </summary>
         /// <param name="info"></param>
         /// <param name="context"></param>
+        [Obsolete("Legacy serialization support is deprecated since .NET 8", DiagnosticId = "SYSLIB0051")]
         protected PSRemotingDataStructureException(SerializationInfo info, StreamingContext context)
-            : base(info, context)
         {
+            throw new NotSupportedException();
         }
 
         #endregion Constructors
@@ -381,7 +382,6 @@ namespace System.Management.Automation.Remoting
     /// <summary>
     /// This exception is used by remoting code to indicate an error condition in network operations.
     /// </summary>
-    [Serializable]
     public class PSRemotingTransportException : RuntimeException
     {
         private int _errorCode;
@@ -445,7 +445,7 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        /// This constuctor takes an inner exception and an error id.
+        /// This constructor takes an inner exception and an error id.
         /// </summary>
         /// <param name="innerException">
         /// Inner exception.
@@ -470,38 +470,13 @@ namespace System.Management.Automation.Remoting
         /// <exception cref="ArgumentNullException">
         /// 1. info is null.
         /// </exception>
+        [Obsolete("Legacy serialization support is deprecated since .NET 8", DiagnosticId = "SYSLIB0051")]
         protected PSRemotingTransportException(SerializationInfo info, StreamingContext context)
-            : base(info, context)
         {
-            if (info == null)
-            {
-                throw new PSArgumentNullException("info");
-            }
-
-            _errorCode = info.GetInt32("ErrorCode");
-            _transportMessage = info.GetString("TransportMessage");
+            throw new NotSupportedException();
         }
 
         #endregion Constructors
-
-        /// <summary>
-        /// Serializes the exception data.
-        /// </summary>
-        /// <param name="info"> serialization information </param>
-        /// <param name="context"> streaming context </param>
-        [SecurityPermissionAttribute(SecurityAction.Demand, SerializationFormatter = true)]
-        public override void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            if (info == null)
-            {
-                throw new PSArgumentNullException("info");
-            }
-
-            base.GetObjectData(info, context);
-            // If there are simple fields, serialize them with info.AddValue
-            info.AddValue("ErrorCode", _errorCode);
-            info.AddValue("TransportMessage", _transportMessage);
-        }
 
         /// <summary>
         /// Set the default ErrorRecord.
@@ -521,6 +496,7 @@ namespace System.Management.Automation.Remoting
             {
                 return _errorCode;
             }
+
             set
             {
                 _errorCode = value;
@@ -536,6 +512,7 @@ namespace System.Management.Automation.Remoting
             {
                 return _transportMessage;
             }
+
             set
             {
                 _transportMessage = value;
@@ -547,7 +524,6 @@ namespace System.Management.Automation.Remoting
     /// This exception is used by PowerShell's remoting infrastructure to notify a URI redirection
     /// exception.
     /// </summary>
-    [Serializable]
     public class PSRemotingTransportRedirectException : PSRemotingTransportException
     {
         #region Constructor
@@ -587,7 +563,7 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        /// This constuctor takes an inner exception and an error id.
+        /// This constructor takes an inner exception and an error id.
         /// </summary>
         /// <param name="innerException">
         /// Inner exception.
@@ -611,15 +587,10 @@ namespace System.Management.Automation.Remoting
         /// <exception cref="ArgumentNullException">
         /// 1. info is null.
         /// </exception>
+        [Obsolete("Legacy serialization support is deprecated since .NET 8", DiagnosticId = "SYSLIB0051")]
         protected PSRemotingTransportRedirectException(SerializationInfo info, StreamingContext context)
-            : base(info, context)
         {
-            if (info == null)
-            {
-                throw new PSArgumentNullException("info");
-            }
-
-            RedirectLocation = info.GetString("RedirectLocation");
+            throw new NotSupportedException();
         }
 
         /// <summary>
@@ -645,28 +616,6 @@ namespace System.Management.Automation.Remoting
 
         #endregion
 
-        #region Public overrides
-
-        /// <summary>
-        /// Serializes the exception data.
-        /// </summary>
-        /// <param name="info"> serialization information </param>
-        /// <param name="context"> streaming context </param>
-        [SecurityPermissionAttribute(SecurityAction.Demand, SerializationFormatter = true)]
-        public override void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            if (info == null)
-            {
-                throw new PSArgumentNullException("info");
-            }
-
-            base.GetObjectData(info, context);
-            // If there are simple fields, serialize them with info.AddValue
-            info.AddValue("RedirectLocation", RedirectLocation);
-        }
-
-        #endregion
-
         #region Properties
         /// <summary>
         /// String specifying a redirect location.
@@ -679,13 +628,12 @@ namespace System.Management.Automation.Remoting
     /// <summary>
     /// This exception is used by PowerShell Direct errors.
     /// </summary>
-    [Serializable]
     public class PSDirectException : RuntimeException
     {
         #region Constructor
 
         /// <summary>
-        /// This constuctor takes a localized string as the error message.
+        /// This constructor takes a localized string as the error message.
         /// </summary>
         /// <param name="message">
         /// A localized string as an error message.

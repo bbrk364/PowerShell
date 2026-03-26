@@ -1,10 +1,12 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Management.Automation.Internal;
+using System.Management.Automation.Runspaces;
+using System.Management.Automation.Security;
 
 namespace System.Management.Automation
 {
@@ -19,11 +21,9 @@ namespace System.Management.Automation
         /// <summary>
         /// Constructor for a session state scope.
         /// </summary>
-        ///
         /// <param name="parentScope">
         /// The parent of this scope.  It can be null for the global scope.
         /// </param>
-        ///
         internal SessionStateScope(SessionStateScope parentScope)
         {
             ScopeOrigin = CommandOrigin.Internal;
@@ -38,7 +38,7 @@ namespace System.Management.Automation
             {
                 _scriptScope = this;
             }
-        } // SessionStateScope constructor
+        }
 
         #endregion constructor
 
@@ -60,20 +60,23 @@ namespace System.Management.Automation
         /// The script scope for this scope. It may reference itself but may not
         /// be a null reference.
         /// </summary>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If <paramref name="value"/> is null when setting the property.
         /// </exception>
-        ///
         internal SessionStateScope ScriptScope
         {
-            get { return _scriptScope; }
+            get
+            {
+                return _scriptScope;
+            }
+
             set
             {
                 Diagnostics.Assert(value != null, "Caller to verify scope is not null");
                 _scriptScope = value;
             }
         }
+
         private SessionStateScope _scriptScope;
 
         /// <summary>
@@ -97,35 +100,31 @@ namespace System.Management.Automation
         /// other variables use the variable apis to find the variable and get/set it.
         /// </summary>
         internal Stack<MutableTuple> DottedScopes { get { return _dottedScopes; } }
+
         private readonly Stack<MutableTuple> _dottedScopes = new Stack<MutableTuple>();
 
         #region Drives
         /// <summary>
         /// Adds a new drive to the scope's drive collection.
         /// </summary>
-        ///
         /// <param name="newDrive">
         /// The new drive to be added.
         /// </param>
-        ///
         /// <remarks>
         /// This method assumes the drive has already been verified and
         /// the provider has already been notified.
         /// </remarks>
-        ///
         /// <exception cref="ArgumentNullException">
-        /// If <paramref name="newDrive" /> is null.
+        /// If <paramref name="newDrive"/> is null.
         /// </exception>
-        ///
         /// <exception cref="SessionStateException">
         /// If a drive of the same name already exists in this scope.
         /// </exception>
-        ///
         internal void NewDrive(PSDriveInfo newDrive)
         {
             if (newDrive == null)
             {
-                throw PSTraceSource.NewArgumentNullException("newDrive");
+                throw PSTraceSource.NewArgumentNullException(nameof(newDrive));
             }
 
             // Ensure that multiple threads do not try to modify the
@@ -157,30 +156,26 @@ namespace System.Management.Automation
                     automountedDrives.Add(newDrive.Name, newDrive);
                 }
             }
-        } // New Drive
+        }
 
         /// <summary>
         /// Removes the specified drive from this scope.
         /// </summary>
-        ///
         /// <param name="drive">
         /// The drive to be removed.
         /// </param>
-        ///
         /// <remarks>
         /// This method assumes that the drive has already been validated for removal
         /// by the provider.
         /// </remarks>
-        ///
         /// <exception cref="ArgumentNullException">
-        /// If <paramref name="drive" /> is null.
+        /// If <paramref name="drive"/> is null.
         /// </exception>
-        ///
         internal void RemoveDrive(PSDriveInfo drive)
         {
             if (drive == null)
             {
-                throw PSTraceSource.NewArgumentNullException("drive");
+                throw PSTraceSource.NewArgumentNullException(nameof(drive));
             }
 
             if (_drives == null)
@@ -203,7 +198,7 @@ namespace System.Management.Automation
                     }
                 }
             }
-        } // RemoveDrive
+        }
 
         /// <summary>
         /// Removes all the drives from the scope.
@@ -212,30 +207,26 @@ namespace System.Management.Automation
         {
             GetDrives().Clear();
             GetAutomountedDrives().Clear();
-        } // RemoveAllDrives
+        }
 
         /// <summary>
         /// Retrieves the drive of the specified name.
         /// </summary>
-        ///
         /// <param name="name">
         /// The name of the drive to retrieve.
         /// </param>
-        ///
         /// <returns>
         /// An instance of a PSDriveInfo object with the specified name if one
         /// exists in this scope or null if one does not exist.
         /// </returns>
-        ///
         /// <exception cref="ArgumentNullException">
-        /// If <paramref name="name" /> is null.
+        /// If <paramref name="name"/> is null.
         /// </exception>
-        ///
         internal PSDriveInfo GetDrive(string name)
         {
             if (name == null)
             {
-                throw PSTraceSource.NewArgumentNullException("name");
+                throw PSTraceSource.NewArgumentNullException(nameof(name));
             }
 
             PSDriveInfo result = null;
@@ -247,8 +238,9 @@ namespace System.Management.Automation
                 // manually removed drives.
                 GetAutomountedDrives().TryGetValue(name, out result);
             }
+
             return result;
-        } // GetDrive
+        }
 
         /// <summary>
         /// Gets an IEnumerable for the drives in this scope.
@@ -273,9 +265,10 @@ namespace System.Management.Automation
                         result.Add(drive);
                     }
                 }
+
                 return result;
             }
-        } // Drives
+        }
         #endregion Drives
 
         #region Variables
@@ -283,48 +276,40 @@ namespace System.Management.Automation
         /// <summary>
         /// Gets an IDictionary for the variables in this scope.
         /// </summary>
-        ///
         internal IDictionary<string, PSVariable> Variables { get { return GetPrivateVariables(); } }
 
         /// <summary>
         /// Gets the specified variable from the variable table.
         /// </summary>
-        ///
         /// <param name="name">
         /// The name of the variable to retrieve.
         /// </param>
-        ///
         /// <param name="origin">
         /// The origin of the command trying to retrieve this variable...
         /// </param>
-        ///
         /// <returns>
         /// The PSVariable representing the variable specified.
         /// </returns>
-        ///
         internal PSVariable GetVariable(string name, CommandOrigin origin)
         {
             PSVariable result;
             TryGetVariable(name, origin, false, out result);
             return result;
-        } // GetVariable
+        }
 
         /// <summary>
         /// Gets the specified variable from the variable table.
         /// </summary>
-        ///
         /// <param name="name">
         /// The name of the variable to retrieve.
         /// </param>
-        ///
         /// <returns>
         /// The PSVariable representing the variable specified.
         /// </returns>
-        ///
         internal PSVariable GetVariable(string name)
         {
             return GetVariable(name, ScopeOrigin);
-        } // GetVariable
+        }
 
         /// <summary>
         /// Looks up a variable, returns true and the variable if found and is visible, throws if the found variable is not visible,
@@ -332,8 +317,8 @@ namespace System.Management.Automation
         /// </summary>
         /// <param name="name">The name of the variable.</param>
         /// <param name="origin">The command origin (where the scope was created), used to decide if the variable is visible.</param>
-        /// <param name="fromNewOrSet">true if looking up the variable as part of a new or set variable operation</param>
-        /// <param name="variable">The variable, if one is found in scope</param>
+        /// <param name="fromNewOrSet">True if looking up the variable as part of a new or set variable operation.</param>
+        /// <param name="variable">The variable, if one is found in scope.</param>
         /// <exception cref="SessionStateException">Thrown if the variable is not visible based on CommandOrigin.</exception>
         /// <returns>True if there is a variable in scope, false otherwise.</returns>
         internal bool TryGetVariable(string name, CommandOrigin origin, bool fromNewOrSet, out PSVariable variable)
@@ -351,11 +336,11 @@ namespace System.Management.Automation
                 SessionState.ThrowIfNotVisible(origin, variable);
                 return true;
             }
+
             return false;
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="variable"></param>
         /// <returns></returns>
@@ -383,32 +368,25 @@ namespace System.Management.Automation
         /// <summary>
         /// Sets a variable to the given value.
         /// </summary>
-        ///
         /// <param name="name">
         /// The name of the variable to set.
         /// </param>
-        ///
         /// <param name="value">
         /// The value for the variable
         /// </param>
-        ///
         /// <param name="asValue">
         /// If true, sets the variable value to newValue. If false, newValue must
         /// be a PSVariable object and the item will be set rather than the value.
         /// </param>
-        ///
         /// <param name="force">
         /// If true, the variable will be set even if it is readonly.
         /// </param>
-        ///
         /// <param name="sessionState">
         /// Which SessionState this variable belongs to.
         /// </param>
-        ///
         /// <param name="origin">
         /// The origin of the caller
         /// </param>
-        ///
         /// <param name="fastPath">
         /// If true and the variable is being set in the global scope,
         /// then all of the normal variable lookup stuff is bypassed and
@@ -417,11 +395,9 @@ namespace System.Management.Automation
         /// <returns>
         /// The PSVariable representing the variable that was set.
         /// </returns>
-        ///
         /// <exception cref="SessionStateUnauthorizedAccessException">
         /// If the variable is read-only or constant.
         /// </exception>
-        ///
         internal PSVariable SetVariable(string name, object value, bool asValue, bool force, SessionStateInternal sessionState, CommandOrigin origin = CommandOrigin.Internal, bool fastPath = false)
         {
             Diagnostics.Assert(name != null, "The caller should verify the name");
@@ -437,6 +413,7 @@ namespace System.Management.Automation
                 {
                     throw new NotImplementedException("fastPath");
                 }
+
                 variable = new PSVariable(name, variableToSet.Value, variableToSet.Options, variableToSet.Attributes) { Description = variableToSet.Description };
                 GetPrivateVariables()[name] = variable;
                 return variable;
@@ -445,7 +422,10 @@ namespace System.Management.Automation
             bool varExists = TryGetVariable(name, origin, true, out variable);
 
             // Initialize the private variable dictionary if it's not yet
-            if (_variables == null) { GetPrivateVariables(); }
+            if (_variables == null)
+            {
+                GetPrivateVariables();
+            }
 
             if (!asValue && variableToSet != null)
             {
@@ -467,7 +447,7 @@ namespace System.Management.Automation
                     }
 
                     if (variable is LocalVariable
-                        && (variableToSet.Attributes.Any() || variableToSet.Options != variable.Options))
+                        && (variableToSet.Attributes.Count > 0 || variableToSet.Options != variable.Options))
                     {
                         SessionStateUnauthorizedAccessException e =
                             new SessionStateUnauthorizedAccessException(
@@ -516,35 +496,25 @@ namespace System.Management.Automation
             }
             else
             {
-                variable = (LocalsTuple != null ? LocalsTuple.TrySetVariable(name, value) : null) ?? new PSVariable(name, value);
+                variable = (LocalsTuple?.TrySetVariable(name, value)) ?? new PSVariable(name, value);
             }
 
-            // Don't let people set AllScope variables in ConstrainedLanguage,
-            // as they can be used to interfere with the session state of
-            // trusted commands.
             if (ExecutionContext.HasEverUsedConstrainedLanguage)
             {
-                var context = System.Management.Automation.Runspaces.LocalPipeline.GetExecutionContextFromTLS();
-
-                if ((context != null) &&
-                    (context.LanguageMode == PSLanguageMode.ConstrainedLanguage) &&
-                    ((variable.Options & ScopedItemOptions.AllScope) == ScopedItemOptions.AllScope))
-                {
-                    throw new PSNotSupportedException();
-                }
+                CheckVariableChangeInConstrainedLanguage(variable);
             }
 
             _variables[name] = variable;
             variable.SessionState = sessionState;
             return variable;
-        } // SetVariable
+        }
 
         /// <summary>
         /// Sets a variable to scope without any checks.
         /// This is intended to be used only for global scope.
         /// </summary>
-        /// <param name="variableToSet">PSVariable to set</param>
-        /// <param name="sessionState">SessionState for variable</param>
+        /// <param name="variableToSet">PSVariable to set.</param>
+        /// <param name="sessionState">SessionState for variable.</param>
         /// <returns></returns>
         internal void SetVariableForce(PSVariable variableToSet, SessionStateInternal sessionState)
         {
@@ -560,27 +530,21 @@ namespace System.Management.Automation
         /// <summary>
         /// Sets a variable to the given value.
         /// </summary>
-        ///
         /// <param name="newVariable">
         /// The new variable to create.
         /// </param>
-        ///
         /// <param name="force">
         /// If true, the variable will be set even if it is readonly.
         /// </param>
-        ///
         /// <param name="sessionState">
         /// Which SessionState this variable belongs to.
         /// </param>
-        ///
         /// <returns>
         /// The PSVariable representing the variable that was set.
         /// </returns>
-        ///
         /// <exception cref="SessionStateUnauthorizedAccessException">
         /// If the variable is read-only or constant.
         /// </exception>
-        ///
         internal PSVariable NewVariable(PSVariable newVariable, bool force, SessionStateInternal sessionState)
         {
             PSVariable variable;
@@ -633,42 +597,28 @@ namespace System.Management.Automation
                 variable = newVariable;
             }
 
-            // Don't let people set AllScope variables in ConstrainedLanguage,
-            // as they can be used to interfere with the session state of
-            // trusted commands.
             if (ExecutionContext.HasEverUsedConstrainedLanguage)
             {
-                var context = System.Management.Automation.Runspaces.LocalPipeline.GetExecutionContextFromTLS();
-
-                if ((context != null) &&
-                    (context.LanguageMode == PSLanguageMode.ConstrainedLanguage) &&
-                    ((variable.Options & ScopedItemOptions.AllScope) == ScopedItemOptions.AllScope))
-                {
-                    throw new PSNotSupportedException();
-                }
+                CheckVariableChangeInConstrainedLanguage(variable);
             }
 
             _variables[variable.Name] = variable;
             variable.SessionState = sessionState;
             return variable;
-        } // NewVariable
+        }
 
         /// <summary>
         /// Removes a variable from the variable table.
         /// </summary>
-        ///
         /// <param name="name">
         /// The name of the variable to remove.
         /// </param>
-        ///
         /// <param name="force">
         /// If true, the variable will be removed even if its ReadOnly.
         /// </param>
-        ///
         /// <exception cref="SessionStateUnauthorizedAccessException">
         /// if the variable is constant.
         /// </exception>
-        ///
         internal void RemoveVariable(string name, bool force)
         {
             Diagnostics.Assert(
@@ -706,7 +656,7 @@ namespace System.Management.Automation
             // Finally mark the variable itself has having been removed so
             // anyone holding a reference to it can be aware of this.
             variable.WasRemoved = true;
-        } // RemoveVariable
+        }
 
         internal bool TrySetLocalParameterValue(string name, object value)
         {
@@ -748,27 +698,23 @@ namespace System.Management.Automation
         /// <summary>
         /// Gets an IEnumerable for the aliases in this scope.
         /// </summary>
-        ///
         internal IEnumerable<AliasInfo> AliasTable
         {
             get
             {
                 return GetAliases().Values;
             }
-        } // AliasTable
+        }
 
         /// <summary>
         /// Gets the specified alias from the alias table.
         /// </summary>
-        ///
         /// <param name="name">
         /// The name of the alias to retrieve.
         /// </param>
-        ///
         /// <returns>
         /// The string representing the value of the alias specified.
         /// </returns>
-        ///
         internal AliasInfo GetAlias(string name)
         {
             Diagnostics.Assert(
@@ -779,40 +725,32 @@ namespace System.Management.Automation
             GetAliases().TryGetValue(name, out result);
 
             return result;
-        } // GetAlias
+        }
 
         /// <summary>
         /// Sets an alias to the given value.
         /// </summary>
-        ///
         /// <param name="name">
         /// The name of the alias to set.
         /// </param>
-        ///
         /// <param name="value">
         /// The value for the alias
         /// </param>
-        ///
         /// <param name="context">
         /// The execution context for this engine instance.
         /// </param>
-        ///
         /// <param name="force">
         /// If true, the value will be set even if the alias is ReadOnly.
         /// </param>
-        ///
         /// <param name="origin">
         /// Origin of the caller of this API
         /// </param>
-        ///
         /// <returns>
         /// The string representing the value that was set.
         /// </returns>
-        ///
         /// <exception cref="SessionStateUnauthorizedAccessException">
         /// if the alias is read-only or constant.
         /// </exception>
-        ///
         internal AliasInfo SetAliasValue(string name, string value, ExecutionContext context, bool force, CommandOrigin origin)
         {
             Diagnostics.Assert(
@@ -859,44 +797,35 @@ namespace System.Management.Automation
             AddAliasToCache(name, value);
 
             return aliasInfos[name];
-        } // SetAliasValue
+        }
 
         /// <summary>
         /// Sets an alias to the given value.
         /// </summary>
-        ///
         /// <param name="name">
         /// The name of the alias to set.
         /// </param>
-        ///
         /// <param name="value">
         /// The value for the alias
         /// </param>
-        ///
         /// <param name="context">
         /// The execution context for this engine instance.
         /// </param>
-        ///
         /// <param name="options">
         /// The options to set on the alias.
         /// </param>
-        ///
         /// <param name="force">
         /// If true, the value will be set even if the alias is ReadOnly.
         /// </param>
-        ///
         /// <param name="origin">
         /// Origin of the caller of this API
         /// </param>
-        ///
         /// <returns>
         /// The string representing the value that was set.
         /// </returns>
-        ///
         /// <exception cref="SessionStateUnauthorizedAccessException">
         /// If the alias is read-only or constant.
         /// </exception>
-        ///
         internal AliasInfo SetAliasValue(
             string name,
             string value,
@@ -984,33 +913,27 @@ namespace System.Management.Automation
             AddAliasToCache(name, value);
 
             return result;
-        } // SetAliasValue
+        }
 
         /// <summary>
         /// Sets an alias to the given value.
         /// </summary>
-        ///
         /// <param name="aliasToSet">
         /// The information about the alias to be set
         /// </param>
-        ///
         /// <param name="force">
         /// If true, the alias will be set even if there is an existing ReadOnly
         /// alias.
         /// </param>
-        ///
         /// <param name="origin">
         /// Specifies the command origin of the calling command.
         /// </param>
-        ///
         /// <returns>
         /// The string representing the value that was set.
         /// </returns>
-        ///
         /// <exception cref="SessionStateUnauthorizedAccessException">
         /// If the alias is read-only or constant.
         /// </exception>
-        ///
         internal AliasInfo SetAliasItem(AliasInfo aliasToSet, bool force, CommandOrigin origin = CommandOrigin.Internal)
         {
             Diagnostics.Assert(
@@ -1057,29 +980,26 @@ namespace System.Management.Automation
 
                 RemoveAliasFromCache(aliasInfo.Name, aliasInfo.Definition);
             }
+
             aliasInfos[aliasToSet.Name] = aliasToSet;
 
             AddAliasToCache(aliasToSet.Name, aliasToSet.Definition);
 
             return aliasToSet;
-        } // SetAliasItem
+        }
 
         /// <summary>
         /// Removes a alias from the alias table.
         /// </summary>
-        ///
         /// <param name="name">
         /// The name of the alias to remove.
         /// </param>
-        ///
         /// <param name="force">
         /// If true, the alias will be removed even if it is ReadOnly.
         /// </param>
-        ///
         /// <exception cref="SessionStateUnauthorizedAccessException">
         /// If the alias is constant.
         /// </exception>
-        ///
         internal void RemoveAlias(string name, bool force)
         {
             Diagnostics.Assert(
@@ -1109,7 +1029,7 @@ namespace System.Management.Automation
             }
 
             aliasInfos.Remove(name);
-        } // RemoveAlias
+        }
 
         #endregion aliases
 
@@ -1118,28 +1038,24 @@ namespace System.Management.Automation
         /// <summary>
         /// Gets an IEnumerable for the functions in this scope.
         /// </summary>
-        ///
         internal Dictionary<string, FunctionInfo> FunctionTable
         {
             get
             {
                 return GetFunctions();
-            } // get
-        } // FunctionTable
+            }
+        }
 
         /// <summary>
         /// Gets the specified function from the function table.
         /// </summary>
-        ///
         /// <param name="name">
         /// The name of the function to retrieve.
         /// </param>
-        ///
         /// <returns>
         /// A FunctionInfo that is either a FilterInfo or FunctionInfo representing the
         /// function or filter.
         /// </returns>
-        ///
         internal FunctionInfo GetFunction(string name)
         {
             Diagnostics.Assert(
@@ -1150,41 +1066,33 @@ namespace System.Management.Automation
             GetFunctions().TryGetValue(name, out result);
 
             return result;
-        } // GetFunction
+        }
 
         /// <summary>
         /// Sets an function to the given function declaration.
         /// </summary>
-        ///
         /// <param name="name">
         /// The name of the function to set.
         /// </param>
-        ///
         /// <param name="function">
         /// The script block that represents the code for the function.
         /// </param>
-        ///
         /// <param name="force">
         /// If true, the function will be set even if its ReadOnly.
         /// </param>
-        ///
         /// <param name="origin">
         /// The origin of the caller of this API
         /// </param>
-        ///
         /// <param name="context">
         /// The execution context for the function/filter.
         /// </param>
-        ///
         /// <returns>
         /// A FunctionInfo that is either a FilterInfo or FunctionInfo representing the
         /// function or filter.
         /// </returns>
-        ///
         /// <exception cref="SessionStateUnauthorizedAccessException">
         /// If the function is read-only or constant.
         /// </exception>
-        ///
         internal FunctionInfo SetFunction(
             string name,
             ScriptBlock function,
@@ -1193,44 +1101,35 @@ namespace System.Management.Automation
             ExecutionContext context)
         {
             return SetFunction(name, function, null, ScopedItemOptions.Unspecified, force, origin, context);
-        } // SetFunction
+        }
         /// <summary>
         /// Sets an function to the given function declaration.
         /// </summary>
-        ///
         /// <param name="name">
         /// The name of the function to set.
         /// </param>
-        ///
         /// <param name="function">
         /// The script block that represents the code for the function.
         /// </param>
-        ///
         /// <param name="originalFunction">
         /// The original function (if any) from which the scriptblock was derived.
         /// </param>
-        ///
         /// <param name="force">
         /// If true, the function will be set even if its ReadOnly.
         /// </param>
-        ///
         /// <param name="origin">
         /// The origin of the caller of this API
         /// </param>
-        ///
         /// <param name="context">
         /// The execution context for the function/filter.
         /// </param>
-        ///
         /// <returns>
         /// A FunctionInfo that is either a FilterInfo or FunctionInfo representing the
         /// function or filter.
         /// </returns>
-        ///
         /// <exception cref="SessionStateUnauthorizedAccessException">
         /// If the function is read-only or constant.
         /// </exception>
-        ///
         internal FunctionInfo SetFunction(
             string name,
             ScriptBlock function,
@@ -1240,49 +1139,39 @@ namespace System.Management.Automation
             ExecutionContext context)
         {
             return SetFunction(name, function, originalFunction, ScopedItemOptions.Unspecified, force, origin, context);
-        } // SetFunction
+        }
 
         /// <summary>
         /// Sets an function to the given function declaration.
         /// </summary>
-        ///
         /// <param name="name">
         /// The name of the function to set.
         /// </param>
-        ///
         /// <param name="function">
         /// The script block that the function should represent.
         /// </param>
-        ///
         /// <param name="originalFunction">
         /// The original function (if any) from which the scriptblock was derived.
         /// </param>
-        ///
         /// <param name="options">
         /// The options that should be applied to the function.
         /// </param>
-        ///
         /// <param name="force">
         /// If true, the function will be set even if its ReadOnly.
         /// </param>
-        ///
         /// <param name="origin">
         /// The origin of the caller of this API
         /// </param>
-        ///
         /// <param name="context">
         /// The execution context for the function/filter.
         /// </param>
-        ///
         /// <returns>
         /// A FunctionInfo that is either a FilterInfo or FunctionInfo representing the
         /// function or filter.
         /// </returns>
-        ///
         /// <exception cref="SessionStateUnauthorizedAccessException">
         /// If the function is read-only or constant.
         /// </exception>
-        ///
         internal FunctionInfo SetFunction(
             string name,
             ScriptBlock function,
@@ -1293,7 +1182,7 @@ namespace System.Management.Automation
             ExecutionContext context)
         {
             return SetFunction(name, function, originalFunction, options, force, origin, context, null);
-        } // SetFunction
+        }
 
         internal FunctionInfo SetFunction(
             string name,
@@ -1311,52 +1200,40 @@ namespace System.Management.Automation
         /// <summary>
         /// Sets an function to the given function declaration.
         /// </summary>
-        ///
         /// <param name="name">
         /// The name of the function to set.
         /// </param>
-        ///
         /// <param name="function">
         /// The script block that the function should represent.
         /// </param>
-        ///
         /// <param name="originalFunction">
         /// The original function (if any) from which the scriptblock was derived.
         /// </param>
-        ///
         /// <param name="options">
         /// The options that should be applied to the function.
         /// </param>
-        ///
         /// <param name="force">
         /// If true, the function will be set even if its ReadOnly.
         /// </param>
-        ///
         /// <param name="origin">
         /// The origin of the caller of this API
         /// </param>
-        ///
         /// <param name="context">
         /// The execution context for the function/filter.
         /// </param>
-        ///
         /// <param name="helpFile">
         /// The name of the help file associated with the function.
         /// </param>
-        ///
         /// <param name="functionFactory">
         /// Function to create the FunctionInfo.
         /// </param>
-        ///
         /// <returns>
         /// A FunctionInfo that is either a FilterInfo or FunctionInfo representing the
         /// function or filter.
         /// </returns>
-        ///
         /// <exception cref="SessionStateUnauthorizedAccessException">
         /// If the function is read-only or constant.
         /// </exception>
-        ///
         internal FunctionInfo SetFunction(
             string name,
             ScriptBlock function,
@@ -1372,11 +1249,18 @@ namespace System.Management.Automation
                 name != null,
                 "The caller should verify the name");
 
-            var functionInfos = GetFunctions();
-            FunctionInfo existingValue;
+            Dictionary<string, FunctionInfo> functionInfos = GetFunctions();
             FunctionInfo result;
-            if (!functionInfos.TryGetValue(name, out existingValue))
+
+            // Functions are equal only if they have the same name and if they come from the same module (if any).
+            // If the function is not associated with a module then the info 'ModuleName' property is set to empty string.
+            // If the new function has the same name of an existing function, but different module names, then the
+            // existing table function is replaced with the new function.
+            if (!functionInfos.TryGetValue(name, out FunctionInfo existingValue) ||
+                (originalFunction != null &&
+                    !existingValue.ModuleName.Equals(originalFunction.ModuleName, StringComparison.OrdinalIgnoreCase)))
             {
+                // Add new function info to function table and return.
                 result = functionFactory(name, function, originalFunction, options, context, helpFile);
                 functionInfos[name] = result;
 
@@ -1384,102 +1268,95 @@ namespace System.Management.Automation
                 {
                     GetAllScopeFunctions()[name] = result;
                 }
+
+                return result;
+            }
+
+            // Update the existing function.
+
+            // Make sure the function isn't constant or readonly.
+            SessionState.ThrowIfNotVisible(origin, existingValue);
+
+            if (IsFunctionOptionSet(existingValue, ScopedItemOptions.Constant) ||
+                (!force && IsFunctionOptionSet(existingValue, ScopedItemOptions.ReadOnly)))
+            {
+                SessionStateUnauthorizedAccessException e =
+                    new SessionStateUnauthorizedAccessException(
+                            name,
+                            SessionStateCategory.Function,
+                            "FunctionNotWritable",
+                            SessionStateStrings.FunctionNotWritable);
+
+                throw e;
+            }
+
+            // Ensure we are not trying to set the function to constant as this can only be
+            // done at creation time.
+            if ((options & ScopedItemOptions.Constant) != 0)
+            {
+                SessionStateUnauthorizedAccessException e =
+                    new SessionStateUnauthorizedAccessException(
+                            name,
+                            SessionStateCategory.Function,
+                            "FunctionCannotBeMadeConstant",
+                            SessionStateStrings.FunctionCannotBeMadeConstant);
+
+                throw e;
+            }
+
+            // Ensure we are not trying to remove the AllScope option.
+            if ((options & ScopedItemOptions.AllScope) == 0 &&
+                IsFunctionOptionSet(existingValue, ScopedItemOptions.AllScope))
+            {
+                SessionStateUnauthorizedAccessException e =
+                    new SessionStateUnauthorizedAccessException(
+                            name,
+                            SessionStateCategory.Function,
+                            "FunctionAllScopeOptionCannotBeRemoved",
+                            SessionStateStrings.FunctionAllScopeOptionCannotBeRemoved);
+
+                throw e;
+            }
+
+            FunctionInfo existingFunction = existingValue;
+
+            // If the function type changes (i.e.: function to workflow or back)
+            // then we need to replace what was there.
+            FunctionInfo newValue = functionFactory(name, function, originalFunction, options, context, helpFile);
+
+            bool changesFunctionType = existingFunction.GetType() != newValue.GetType();
+
+            // Since the options are set after the script block, we have to
+            // forcefully apply the script block if the options will be
+            // set to not being ReadOnly.
+            if (changesFunctionType ||
+                ((existingFunction.Options & ScopedItemOptions.ReadOnly) != 0 && force))
+            {
+                result = newValue;
+                functionInfos[name] = newValue;
             }
             else
             {
-                // Make sure the function isn't constant or readonly
-
-                SessionState.ThrowIfNotVisible(origin, existingValue);
-
-                if (IsFunctionOptionSet(existingValue, ScopedItemOptions.Constant) ||
-                    (!force && IsFunctionOptionSet(existingValue, ScopedItemOptions.ReadOnly)))
-                {
-                    SessionStateUnauthorizedAccessException e =
-                        new SessionStateUnauthorizedAccessException(
-                                name,
-                                SessionStateCategory.Function,
-                                "FunctionNotWritable",
-                                SessionStateStrings.FunctionNotWritable);
-
-                    throw e;
-                }
-
-                // Ensure we are not trying to set the function to constant as this can only be
-                // done at creation time.
-
-                if ((options & ScopedItemOptions.Constant) != 0)
-                {
-                    SessionStateUnauthorizedAccessException e =
-                        new SessionStateUnauthorizedAccessException(
-                                name,
-                                SessionStateCategory.Function,
-                                "FunctionCannotBeMadeConstant",
-                                SessionStateStrings.FunctionCannotBeMadeConstant);
-
-                    throw e;
-                }
-
-                // Ensure we are not trying to remove the AllScope option
-
-                if ((options & ScopedItemOptions.AllScope) == 0 &&
-                    IsFunctionOptionSet(existingValue, ScopedItemOptions.AllScope))
-                {
-                    SessionStateUnauthorizedAccessException e =
-                        new SessionStateUnauthorizedAccessException(
-                                name,
-                                SessionStateCategory.Function,
-                                "FunctionAllScopeOptionCannotBeRemoved",
-                                SessionStateStrings.FunctionAllScopeOptionCannotBeRemoved);
-
-                    throw e;
-                }
-
-                FunctionInfo existingFunction = existingValue;
-                FunctionInfo newValue = null;
-
-                // If the function type changes (i.e.: function to workflow or back)
-                // then we need to blast what was there
-                newValue = functionFactory(name, function, originalFunction, options, context, helpFile);
-
-                bool changesFunctionType = existingFunction.GetType() != newValue.GetType();
-
-                // Since the options are set after the script block, we have to
-                // forcefully apply the script block if the options will be
-                // set to not being ReadOnly
-                if (changesFunctionType ||
-                    ((existingFunction.Options & ScopedItemOptions.ReadOnly) != 0 && force))
-                {
-                    result = newValue;
-                    functionInfos[name] = newValue;
-                }
-                else
-                {
-                    bool applyForce = force || (options & ScopedItemOptions.ReadOnly) == 0;
-
-                    existingFunction.Update(newValue, applyForce, options, helpFile);
-                    result = existingFunction;
-                }
+                bool applyForce = force || (options & ScopedItemOptions.ReadOnly) == 0;
+                existingFunction.Update(newValue, applyForce, options, helpFile);
+                result = existingFunction;
             }
 
             return result;
-        } // SetFunction
+        }
 
         /// <summary>
         /// Removes a function from the function table.
         /// </summary>
-        ///
         /// <param name="name">
         /// The name of the function to remove.
         /// </param>
-        ///
         /// <param name="force">
         /// If true, the function is removed even if it is ReadOnly.
         /// </param>
-        ///
         /// <exception cref="SessionStateUnauthorizedAccessException">
         /// If the function is constant.
         /// </exception>
-        ///
         internal void RemoveFunction(string name, bool force)
         {
             Diagnostics.Assert(
@@ -1508,8 +1385,9 @@ namespace System.Management.Automation
                     GetAllScopeFunctions().Remove(name);
                 }
             }
+
             functionInfos.Remove(name);
-        } // RemoveFunction
+        }
 
         #endregion functions
 
@@ -1518,27 +1396,23 @@ namespace System.Management.Automation
         /// <summary>
         /// Gets an IEnumerable for the cmdlets in this scope.
         /// </summary>
-        ///
         internal Dictionary<string, List<CmdletInfo>> CmdletTable
         {
             get
             {
                 return _cmdlets;
-            } // get
-        } // CmdletTable
+            }
+        }
 
         /// <summary>
         /// Gets the specified cmdlet from the cmdlet table.
         /// </summary>
-        ///
         /// <param name="name">
         /// The name of the cmdlet to retrieve.
         /// </param>
-        ///
         /// <returns>
         /// A CmdletInfo representing this cmdlet
         /// </returns>
-        ///
         internal CmdletInfo GetCmdlet(string name)
         {
             Diagnostics.Assert(
@@ -1558,36 +1432,29 @@ namespace System.Management.Automation
             }
 
             return result;
-        } // GetCmdlet
+        }
 
         /// <summary>
         /// Adds a cmdlet to the cmdlet cache.
         /// </summary>
-        ///
         /// <param name="name">
         /// The name of the cmdlet to add.
         /// </param>
-        ///
         /// <param name="cmdlet">
         /// The cmdlet that should be added.
         /// </param>
-        ///
         /// <param name="origin">
         /// The origin of the caller of this API
         /// </param>
-        ///
         /// <param name="context">
         /// The execution context for the cmdlet.
         /// </param>
-        ///
         /// <returns>
         /// A CmdletInfo representing the cmdlet
         /// </returns>
-        ///
         /// <exception cref="SessionStateUnauthorizedAccessException">
         /// If the cmdlet is read-only or constant.
         /// </exception>
-        ///
         ///
         internal CmdletInfo AddCmdletToCache(
             string name,
@@ -1658,7 +1525,6 @@ namespace System.Management.Automation
                     }
                 }
             }
-
             catch (ArgumentException)
             {
                 throwNotSupported = true;
@@ -1675,29 +1541,24 @@ namespace System.Management.Automation
             }
 
             return _cmdlets[name][0];
-        } // AddCmdlet
+        }
 
         /// <summary>
         /// Removes a cmdlet from the cmdlet table.
         /// </summary>
-        ///
         /// <param name="name">
         /// The name of the cmdlet to remove.
         /// </param>
-        ///
         /// <param name="index">
         /// The index at which to remove the cmdlet
         /// If index is -1, remove all cmdlets with that name
         /// </param>
-        ///
         /// <param name="force">
         /// If true, the cmdlet is removed even if it is ReadOnly.
         /// </param>
-        ///
         /// <exception cref="SessionStateUnauthorizedAccessException">
         /// If the cmdlet is constant.
         /// </exception>
-        ///
         internal void RemoveCmdlet(string name, int index, bool force)
         {
             Diagnostics.Assert(
@@ -1719,29 +1580,25 @@ namespace System.Management.Automation
                 // Remove the entry is the list is now empty
                 if (cmdlets.Count == 0)
                 {
-                    //Remove the key
+                    // Remove the key
                     _cmdlets.Remove(name);
                     return;
                 }
             }
-        }// RemoveCmdlet
+        }
 
         /// <summary>
         /// Removes a cmdlet entry from the cmdlet table.
         /// </summary>
-        ///
         /// <param name="name">
         /// The key for the cmdlet entry to remove.
         /// </param>
-        ///
         /// <param name="force">
         /// If true, the cmdlet entry is removed even if it is ReadOnly.
         /// </param>
-        ///
         /// <exception cref="SessionStateUnauthorizedAccessException">
         /// If the cmdlet is constant.
         /// </exception>
-        ///
         internal void RemoveCmdletEntry(string name, bool force)
         {
             Diagnostics.Assert(
@@ -1749,7 +1606,7 @@ namespace System.Management.Automation
                 "The caller should verify the name");
 
             _cmdlets.Remove(name);
-        }// RemoveCmdletEntry
+        }
 
         #endregion Cmdlets
 
@@ -1761,42 +1618,39 @@ namespace System.Management.Automation
         {
             get
             {
-                // this is kind of our own lazy initialization logic here.
-                if (_typeResolutionState == null)
+                if (_typeResolutionState != null)
                 {
-                    if (this.Parent != null)
-                    {
-                        _typeResolutionState = this.Parent.TypeResolutionState;
-                    }
-                    else
-                    {
-                        _typeResolutionState = Language.TypeResolutionState.UsingSystem;
-                    }
+                    return _typeResolutionState;
                 }
 
-                return _typeResolutionState;
+                return Parent != null ? Parent.TypeResolutionState : Language.TypeResolutionState.UsingSystem;
             }
 
-            set { _typeResolutionState = value; }
+            set
+            {
+                _typeResolutionState = value;
+            }
         }
 
         internal IDictionary<string, Type> TypeTable { get; private set; }
 
         internal void AddType(string name, Type type)
         {
-            if (TypeTable == null)
-            {
-                TypeTable = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase);
-            }
+            TypeTable ??= new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase);
 
             TypeTable[name] = type;
         }
 
         internal Type LookupType(string name)
         {
-            if (TypeTable == null) return null;
+            if (TypeTable == null)
+            {
+                return null;
+            }
+
             Type result;
             TypeTable.TryGetValue(name, out result);
+
             return result;
         }
 
@@ -1837,12 +1691,18 @@ namespace System.Management.Automation
 
             // Then use the creation constructors - workflows don't get here because the workflow info
             // is created during compilation.
-            else if (function.IsFilter) { newValue = new FilterInfo(name, function, options, context, helpFile); }
+            else if (function.IsFilter)
+            {
+                newValue = new FilterInfo(name, function, options, context, helpFile);
+            }
             else if (function.IsConfiguration)
             {
                 newValue = new ConfigurationInfo(name, function, options, context, helpFile, function.IsMetaConfiguration());
             }
-            else newValue = new FunctionInfo(name, function, options, context, helpFile);
+            else
+            {
+                newValue = new FunctionInfo(name, function, options, context, helpFile);
+            }
 
             return newValue;
         }
@@ -1854,10 +1714,10 @@ namespace System.Management.Automation
         // performance degradation, so we use lazy initialization for all of them.
         private Dictionary<string, PSDriveInfo> GetDrives()
         {
-            return _drives ?? (_drives = new Dictionary<string, PSDriveInfo>(StringComparer.OrdinalIgnoreCase));
+            return _drives ??= new Dictionary<string, PSDriveInfo>(StringComparer.OrdinalIgnoreCase);
         }
 
-        private Dictionary<String, PSDriveInfo> _drives;
+        private Dictionary<string, PSDriveInfo> _drives;
 
         /// <summary>
         /// Contains the drives that have been automounted by the system.
@@ -1866,13 +1726,13 @@ namespace System.Management.Automation
         // performance degradation, so we use lazy initialization for all of them.
         private Dictionary<string, PSDriveInfo> GetAutomountedDrives()
         {
-            return _automountedDrives ??
-                   (_automountedDrives = new Dictionary<string, PSDriveInfo>(StringComparer.OrdinalIgnoreCase));
+            return _automountedDrives ??= new Dictionary<string, PSDriveInfo>(StringComparer.OrdinalIgnoreCase);
         }
 
-        private Dictionary<String, PSDriveInfo> _automountedDrives;
+        private Dictionary<string, PSDriveInfo> _automountedDrives;
 
         private Dictionary<string, PSVariable> _variables;
+
         private Dictionary<string, PSVariable> GetPrivateVariables()
         {
             if (_variables == null)
@@ -2013,7 +1873,6 @@ namespace System.Management.Automation
         /// table. The entries in this table are automatically propagated
         /// to new scopes.
         /// </summary>
-
         private readonly Dictionary<string, List<CmdletInfo>> _allScopeCmdlets = new Dictionary<string, List<CmdletInfo>>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
@@ -2021,7 +1880,6 @@ namespace System.Management.Automation
         /// We don't need a new reference in each scope since it
         /// is ScopedItemOptions.Constant.
         /// </summary>
-        ///
         private static readonly PSVariable s_trueVar =
             new PSVariable(
                 StringLiterals.True,
@@ -2034,7 +1892,6 @@ namespace System.Management.Automation
         /// We don't need a new reference in each scope since it
         /// is ScopedItemOptions.Constant.
         /// </summary>
-        ///
         private static readonly PSVariable s_falseVar =
             new PSVariable(
                 StringLiterals.False,
@@ -2047,7 +1904,6 @@ namespace System.Management.Automation
         /// We don't need a new reference in each scope since it
         /// is ScopedItemOptions.Constant.
         /// </summary>
-        ///
         private static readonly NullVariable s_nullVar =
             new NullVariable();
 
@@ -2055,7 +1911,7 @@ namespace System.Management.Automation
 
         #region Alias mapping
 
-        private Dictionary<string, List<string>> _commandsToAliasesCache = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, List<string>> _commandsToAliasesCache = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// Gets the aliases by command name (used by metadata-driven help)
@@ -2077,7 +1933,6 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="alias"></param>
         /// <param name="value"></param>
@@ -2100,7 +1955,6 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="alias"></param>
         /// <param name="value"></param>
@@ -2118,7 +1972,7 @@ namespace System.Management.Automation
             }
             else
             {
-                string itemToRemove = list.FirstOrDefault(item => item.Equals(alias, StringComparison.OrdinalIgnoreCase));
+                string itemToRemove = list.Find(item => item.Equals(alias, StringComparison.OrdinalIgnoreCase));
                 if (itemToRemove != null)
                 {
                     list.Remove(itemToRemove);
@@ -2126,7 +1980,34 @@ namespace System.Management.Automation
             }
         }
 
-        #endregion
-    } // class SessionStateScope
-} // namespace System.Management.Automation
+        private void CheckVariableChangeInConstrainedLanguage(PSVariable variable)
+        {
+            var context = LocalPipeline.GetExecutionContextFromTLS();
+            if (context?.LanguageMode == PSLanguageMode.ConstrainedLanguage)
+            {
+                if (variable.Options.HasFlag(ScopedItemOptions.AllScope))
+                {
+                    if (SystemPolicy.GetSystemLockdownPolicy() != SystemEnforcementMode.Audit)
+                    {
+                        // Don't let people set AllScope variables in ConstrainedLanguage, as they can be used to
+                        // interfere with the session state of trusted commands.
+                        throw new PSNotSupportedException();
+                    }
 
+                    SystemPolicy.LogWDACAuditMessage(
+                        context: context,
+                        title: SessionStateStrings.WDACSessionStateVarLogTitle,
+                        message: StringUtil.Format(SessionStateStrings.WDACSessionStateVarLogMessage, variable.Name),
+                        fqid: "AllScopeVariableNotAllowed",
+                        dropIntoDebugger: true);
+                }
+
+                // Mark untrusted values for assignments to 'Global:' variables, and 'Script:' variables in
+                // a module scope, if it's necessary.
+                ExecutionContext.MarkObjectAsUntrustedForVariableAssignment(variable, this, context.EngineSessionState);
+            }
+        }
+
+        #endregion
+    }
+}

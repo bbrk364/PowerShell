@@ -1,16 +1,17 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.IO;
+
 using Dbg = System.Management.Automation.Diagnostics;
 
 namespace System.Management.Automation.Remoting
 {
-    ///<summary>
+    /// <summary>
     /// This is the object used by Runspace,pipeline,host to send data
     /// to remote end. Transport layer owns breaking this into fragments
     /// and sending to other end
-    ///</summary>
+    /// </summary>
     internal class RemoteDataObject<T>
     {
         #region Private Members
@@ -109,7 +110,6 @@ namespace System.Management.Automation.Remoting
         #endregion Properties
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="destination"></param>
         /// <param name="dataType"></param>
@@ -213,7 +213,7 @@ namespace System.Management.Automation.Remoting
             return;
         }
 
-        private void SerializeUInt(uint data, Stream streamToWriteTo)
+        private static void SerializeUInt(uint data, Stream streamToWriteTo)
         {
             Dbg.Assert(streamToWriteTo != null, "stream to write to cannot be null");
 
@@ -241,7 +241,7 @@ namespace System.Management.Automation.Remoting
             return result;
         }
 
-        private void SerializeGuid(Guid guid, Stream streamToWriteTo)
+        private static void SerializeGuid(Guid guid, Stream streamToWriteTo)
         {
             Dbg.Assert(streamToWriteTo != null, "stream to write to cannot be null");
 
@@ -267,12 +267,11 @@ namespace System.Management.Automation.Remoting
         #endregion
     }
 
-    internal class RemoteDataObject : RemoteDataObject<object>
+    internal sealed class RemoteDataObject : RemoteDataObject<object>
     {
         #region Constructors / Factory
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="destination"></param>
         /// <param name="dataType"></param>
@@ -288,7 +287,6 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="destination"></param>
         /// <param name="dataType"></param>
@@ -296,7 +294,7 @@ namespace System.Management.Automation.Remoting
         /// <param name="powerShellId"></param>
         /// <param name="data"></param>
         /// <returns></returns>
-        internal new static RemoteDataObject CreateFrom(RemotingDestination destination,
+        internal static new RemoteDataObject CreateFrom(RemotingDestination destination,
             RemotingDataType dataType,
             Guid runspacePoolId,
             Guid powerShellId,

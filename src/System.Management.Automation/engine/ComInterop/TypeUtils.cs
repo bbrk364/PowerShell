@@ -1,19 +1,13 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
 
-#if !CLR2
-#else
-using Microsoft.Scripting.Ast;
-#endif
+using System;
 using System.Reflection;
 
 namespace System.Management.Automation.ComInterop
 {
     internal static class TypeUtils
     {
-        private const BindingFlags AnyStatic = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-        internal const MethodAttributes PublicStatic = MethodAttributes.Public | MethodAttributes.Static;
-
         //CONFORMING
         internal static Type GetNonNullableType(Type type)
         {
@@ -44,6 +38,7 @@ namespace System.Management.Automation.ComInterop
             }
             return false;
         }
+
         //CONFORMING
         internal static bool AreAssignable(Type dest, Type src)
         {
@@ -107,8 +102,9 @@ namespace System.Management.Automation.ComInterop
             // try lifted conversion
             if (nnExprType != convertFrom || nnConvType != convertToType)
             {
-                method = FindConversionOperator(eMethods, nnExprType, nnConvType, implicitOnly) ??
-                         FindConversionOperator(cMethods, nnExprType, nnConvType, implicitOnly);
+                method =
+                    FindConversionOperator(eMethods, nnExprType, nnConvType, implicitOnly) ??
+                    FindConversionOperator(cMethods, nnExprType, nnConvType, implicitOnly);
                 if (method != null)
                 {
                     return method;
@@ -141,7 +137,6 @@ namespace System.Management.Automation.ComInterop
         }
 
         //CONFORMING
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA1502:AvoidExcessiveComplexity")]
         private static bool IsImplicitNumericConversion(Type source, Type destination)
         {
             TypeCode tcSource = Type.GetTypeCode(source);
@@ -268,4 +263,3 @@ namespace System.Management.Automation.ComInterop
         }
     }
 }
-

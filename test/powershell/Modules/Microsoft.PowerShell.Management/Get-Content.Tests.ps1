@@ -1,4 +1,4 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 Describe "Get-Content" -Tags "CI" {
     $testString = "This is a test content for a file"
@@ -24,22 +24,22 @@ Describe "Get-Content" -Tags "CI" {
         Remove-Item -Path $testPath2 -Force
     }
 
-    It "Should throw an error on a directory  " {
+    It "Should throw an error on a directory" {
         { Get-Content . -ErrorAction Stop } |
-            Should -Throw -ErrorId "GetContentReaderUnauthorizedAccessError,Microsoft.PowerShell.Commands.GetContentCommand"
+            Should -Throw -ErrorId "GetContainerContentException,Microsoft.PowerShell.Commands.GetContentCommand"
     }
 
     It "Should return an Object when listing only a single line and the correct information from a file" {
         $content = (Get-Content -Path $testPath)
         $content | Should -BeExactly $testString
         $content.Count | Should -Be 1
-        $content | Should -BeOfType "System.String"
+        $content | Should -BeOfType System.String
     }
 
     It "Should deliver an array object when listing a file with multiple lines and the correct information from a file" {
         $content = (Get-Content -Path $testPath2)
         @(Compare-Object $content $testString2.Split($nl) -SyncWindow 0).Length | Should -Be 0
-        ,$content | Should -BeOfType "System.Array"
+        ,$content | Should -BeOfType System.Array
     }
 
     It "Should be able to return a specific line from a file" {
@@ -72,6 +72,14 @@ Describe "Get-Content" -Tags "CI" {
         Get-Content -Path $testPath2 -Last 1 | Should -BeExactly $fifthline
     }
 
+    It 'Verifies -TotalCount reports a ParameterArgumentValidationError error for negative values' {
+        {Get-Content -Path $testPath2 -TotalCount -2} | Should -Throw -ErrorId 'ParameterArgumentValidationError,Microsoft.PowerShell.Commands.GetContentCommand'
+    }
+
+    It 'Verifies -Tail reports a ParameterArgumentValidationError error for negative values' {
+        {Get-Content -Path $testPath2 -Tail -2} | Should -Throw -ErrorId 'ParameterArgumentValidationError,Microsoft.PowerShell.Commands.GetContentCommand'
+    }
+
     It "Should be able to get content within a different drive" {
         Push-Location env:
         $expectedoutput = [Environment]::GetEnvironmentVariable("PATH");
@@ -93,35 +101,46 @@ Describe "Get-Content" -Tags "CI" {
         { Get-Content -Path Variable:\PSHOME -Tail 1 -TotalCount 5 -ErrorAction Stop} | Should -Throw -ErrorId 'TailAndHeadCannotCoexist,Microsoft.PowerShell.Commands.GetContentCommand'
     }
 
-    It 'Verifies -Tail with content that uses an explicit encoding' -TestCases @(
+    It 'Verifies -Tail with content that uses an explicit/implicit encoding' -TestCases @(
         @{EncodingName = 'String'},
+        @{EncodingName = 'OEM'},
         @{EncodingName = 'Unicode'},
         @{EncodingName = 'BigEndianUnicode'},
+        @{EncodingName = 'BigEndianUTF32'},
         @{EncodingName = 'UTF8'},
+        @{EncodingName = 'UTF8BOM'},
+        @{EncodingName = 'UTF8NoBOM'},
         @{EncodingName = 'UTF7'},
         @{EncodingName = 'UTF32'},
-        @{EncodingName = 'Ascii'}
+        @{EncodingName = 'Ascii'},
+        @{EncodingName = 'ANSI'}
         ){
         param($EncodingName)
 
-        $content = @"
-one
-two
-foo
-bar
-baz
-"@
-        $expected = 'foo'
-        $tailCount = 3
+        $contentSets =
+            @(@('a1','aa2','aaa3','aaaa4','aaaaa5'), # utf-8
+              @('€1','€€2','€€€3','€€€€4','€€€€€5'), # utf-16
+              @('𐍈1','𐍈𐍈2','𐍈𐍈𐍈3','𐍈𐍈𐍈𐍈4','𐍈𐍈𐍈𐍈𐍈5')) # utf-32
+        ForEach ($content in $contentSets)
+        {
+            $tailCount = 4
+            $testPath = Join-Path -Path $TestDrive -ChildPath 'TailWithEncoding.txt'
+            $content | Set-Content -Path $testPath -Encoding $EncodingName
 
-        $testPath = Join-Path -Path $TestDrive -ChildPath 'TailWithEncoding.txt'
-        $content | Set-Content -Path $testPath -Encoding $encodingName
-        $expected = 'foo'
+            # read and verify using explicit encoding
+            $expected = (Get-Content -Path $testPath -Encoding $EncodingName)[-$tailCount]
+            $actual = Get-Content -Path $testPath -Tail $tailCount -Encoding $EncodingName
+            $actual | Should -BeOfType string
+            $actual.Length | Should -Be $tailCount
+            $actual[0] | Should -BeExactly $expected
 
-        $actual = Get-Content -Path $testPath -Tail $tailCount -Encoding $encodingName
-        $actual | Should -BeOfType [string]
-        $actual.Length | Should -Be $tailCount
-        $actual[0] | Should -BeExactly $expected
+            # read and verify using implicit encoding
+            $expected = (Get-Content -Path $testPath)[-$tailCount]
+            $actual = Get-Content -Path $testPath -Tail $tailCount
+            $actual | Should -BeOfType string
+            $actual.Length | Should -Be $tailCount
+            $actual[0] | Should -BeExactly $expected
+        }
     }
 
     It "should Get-Content with a variety of -Tail and -ReadCount: <test>" -TestCases @(
@@ -196,7 +215,7 @@ baz
         Set-Content -Path $testPath $testContent
         $result = Get-Content @GetContentParams
         $result.Length | Should -Be $expectedLength
-        if ($isWindows) {
+        if ($IsWindows) {
             $result | Should -BeExactly $expectedWindowsContent
         } else {
             $result | Should -BeExactly $expectedNotWindowsContent
@@ -212,24 +231,26 @@ baz
         for ($i = 0; $i -lt $result.Length ; $i++) { $result[$i]    | Should -BeExactly $expected[$i]}
     }
 
-    It "Should support NTFS streams using colon syntax" -Skip:(!$IsWindows) {
-        Set-Content "${testPath}:Stream" -Value "Foo"
-        { Test-Path "${testPath}:Stream" | Should -Throw -ErrorId "ItemExistsNotSupportedError,Microsoft.PowerShell.Commands,TestPathCommand" }
-        Get-Content "${testPath}:Stream" | Should -BeExactly "Foo"
-        Get-Content $testPath | Should -BeExactly $testString
-    }
+    Context "Alternate Data Stream support on Windows" {
+        It "Should support NTFS streams using colon syntax" -Skip:(!$IsWindows) {
+            Set-Content "${testPath}:Stream" -Value "Foo"
+            { Test-Path "${testPath}:Stream" | Should -Throw -ErrorId "ItemExistsNotSupportedError,Microsoft.PowerShell.Commands,TestPathCommand" }
+            Get-Content "${testPath}:Stream" | Should -BeExactly "Foo"
+            Get-Content $testPath | Should -BeExactly $testString
+        }
 
-    It "Should support NTFS streams using -Stream" -Skip:(!$IsWindows) {
-        Set-Content -Path $testPath -Stream hello -Value World
-        Get-Content -Path $testPath | Should -BeExactly $testString
-        Get-Content -Path $testPath -Stream hello | Should -BeExactly "World"
-        $item = Get-Item -Path $testPath -Stream hello
-        $item | Should -BeOfType 'System.Management.Automation.Internal.AlternateStreamData'
-        $item.Stream | Should -BeExactly "hello"
-        Clear-Content -Path $testPath -Stream hello
-        Get-Content -Path $testPath -Stream hello | Should -BeNullOrEmpty
-        Remove-Item -Path $testPath -Stream hello
-        { Get-Content -Path $testPath -Stream hello | Should -Throw -ErrorId "GetContentReaderFileNotFoundError,Microsoft.PowerShell.Commands.GetContentCommand" }
+        It "Should support NTFS streams using -Stream" -Skip:(!$IsWindows) {
+            Set-Content -Path $testPath -Stream hello -Value World
+            Get-Content -Path $testPath | Should -BeExactly $testString
+            Get-Content -Path $testPath -Stream hello | Should -BeExactly "World"
+            $item = Get-Item -Path $testPath -Stream hello
+            $item | Should -BeOfType System.Management.Automation.Internal.AlternateStreamData
+            $item.Stream | Should -BeExactly "hello"
+            Clear-Content -Path $testPath -Stream hello
+            Get-Content -Path $testPath -Stream hello | Should -BeNullOrEmpty
+            Remove-Item -Path $testPath -Stream hello
+            { Get-Content -Path $testPath -Stream hello -ErrorAction stop} | Should -Throw -ErrorId "GetContentReaderFileNotFoundError,Microsoft.PowerShell.Commands.GetContentCommand"
+        }
     }
 
     It "Should support colons in filename on Linux/Mac" -Skip:($IsWindows) {
@@ -258,6 +279,20 @@ baz
         Get-Content -Path $testPath -TotalCount 0 | Should -BeNullOrEmpty
     }
 
+    It "Should return no content when -Tail value is 0" {
+        Get-Content -Path $testPath -Tail 0 | Should -BeNullOrEmpty
+    }
+
+    It "Should wait for content when using -Tail 0 and -Wait" {
+        $testValues = @(1,2,3)
+        $Job = Start-Job -ScriptBlock {Get-Content -Path $using:testPath -Tail 0 -Wait}
+        Start-Sleep -Seconds 3
+        Add-Content -Value $testValues -Path $testPath
+        Start-Sleep -Seconds 3
+        Compare-Object -ReferenceObject $testValues -DifferenceObject ($Job | Receive-Job) | Should -BeNullOrEmpty
+        $Job | Remove-Job -Force
+    }
+
     It "Should throw TailAndHeadCannotCoexist when both -Tail and -TotalCount are used" {
         {
         Get-Content -Path $testPath -Tail 1 -TotalCount 1 -ErrorAction Stop
@@ -276,6 +311,15 @@ baz
         {
         Get-Content -Path $testPath -Tail 1 -ErrorAction Stop -Raw
         } | Should -Throw -ErrorId "InvalidOperation,Microsoft.PowerShell.Commands.GetContentCommand"
+    }
+
+    It "Should throw ItemNotFound when path matches no files with <variation>" -TestCases @(
+        @{ variation = "no additional parameters"; params = @{} },
+        @{ variation = "dynamic parameter"       ; params = @{ Raw = $true }}
+    ) {
+        param($params)
+
+        { Get-Content -Path "/DoesNotExist*.txt" @params -ErrorAction Stop } | Should -Throw -ErrorId "ItemNotFound,Microsoft.PowerShell.Commands.GetContentCommand"
     }
 
     Context "Check Get-Content containing multi-byte chars" {
@@ -333,8 +377,14 @@ baz
             $expected[1] = $thirdLine
             Compare-Object -ReferenceObject $expected -DifferenceObject $result | Should -BeNullOrEmpty
         }
+        It "Should return the same number of first lines as set in -TotalCount at one time for -ReadCount 0" {
+            $result = Get-Content -Path $testPath -TotalCount 3 -ReadCount 0
+            $result.Length | Should -Be 3
+            $expected = $firstLine,$secondLine,$thirdLine
+            Compare-Object -ReferenceObject $expected -DifferenceObject $result | Should -BeNullOrEmpty
+        }
         It "A warning should be emitted if both -AsByteStream and -Encoding are used together" {
-            [byte[]][char[]]"test" | Set-Content -Encoding Unicode -AsByteStream "${TESTDRIVE}\bfile.txt" -WarningVariable contentWarning *>$null
+            [byte[]][char[]]"test" | Set-Content -Encoding Unicode -AsByteStream "${TESTDRIVE}\bfile.txt" -WarningVariable contentWarning *> $null
             $contentWarning.Message | Should -Match "-AsByteStream"
         }
     }

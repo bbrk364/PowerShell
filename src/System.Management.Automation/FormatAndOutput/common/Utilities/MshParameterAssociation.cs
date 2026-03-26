@@ -1,29 +1,29 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
-using System.Management.Automation;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Management.Automation;
 
 namespace Microsoft.PowerShell.Commands.Internal.Format
 {
     /// <summary>
-    /// helper class to hold a resolved expression and its
-    /// originating parameter
+    /// Helper class to hold a resolved expression and its
+    /// originating parameter.
     /// </summary>
     internal sealed class MshResolvedExpressionParameterAssociation
     {
         #region tracer
         [TraceSource("MshResolvedExpressionParameterAssociation", "MshResolvedExpressionParameterAssociation")]
-        internal static PSTraceSource tracer = PSTraceSource.GetTracer("MshResolvedExpressionParameterAssociation",
+        internal static readonly PSTraceSource tracer = PSTraceSource.GetTracer("MshResolvedExpressionParameterAssociation",
                                                 "MshResolvedExpressionParameterAssociation");
         #endregion tracer
 
         internal MshResolvedExpressionParameterAssociation(MshParameter parameter, PSPropertyExpression expression)
         {
             if (expression == null)
-                throw PSTraceSource.NewArgumentNullException("expression");
+                throw PSTraceSource.NewArgumentNullException(nameof(expression));
 
             OriginatingParameter = parameter;
             ResolvedExpression = expression;
@@ -46,7 +46,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
             }
 
             // we did not get any properties:
-            //try to get properties from the default property set of the object
+            // try to get properties from the default property set of the object
             List<MshResolvedExpressionParameterAssociation> activeAssociationList = AssociationManager.ExpandDefaultPropertySet(target, expressionFactory);
 
             if (activeAssociationList.Count > 0)
@@ -142,6 +142,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
             {
                 retVal.Add(member.Name);
             }
+
             return retVal;
         }
 
@@ -158,13 +159,13 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
             List<MshResolvedExpressionParameterAssociation> retVal = new List<MshResolvedExpressionParameterAssociation>();
             foreach (string property in displayedProperties)
             {
-                if (!duplicatesFinder.ContainsKey(property))
+                if (duplicatesFinder.TryAdd(property, null))
                 {
-                    duplicatesFinder.Add(property, null);
                     PSPropertyExpression expr = new PSPropertyExpression(property, true);
                     retVal.Add(new MshResolvedExpressionParameterAssociation(null, expr));
                 }
             }
+
             return retVal;
         }
 
@@ -224,4 +225,3 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         }
     }
 }
-

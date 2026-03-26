@@ -1,12 +1,12 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics.PerformanceData;
-using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.PerformanceData;
+using System.Globalization;
 using System.Management.Automation.Tracing;
 
 namespace System.Management.Automation.PerformanceData
@@ -46,7 +46,7 @@ namespace System.Management.Automation.PerformanceData
 
         #region Constructors
         /// <summary>
-        /// Constructor
+        /// Constructor.
         /// </summary>
         protected CounterSetInstanceBase(CounterSetRegistrarBase counterSetRegistrarInst)
         {
@@ -74,7 +74,6 @@ namespace System.Management.Automation.PerformanceData
         /// But, if isNumerator is false, then a check is made on the input
         /// counter's type to ensure that denominator is indeed value for such a counter.
         /// </summary>
-        [SuppressMessage("Microsoft.Usage", "CA2233:OperationsShouldNotOverflow", Justification = "countId is validated as known denominator before it is incremented.")]
         protected bool RetrieveTargetCounterIdIfValid(int counterId, bool isNumerator, out int targetCounterId)
         {
             targetCounterId = counterId;
@@ -96,19 +95,22 @@ namespace System.Management.Automation.PerformanceData
                         isDenominatorValid = true;
                         break;
                 }
+
                 if (isDenominatorValid == false)
                 {
                     InvalidOperationException invalidOperationException =
                         new InvalidOperationException(
-                            String.Format(
+                            string.Format(
                             CultureInfo.InvariantCulture,
                             "Denominator for update not valid for the given counter id {0}",
                             counterId));
                     _tracer.TraceException(invalidOperationException);
                     return false;
                 }
+
                 targetCounterId = counterId + 1;
             }
+
             return true;
         }
 
@@ -203,7 +205,7 @@ namespace System.Management.Automation.PerformanceData
 
     /// <summary>
     /// PSCounterSetInstance is a thin wrapper
-    /// on System.Diagnostics.PerformanceData.CounterSetInstance
+    /// on System.Diagnostics.PerformanceData.CounterSetInstance.
     /// </summary>
     public class PSCounterSetInstance : CounterSetInstanceBase
     {
@@ -264,7 +266,7 @@ namespace System.Management.Automation.PerformanceData
 
         #region Constructors
         /// <summary>
-        /// Constructor for creating an instance of PSCounterSetInstance
+        /// Constructor for creating an instance of PSCounterSetInstance.
         /// </summary>
         public PSCounterSetInstance(CounterSetRegistrarBase counterSetRegBaseObj)
             : base(counterSetRegBaseObj)
@@ -367,7 +369,7 @@ namespace System.Management.Automation.PerformanceData
                 {
                     InvalidOperationException invalidOperationException =
                     new InvalidOperationException(
-                        String.Format(
+                        string.Format(
                         CultureInfo.InvariantCulture,
                         "Lookup for counter corresponding to counter id {0} failed",
                         counterId));
@@ -397,7 +399,7 @@ namespace System.Management.Automation.PerformanceData
             // retrieve counter id associated with the counter name
             if (counterName == null)
             {
-                ArgumentNullException argNullException = new ArgumentNullException("counterName");
+                ArgumentNullException argNullException = new ArgumentNullException(nameof(counterName));
                 _tracer.TraceException(argNullException);
                 return false;
             }
@@ -411,7 +413,7 @@ namespace System.Management.Automation.PerformanceData
             {
                 InvalidOperationException invalidOperationException =
                     new InvalidOperationException(
-                    String.Format(
+                    string.Format(
                     CultureInfo.InvariantCulture,
                     "Lookup for counter corresponding to counter name {0} failed",
                     counterName));
@@ -449,7 +451,7 @@ namespace System.Management.Automation.PerformanceData
                 {
                     InvalidOperationException invalidOperationException =
                         new InvalidOperationException(
-                            String.Format(
+                            string.Format(
                             CultureInfo.InvariantCulture,
                             "Lookup for counter corresponding to counter id {0} failed",
                             counterId));
@@ -481,10 +483,11 @@ namespace System.Management.Automation.PerformanceData
             // retrieve counter id associated with the counter name
             if (counterName == null)
             {
-                ArgumentNullException argNullException = new ArgumentNullException("counterName");
+                ArgumentNullException argNullException = new ArgumentNullException(nameof(counterName));
                 _tracer.TraceException(argNullException);
                 return false;
             }
+
             try
             {
                 int targetCounterId = this._counterNameToIdMapping[counterName];
@@ -494,7 +497,7 @@ namespace System.Management.Automation.PerformanceData
             {
                 InvalidOperationException invalidOperationException =
                     new InvalidOperationException(
-                    String.Format(
+                    string.Format(
                     CultureInfo.InvariantCulture,
                     "Lookup for counter corresponding to counter name {0} failed",
                     counterName));
@@ -517,6 +520,7 @@ namespace System.Management.Automation.PerformanceData
                 _tracer.TraceException(objectDisposedException);
                 return false;
             }
+
             int targetCounterId;
             if (base.RetrieveTargetCounterIdIfValid(counterId, isNumerator, out targetCounterId))
             {
@@ -531,7 +535,7 @@ namespace System.Management.Automation.PerformanceData
                 {
                     InvalidOperationException invalidOperationException =
                         new InvalidOperationException(
-                            String.Format(
+                            string.Format(
                             CultureInfo.InvariantCulture,
                             "Lookup for counter corresponding to counter id {0} failed",
                             counterId));
@@ -563,10 +567,11 @@ namespace System.Management.Automation.PerformanceData
             // retrieve counter id associated with the counter name
             if (counterName == null)
             {
-                ArgumentNullException argNullException = new ArgumentNullException("counterName");
+                ArgumentNullException argNullException = new ArgumentNullException(nameof(counterName));
                 _tracer.TraceException(argNullException);
                 return false;
             }
+
             try
             {
                 int targetCounterId = this._counterNameToIdMapping[counterName];
@@ -576,7 +581,7 @@ namespace System.Management.Automation.PerformanceData
             {
                 InvalidOperationException invalidOperationException =
                     new InvalidOperationException(
-                        String.Format(
+                        string.Format(
                         CultureInfo.InvariantCulture,
                         "Lookup for counter corresponding to counter name {0} failed",
                         counterName));

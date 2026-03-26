@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Runtime.Serialization;
@@ -6,16 +6,15 @@ using System.Runtime.Serialization;
 namespace System.Management.Automation
 {
     /// <summary>
-    /// This is a wrapper for exception class SecurityException
+    /// This is a wrapper for exception class SecurityException.
     /// </summary>
-    [Serializable]
     public class PSSecurityException : RuntimeException
     {
         #region ctor
         /// <summary>
-        /// Recommended constructor for class PSSecurityException
+        /// Recommended constructor for class PSSecurityException.
         /// </summary>
-        /// <returns> constructed object </returns>
+        /// <returns>Constructed object.</returns>
         public PSSecurityException()
             : base()
         {
@@ -29,31 +28,23 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Serialization constructor for class PSSecurityException
+        /// Serialization constructor for class PSSecurityException.
         /// </summary>
-        /// <param name="info"> serialization information </param>
-        /// <param name="context"> streaming context </param>
-        /// <returns> constructed object </returns>
+        /// <param name="info">Serialization information.</param>
+        /// <param name="context">Streaming context.</param>
+        /// <returns>Constructed object.</returns>
+        [Obsolete("Legacy serialization support is deprecated since .NET 8", DiagnosticId = "SYSLIB0051")]
         protected PSSecurityException(SerializationInfo info,
                            StreamingContext context)
-            : base(info, context)
         {
-            _errorRecord = new ErrorRecord(
-                new ParentContainsErrorRecordException(this),
-                "UnauthorizedAccess",
-                ErrorCategory.SecurityError,
-                null);
-            _errorRecord.ErrorDetails = new ErrorDetails(SessionStateStrings.CanNotRun);
-            _message = _errorRecord.ErrorDetails.Message;
-            // no fields, nothing more to serialize
-            // no need for a GetObjectData implementation
+            throw new NotSupportedException();
         }
 
         /// <summary>
-        /// Constructor for class PSSecurityException
+        /// Constructor for class PSSecurityException.
         /// </summary>
-        /// <param name="message">  </param>
-        /// <returns> constructed object </returns>
+        /// <param name="message"></param>
+        /// <returns>Constructed object.</returns>
         public PSSecurityException(string message)
             : base(message)
         {
@@ -67,11 +58,11 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Constructor for class PSSecurityException
+        /// Constructor for class PSSecurityException.
         /// </summary>
-        /// <param name="message">  </param>
-        /// <param name="innerException">  </param>
-        /// <returns> constructed object </returns>
+        /// <param name="message"></param>
+        /// <param name="innerException"></param>
+        /// <returns>Constructed object.</returns>
         public PSSecurityException(string message,
                                 Exception innerException)
             : base(message, innerException)
@@ -93,17 +84,16 @@ namespace System.Management.Automation
         {
             get
             {
-                if (_errorRecord == null)
-                {
-                    _errorRecord = new ErrorRecord(
-                        new ParentContainsErrorRecordException(this),
-                        "UnauthorizedAccess",
-                        ErrorCategory.SecurityError,
-                        null);
-                }
+                _errorRecord ??= new ErrorRecord(
+                    new ParentContainsErrorRecordException(this),
+                    "UnauthorizedAccess",
+                    ErrorCategory.SecurityError,
+                    null);
+
                 return _errorRecord;
             }
         }
+
         private ErrorRecord _errorRecord;
 
         /// <summary>
@@ -115,7 +105,7 @@ namespace System.Management.Automation
         {
             get { return _message; }
         }
-        private string _message;
-    } // PSSecurityException
-} // System.Management.Automation
 
+        private readonly string _message;
+    }
+}

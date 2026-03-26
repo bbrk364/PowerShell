@@ -1,42 +1,29 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System;
-using System.Management.Automation;
 using System.Collections;
+using System.Management.Automation;
 using System.Text;
+using System.Xml;
 
 namespace Microsoft.PowerShell.Commands
 {
     /// <summary>
-    ///
-    /// Class comment
-    ///
+    /// WriteHost cmdlet.
     /// </summary>
-
-    [Cmdlet(VerbsCommunications.Write, "Host", HelpUri = "https://go.microsoft.com/fwlink/?LinkID=113426", RemotingCapability = RemotingCapability.None)]
+    [Cmdlet(VerbsCommunications.Write, "Host", HelpUri = "https://go.microsoft.com/fwlink/?LinkID=2097137", RemotingCapability = RemotingCapability.None)]
     public sealed class WriteHostCommand : ConsoleColorCmdlet
     {
-        //
-        // Parameters
-        //
-
         /// <summary>
-        ///
         /// Object to be output.
-        ///
         /// </summary>
-
         [Parameter(Position = 0, ValueFromRemainingArguments = true, ValueFromPipeline = true)]
         [Alias("Msg", "Message")]
-        public object Object { get; set; } = null;
+        public object Object { get; set; }
 
         /// <summary>
-        ///
         /// False to add a newline to the end of the output string, true if not.
-        ///
         /// </summary>
-
         [Parameter]
         public SwitchParameter NoNewline
         {
@@ -44,6 +31,7 @@ namespace Microsoft.PowerShell.Commands
             {
                 return _notAppendNewline;
             }
+
             set
             {
                 _notAppendNewline = value;
@@ -51,26 +39,20 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        ///
-        /// The separator to print between objects
-        ///
+        /// Gets and sets the separator to print between objects.
         /// </summary>
         /// <value></value>
-
         [Parameter]
         public object Separator { get; set; } = " ";
 
         //
         // Cmdlet Overrides
         //
-
         private string ProcessObject(object o)
         {
             if (o != null)
             {
-                string s = o as string;
-                IEnumerable enumerable = null;
-                if (s != null)
+                if (o is string s)
                 {
                     // strings are IEnumerable, so we special case them
                     if (s.Length > 0)
@@ -78,16 +60,20 @@ namespace Microsoft.PowerShell.Commands
                         return s;
                     }
                 }
-                else if ((enumerable = o as IEnumerable) != null)
+                else if (o is XmlNode xmlNode)
+                {
+                    return xmlNode.Name;
+                }
+                else if (o is IEnumerable enumerable)
                 {
                     // unroll enumerables, including arrays.
 
                     bool printSeparator = false;
-                    StringBuilder result = new StringBuilder();
+                    StringBuilder result = new();
 
                     foreach (object element in enumerable)
                     {
-                        if (printSeparator == true && Separator != null)
+                        if (printSeparator && Separator != null)
                         {
                             result.Append(Separator.ToString());
                         }
@@ -113,15 +99,13 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        ///
-        /// Outputs the object to the host console, with optional newline
-        ///
+        /// Outputs the object to the host console, with optional newline.
         /// </summary>
         protected override void ProcessRecord()
         {
             string result = ProcessObject(Object) ?? string.Empty;
 
-            HostInformationMessage informationMessage = new HostInformationMessage();
+            HostInformationMessage informationMessage = new();
             informationMessage.Message = result;
             informationMessage.NoNewLine = NoNewline.IsPresent;
 
@@ -139,6 +123,6 @@ namespace Microsoft.PowerShell.Commands
             this.WriteInformation(informationMessage, new string[] { "PSHOST" });
         }
 
-        private Boolean _notAppendNewline = false;
+        private bool _notAppendNewline = false;
     }
-}   // namespace Microsoft.PowerShell.Commands
+}

@@ -1,16 +1,22 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 Describe "Split-Path" -Tags "CI" {
 
     It "Should return a string object when invoked" {
-        $result = Split-Path .
-        $result | Should -BeOfType String
+        try {
+            Push-Location TestDrive:
+            $result = Split-Path .
+            $result | Should -BeOfType String
 
-        $result = Split-Path . -Leaf
-        $result | Should -BeOfType String
+            $result = Split-Path . -Leaf
+            $result | Should -BeOfType String
 
-        $result = Split-Path . -Resolve
-        $result | Should -BeOfType String
+            $result = Split-Path . -Resolve
+            $result | Should -BeOfType String
+        }
+        finally {
+            Pop-Location
+        }
     }
 
     It "Should return the name of the drive when the qualifier switch is used" {
@@ -21,6 +27,10 @@ Describe "Split-Path" -Tags "CI" {
     It "Should error when using the qualifier switch and no qualifier in the path" {
         { Split-Path -Qualifier -ErrorAction Stop /Users } | Should -Throw
 	{ Split-Path -Qualifier -ErrorAction Stop abcdef } | Should -Throw
+    }
+
+    It "Should error given positional parameter #2" {
+	    { Split-Path env: $NULL } | Should -Throw  -ErrorId 'PositionalParameterNotFound,Microsoft.PowerShell.Commands.SplitPathCommand'
     }
 
     It "Should return the path when the noqualifier switch is used" {
@@ -55,7 +65,7 @@ Describe "Split-Path" -Tags "CI" {
         $actual.Count                   | Should -Be 2
         $actual[0]                      | Should -BeExactly $testFile1
         $actual[1]                      | Should -BeExactly $testFile2
-        ,$actual                        | Should -BeOfType "System.Array"
+        ,$actual                        | Should -BeOfType System.Array
     }
 
     It "Should be able to tell if a given path is an absolute path" {
@@ -86,7 +96,33 @@ Describe "Split-Path" -Tags "CI" {
 	Split-Path -Parent "\\server1\share1"        | Should -BeExactly "${dirSep}${dirSep}server1"
     }
 
-    It 'Does not split a drive leter'{
-    Split-Path -Path 'C:\' | Should -BeNullOrEmpty
+    It 'Does not split a drive letter' {
+        Split-Path -Path 'C:\' | Should -BeNullOrEmpty
+    }
+
+    It "Should handle explicit -Qualifier:`$false parameter value correctly" {
+        # When -Qualifier:$false is specified, it should behave like -Parent (default)
+        # For env:PATH, the parent is empty string
+        $result = Split-Path -Path "env:PATH" -Qualifier:$false
+        $result | Should -BeNullOrEmpty
+    }
+
+    It "Should handle explicit -NoQualifier:`$false parameter value correctly" {
+        # When -NoQualifier:$false is specified, it should behave like -Parent (default)
+        # For env:PATH with no qualifier, we expect empty string (parent of PATH in env drive)
+        $result = Split-Path -Path "env:PATH" -NoQualifier:$false
+        $result | Should -BeNullOrEmpty
+    }
+
+    It "Should handle explicit -Leaf:`$false parameter value correctly" {
+        # When -Leaf:$false is specified, it should behave like -Parent (default)
+        $dirSep = [string]([System.IO.Path]::DirectorySeparatorChar)
+        Split-Path -Path "/usr/bin" -Leaf:$false | Should -BeExactly "${dirSep}usr"
+    }
+
+    It "Should handle explicit -IsAbsolute:`$false parameter value correctly" {
+        # When -IsAbsolute:$false is specified, it should behave like -Parent (default)
+        $dirSep = [string]([System.IO.Path]::DirectorySeparatorChar)
+        Split-Path -Path "fs:/usr/bin" -IsAbsolute:$false | Should -BeExactly "fs:${dirSep}usr"
     }
 }

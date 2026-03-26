@@ -1,10 +1,11 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Runtime.InteropServices;
 using System.Collections.ObjectModel;
-using System.Reflection;
 using System.Management.Automation.Internal;
+using System.Reflection;
+using System.Runtime.InteropServices;
+
 using COM = System.Runtime.InteropServices.ComTypes;
 
 namespace System.Management.Automation
@@ -29,8 +30,8 @@ namespace System.Management.Automation
     /// </summary>
     internal class ComMethod
     {
-        private Collection<int> _methods = new Collection<int>();
-        private COM.ITypeInfo _typeInfo;
+        private readonly Collection<int> _methods = new Collection<int>();
+        private readonly COM.ITypeInfo _typeInfo;
 
         /// <summary>
         /// Initializes new instance of ComMethod class.
@@ -42,14 +43,14 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        ///  Defines the name of the method.
+        /// Defines the name of the method.
         /// </summary>
         internal string Name { get; }
 
         /// <summary>
         /// Updates funcdesc for method information.
         /// </summary>
-        /// <param name="index">index of funcdesc for method in type information.</param>
+        /// <param name="index">Index of funcdesc for method in type information.</param>
         internal void AddFuncDesc(int index)
         {
             _methods.Add(index);
@@ -59,9 +60,9 @@ namespace System.Management.Automation
         /// Returns the different method overloads signatures.
         /// </summary>
         /// <returns></returns>
-        internal Collection<String> MethodDefinitions()
+        internal Collection<string> MethodDefinitions()
         {
-            Collection<String> result = new Collection<string>();
+            Collection<string> result = new Collection<string>();
 
             foreach (int index in _methods)
             {
@@ -80,11 +81,11 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        ///  Invokes the method on object
+        /// Invokes the method on object.
         /// </summary>
-        /// <param name="method">represents the instance of the method we want to invoke</param>
-        /// <param name="arguments">parameters to be passed to the method</param>
-        /// <returns>returns the value of method call</returns>
+        /// <param name="method">Represents the instance of the method we want to invoke.</param>
+        /// <param name="arguments">Parameters to be passed to the method.</param>
+        /// <returns>Returns the value of method call.</returns>
         internal object InvokeMethod(PSMethod method, object[] arguments)
         {
             try
@@ -104,7 +105,7 @@ namespace System.Management.Automation
             }
             catch (TargetInvocationException te)
             {
-                //First check if this is a severe exception.
+                // First check if this is a severe exception.
                 var innerCom = te.InnerException as COMException;
                 if (innerCom == null || innerCom.HResult != ComUtil.DISP_E_MEMBERNOTFOUND)
                 {
@@ -127,8 +128,8 @@ namespace System.Management.Automation
                         method.Name, arguments.Length, ce.Message);
                 }
             }
+
             return null;
         }
     }
 }
-

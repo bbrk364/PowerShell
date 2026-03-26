@@ -1,8 +1,9 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Management.Automation.Host;
 using System.Management.Automation.Runspaces;
+
 using Dbg = System.Management.Automation.Diagnostics;
 
 namespace System.Management.Automation.Internal.Host
@@ -11,11 +12,8 @@ namespace System.Management.Automation.Internal.Host
     class InternalHostUserInterface : PSHostUserInterface
     {
         /// <summary>
-        ///
-        /// See base class
-        ///
+        /// See base class.
         /// </summary>
-
         public override
         PSCredential
         PromptForCredential
@@ -33,11 +31,8 @@ namespace System.Management.Automation.Internal.Host
         }
 
         /// <summary>
-        ///
-        /// See base class
-        ///
+        /// See base class.
         /// </summary>
-
         public override
         PSCredential
         PromptForCredential
@@ -62,13 +57,14 @@ namespace System.Management.Automation.Internal.Host
             }
             catch (PipelineStoppedException)
             {
-                //PipelineStoppedException is thrown by host when it wants
-                //to stop the pipeline.
+                // PipelineStoppedException is thrown by host when it wants
+                // to stop the pipeline.
                 LocalPipeline lpl = (LocalPipeline)((RunspaceBase)_parent.Context.CurrentRunspace).GetCurrentlyRunningPipeline();
                 if (lpl == null)
                 {
                     throw;
                 }
+
                 lpl.Stopper.Stop();
             }
 
@@ -76,4 +72,3 @@ namespace System.Management.Automation.Internal.Host
         }
     }
 }
-

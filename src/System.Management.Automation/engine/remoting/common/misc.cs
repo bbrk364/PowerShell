@@ -1,7 +1,8 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Management.Automation.Remoting;
+
 using Dbg = System.Management.Automation.Diagnostics;
 
 namespace System.Management.Automation
@@ -16,7 +17,7 @@ namespace System.Management.Automation
 
             if (remoteSessionCapability == null)
             {
-                throw PSTraceSource.NewArgumentNullException("remoteSessionCapability");
+                throw PSTraceSource.NewArgumentNullException(nameof(remoteSessionCapability));
             }
 
             RemoteSessionCapability = remoteSessionCapability;
@@ -49,7 +50,7 @@ namespace System.Management.Automation
 
             if (receivedData == null)
             {
-                throw PSTraceSource.NewArgumentNullException("receivedData");
+                throw PSTraceSource.NewArgumentNullException(nameof(receivedData));
             }
 
             ReceivedData = receivedData;
@@ -65,7 +66,7 @@ namespace System.Management.Automation
 
     /// <summary>
     /// This event arg contains data received and is used to pass information
-    /// from a data structure handler to its object
+    /// from a data structure handler to its object.
     /// </summary>
     /// <typeparam name="T">type of data that's associated</typeparam>
     internal sealed class RemoteDataEventArgs<T> : EventArgs
@@ -77,7 +78,7 @@ namespace System.Management.Automation
         #region Properties
 
         /// <summary>
-        /// The data contained within this event
+        /// The data contained within this event.
         /// </summary>
         internal T Data { get; }
 
@@ -87,7 +88,7 @@ namespace System.Management.Automation
 
         internal RemoteDataEventArgs(object data)
         {
-            //Dbg.Assert(data != null, "data passed should not be null");
+            // Dbg.Assert(data != null, "data passed should not be null");
 
             Data = (T)data;
         }
@@ -101,14 +102,13 @@ namespace System.Management.Automation
     internal enum RemoteSessionState
     {
         /// <summary>
-        /// Undefined state
+        /// Undefined state.
         /// </summary>
         UndefinedState = 0,
 
         /// <summary>
         /// This is the state a connect start with. When a connection is closed,
         /// the connection will eventually come back to this Idle state.
-        ///
         /// </summary>
         Idle = 1,
 
@@ -123,12 +123,12 @@ namespace System.Management.Automation
         Connected = 3,
 
         /// <summary>
-        /// The capability negotiation message is in the process being sent on a create operation
+        /// The capability negotiation message is in the process being sent on a create operation.
         /// </summary>
         NegotiationSending = 4,
 
         /// <summary>
-        /// The capability negotiation message is in the process being sent on a connect operation
+        /// The capability negotiation message is in the process being sent on a connect operation.
         /// </summary>
         NegotiationSendingOnConnect = 5,
 
@@ -164,22 +164,22 @@ namespace System.Management.Automation
 
         /// <summary>
         /// Have sent a public key to the remote end,
-        /// awaiting a response
+        /// awaiting a response.
         /// </summary>
         /// <remarks>Applicable only to client</remarks>
         EstablishedAndKeySent = 12,
 
         /// <summary>
         /// Have received a public key from the remote
-        /// end, need to send a response
+        /// end, need to send a response.
         /// </summary>
         /// <remarks>Applicable only to server</remarks>
         EstablishedAndKeyReceived = 13,
 
         /// <summary>
-        /// for Server - Have sent a request to the remote end to
+        /// For Server - Have sent a request to the remote end to
         /// send a public key
-        /// for Client - have received a PK request from server
+        /// for Client - have received a PK request from server.
         /// </summary>
         /// <remarks>Applicable to both client and server</remarks>
         EstablishedAndKeyRequested = 14,
@@ -191,22 +191,19 @@ namespace System.Management.Automation
         ///          a public key - this is for the server
         ///      (b) Received an encrypted session key from
         ///          remote end after sending a public key -
-        ///          this is for the client
+        ///          this is for the client.
         /// </summary>
         EstablishedAndKeyExchanged = 15,
 
         /// <summary>
-        ///
         /// </summary>
         Disconnecting = 16,
 
         /// <summary>
-        ///
         /// </summary>
         Disconnected = 17,
 
         /// <summary>
-        ///
         /// </summary>
         Reconnecting = 18,
 
@@ -217,7 +214,7 @@ namespace System.Management.Automation
         RCDisconnecting = 19,
 
         /// <summary>
-        /// Number of states
+        /// Number of states.
         /// </summary>
         MaxState = 20
     }
@@ -292,7 +289,7 @@ namespace System.Management.Automation
         #region Public_Properties
 
         /// <summary>
-        /// State of the connection
+        /// State of the connection.
         /// </summary>
         internal RemoteSessionState State { get; }
 
@@ -305,7 +302,6 @@ namespace System.Management.Automation
     }
 
     /// <summary>
-    ///
     /// This is the event arg that contains the state information.
     /// </summary>
     internal class RemoteSessionStateEventArgs : EventArgs
@@ -318,7 +314,7 @@ namespace System.Management.Automation
 
             if (remoteSessionStateInfo == null)
             {
-                PSTraceSource.NewArgumentNullException("remoteSessionStateInfo");
+                PSTraceSource.NewArgumentNullException(nameof(remoteSessionStateInfo));
             }
 
             SessionStateInfo = remoteSessionStateInfo;

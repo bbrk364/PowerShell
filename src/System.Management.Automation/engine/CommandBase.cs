@@ -1,14 +1,14 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Collections.ObjectModel;
-using System.Management.Automation.Language;
 using System.Diagnostics;
 using System.Management.Automation.Host;
-using System.Management.Automation.Internal.Host;
 using System.Management.Automation.Internal;
-using Dbg = System.Management.Automation.Diagnostics;
+using System.Management.Automation.Internal.Host;
+using System.Management.Automation.Language;
 using System.Management.Automation.Runspaces;
+using System.Threading;
 
 namespace System.Management.Automation.Internal
 {
@@ -35,7 +35,7 @@ namespace System.Management.Automation.Internal
     /// Ideally this would be an internal class, but C# does not support
     /// public classes deriving from internal classes.
     /// -->
-    [DebuggerDisplay("Command = {commandInfo}")]
+    [DebuggerDisplay("Command = {_commandInfo}")]
     public abstract class InternalCommand
     {
         #region private_members
@@ -75,7 +75,7 @@ namespace System.Management.Automation.Internal
         /// <value>The invocation object for this command.</value>
         internal InvocationInfo MyInvocation
         {
-            get { return _myInvocation ?? (_myInvocation = new InvocationInfo(this)); }
+            get { return _myInvocation ??= new InvocationInfo(this); }
         }
 
         /// <summary>
@@ -84,11 +84,15 @@ namespace System.Management.Automation.Internal
         internal PSObject currentObjectInPipeline = AutomationNull.Value;
 
         /// <summary>
-        /// Gets or sets the current pipeline object under consideration
+        /// Gets or sets the current pipeline object under consideration.
         /// </summary>
         internal PSObject CurrentPipelineObject
         {
-            get { return currentObjectInPipeline; }
+            get
+            {
+                return currentObjectInPipeline;
+            }
+
             set
             {
                 currentObjectInPipeline = value;
@@ -102,16 +106,17 @@ namespace System.Management.Automation.Internal
         {
             get { return _CBhost; }
         }
+
         private PSHost _CBhost;
 
         /// <summary>
-        /// Internal helper to get to SessionState
+        /// Internal helper to get to SessionState.
         /// </summary>
-        ///
         internal SessionState InternalState
         {
             get { return _state; }
         }
+
         private SessionState _state;
 
         /// <summary>
@@ -127,6 +132,13 @@ namespace System.Management.Automation.Internal
         }
 
         /// <summary>
+        /// Gets the CancellationToken that is signaled when the pipeline is stopping.
+        /// </summary>
+        internal CancellationToken StopToken => commandRuntime is MshCommandRuntime mcr
+            ? mcr.PipelineProcessor.PipelineStopToken
+            : default;
+
+        /// <summary>
         /// The information about the command.
         /// </summary>
         private CommandInfo _commandInfo;
@@ -136,6 +148,7 @@ namespace System.Management.Automation.Internal
         internal CommandInfo CommandInfo
         {
             get { return _commandInfo; }
+
             set { _commandInfo = value; }
         }
 
@@ -151,13 +164,18 @@ namespace System.Management.Automation.Internal
         /// </exception>
         internal ExecutionContext Context
         {
-            get { return _context; }
+            get
+            {
+                return _context;
+            }
+
             set
             {
                 if (value == null)
                 {
                     throw PSTraceSource.NewArgumentNullException("Context");
                 }
+
                 _context = value;
                 Diagnostics.Assert(_context.EngineHostInterface is InternalHost, "context.EngineHostInterface is not an InternalHost");
                 _CBhost = (InternalHost)_context.EngineHostInterface;
@@ -167,6 +185,7 @@ namespace System.Management.Automation.Internal
                 _state = new SessionState(_context.EngineSessionState);
             }
         }
+
         private ExecutionContext _context;
 
         /// <summary>
@@ -177,6 +196,7 @@ namespace System.Management.Automation.Internal
         {
             get { return CommandOriginInternal; }
         }
+
         internal CommandOrigin CommandOriginInternal = CommandOrigin.Internal;
 
         #endregion public_properties
@@ -219,10 +239,17 @@ namespace System.Management.Automation.Internal
         {
         }
 
+        /// <summary>
+        /// When overridden in the derived class, performs clean-up after the command execution.
+        /// </summary>
+        internal virtual void DoCleanResource()
+        {
+        }
+
         #endregion Override
 
         /// <summary>
-        /// throws if the pipeline is stopping
+        /// Throws if the pipeline is stopping.
         /// </summary>
         /// <exception cref="System.Management.Automation.PipelineStoppedException"></exception>
         internal void ThrowIfStopping()
@@ -235,7 +262,7 @@ namespace System.Management.Automation.Internal
 
         /// <summary>
         /// IDisposable implementation
-        /// When the command is complete, release the associated members
+        /// When the command is complete, release the associated members.
         /// </summary>
         /// <remarks>
         /// Using InternalDispose instead of Dispose pattern because this
@@ -258,6 +285,46 @@ namespace System.Management.Automation.Internal
 
 namespace System.Management.Automation
 {
+    #region NativeArgumentPassingStyle
+    /// <summary>
+    /// Defines the different native command argument parsing options.
+    /// </summary>
+    public enum NativeArgumentPassingStyle
+    {
+        /// <summary>Use legacy argument parsing via ProcessStartInfo.Arguments.</summary>
+        Legacy = 0,
+
+        /// <summary>Use new style argument passing via ProcessStartInfo.ArgumentList.</summary>
+        Standard = 1,
+
+        /// <summary>
+        /// Use specific to Windows passing style which is Legacy for selected files on Windows, but
+        /// Standard for everything else. This is the default behavior for Windows.
+        /// </summary>
+        Windows = 2
+    }
+    #endregion NativeArgumentPassingStyle
+
+    #region ErrorView
+    /// <summary>
+    /// Defines the potential ErrorView options.
+    /// </summary>
+    public enum ErrorView
+    {
+        /// <summary>Existing all red multi-line output.</summary>
+        NormalView = 0,
+
+        /// <summary>Only show category information.</summary>
+        CategoryView = 1,
+
+        /// <summary>Concise shows more information on the context of the error or just the message if not a script or parser error.</summary>
+        ConciseView = 2,
+
+        /// <summary>Detailed will leverage Get-Error to get much more detailed information for the error.</summary>
+        DetailedView = 3,
+    }
+    #endregion ErrorView
+
     #region ActionPreference
     /// <summary>
     /// Defines the Action Preference options.  These options determine
@@ -269,17 +336,25 @@ namespace System.Management.Automation
     public enum ActionPreference
     {
         /// <summary>Ignore this event and continue</summary>
-        SilentlyContinue,
+        SilentlyContinue = 0,
+
         /// <summary>Stop the command</summary>
-        Stop,
+        Stop = 1,
+
         /// <summary>Handle this event as normal and continue</summary>
-        Continue,
+        Continue = 2,
+
         /// <summary>Ask whether to stop or continue</summary>
-        Inquire,
+        Inquire = 3,
+
         /// <summary>Ignore the event completely (not even logging it to the target stream)</summary>
-        Ignore,
-        /// <summary>Suspend the command for further diagnosis. Supported only for workflows.</summary>
-        Suspend,
+        Ignore = 4,
+
+        /// <summary>Reserved for future use.</summary>
+        Suspend = 5,
+
+        /// <summary>Enter the debugger.</summary>
+        Break = 6,
     } // enum ActionPreference
     #endregion ActionPreference
 
@@ -316,7 +391,7 @@ namespace System.Management.Automation
         /// confirmed by default unless otherwise specified.
         /// </summary>
         High,
-    } // enum ConfirmImpact
+    }
     #endregion ConfirmImpact
 
     /// <summary>
@@ -328,11 +403,11 @@ namespace System.Management.Automation
     /// deriving from the PSCmdlet base class.  The Cmdlet base class is the primary means by
     /// which users create their own Cmdlets.  Extending this class provides support for the most
     /// common functionality, including object output and record processing.
-    /// If your Cmdlet requires access to the MSH Runtime (for example, variables in the session state,
+    /// If your Cmdlet requires access to the PowerShell Runtime (for example, variables in the session state,
     /// access to the host, or information about the current Cmdlet Providers,) then you should instead
     /// derive from the PSCmdlet base class.
     /// The public members defined by the PSCmdlet class are not designed to be overridden; instead, they
-    /// provided access to different aspects of the MSH runtime.
+    /// provided access to different aspects of the PowerShell runtime.
     /// In both cases, users should first develop and implement an object model to accomplish their
     /// task, extending the Cmdlet or PSCmdlet classes only as a thin management layer.
     /// </remarks>
@@ -373,7 +448,7 @@ namespace System.Management.Automation
                     return this.InternalState;
                 }
             }
-        } // SessionState
+        }
 
         /// <summary>
         /// Gets the event manager for the current runspace.
@@ -387,10 +462,10 @@ namespace System.Management.Automation
                     return this.Context.Events;
                 }
             }
-        } // Events
+        }
 
         /// <summary>
-        /// Repository for jobs
+        /// Repository for jobs.
         /// </summary>
         public JobRepository JobRepository
         {
@@ -418,7 +493,7 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Repository for runspaces
+        /// Repository for runspaces.
         /// </summary>
         internal RunspaceRepository RunspaceRepository
         {
@@ -437,10 +512,10 @@ namespace System.Management.Automation
             {
                 using (PSTransactionManager.GetEngineProtectionScope())
                 {
-                    return _invokeProvider ?? (_invokeProvider = new ProviderIntrinsics(this));
+                    return _invokeProvider ??= new ProviderIntrinsics(this);
                 }
             }
-        } // InvokeProvider
+        }
 
         #region Provider wrappers
 
@@ -451,7 +526,7 @@ namespace System.Management.Automation
             {
                 if (providerId == null)
                 {
-                    throw PSTraceSource.NewArgumentNullException("providerId");
+                    throw PSTraceSource.NewArgumentNullException(nameof(providerId));
                 }
 
                 PathInfo result = SessionState.Path.CurrentProviderLocation(providerId);
@@ -467,7 +542,7 @@ namespace System.Management.Automation
             {
                 return SessionState.Path.GetUnresolvedProviderPathFromPSPath(path);
             }
-        } // GetUnresolvedProviderPathFromPSPath
+        }
 
         /// <Content contentref="System.Management.Automation.PathIntrinsics.GetResolvedProviderPathFromPSPath" />
         public Collection<string> GetResolvedProviderPathFromPSPath(string path, out ProviderInfo provider)
@@ -476,7 +551,7 @@ namespace System.Management.Automation
             {
                 return SessionState.Path.GetResolvedProviderPathFromPSPath(path, out provider);
             }
-        } // GetResolvedProviderPathFromPSPath
+        }
         #endregion Provider wrappers
 
         #endregion internal_members
@@ -507,17 +582,16 @@ namespace System.Management.Automation
             {
                 return this.SessionState.PSVariable.GetValue(name);
             }
-        } // GetVariableValue
+        }
 
         /// <Content contentref="System.Management.Automation.VariableIntrinsics.GetValue" />
-
         public object GetVariableValue(string name, object defaultValue)
         {
             using (PSTransactionManager.GetEngineProtectionScope())
             {
                 return this.SessionState.PSVariable.GetValue(name, defaultValue);
             }
-        } // GetVariableValue
+        }
 
         #endregion PSVariable APIs
 
@@ -526,6 +600,5 @@ namespace System.Management.Automation
         #endregion Parameter methods
 
         #endregion public_methods
-    } // PSCmdlet
+    }
 }
-

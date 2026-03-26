@@ -1,25 +1,25 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
-using System.Management.Automation;
 using System.Collections;
+using System.Management.Automation;
 using System.Text.RegularExpressions;
 
 namespace Microsoft.PowerShell.Commands
 {
     /// <summary>
-    /// Class comment
+    /// Class comment.
     /// </summary>
-    [Cmdlet(VerbsData.ConvertFrom, "StringData", HelpUri = "https://go.microsoft.com/fwlink/?LinkID=113288", RemotingCapability = RemotingCapability.None)]
+    [Cmdlet(VerbsData.ConvertFrom, "StringData", HelpUri = "https://go.microsoft.com/fwlink/?LinkID=2096602", RemotingCapability = RemotingCapability.None)]
     [OutputType(typeof(Hashtable))]
     public sealed class ConvertFromStringDataCommand : PSCmdlet
     {
         private string _stringData;
 
         /// <summary>
-        /// The list of properties to display
-        /// These take the form of an PSPropertyExpression
+        /// The list of properties to display.
+        /// These take the form of an PSPropertyExpression.
         /// </summary>
         /// <value></value>
         [Parameter(Mandatory = true, Position = 0, ValueFromPipeline = true)]
@@ -30,6 +30,7 @@ namespace Microsoft.PowerShell.Commands
             {
                 return _stringData;
             }
+
             set
             {
                 _stringData = value;
@@ -37,28 +38,31 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        ///
+        /// Gets or sets the delimiter.
+        /// </summary>
+        [Parameter(Position = 1)]
+        public char Delimiter { get; set; } = '=';
+
+        /// <summary>
         /// </summary>
         protected override void ProcessRecord()
         {
-            Hashtable result = new Hashtable(StringComparer.OrdinalIgnoreCase);
+            Hashtable result = new(StringComparer.OrdinalIgnoreCase);
 
-            if (String.IsNullOrEmpty(_stringData))
+            if (string.IsNullOrEmpty(_stringData))
             {
                 WriteObject(result);
                 return;
             }
 
-            string[] lines = _stringData.Split('\n');
+            string[] lines = _stringData.Split('\n', StringSplitOptions.TrimEntries);
 
             foreach (string line in lines)
             {
-                string s = line.Trim();
-
-                if (String.IsNullOrEmpty(s) || s[0] == '#')
+                if (string.IsNullOrEmpty(line) || line[0] == '#')
                     continue;
 
-                int index = s.IndexOf('=');
+                int index = line.IndexOf(Delimiter);
                 if (index <= 0)
                 {
                     throw PSTraceSource.NewInvalidOperationException(
@@ -66,7 +70,7 @@ namespace Microsoft.PowerShell.Commands
                         line);
                 }
 
-                string name = s.Substring(0, index);
+                string name = line.Substring(0, index);
                 name = name.Trim();
 
                 if (result.ContainsKey(name))
@@ -77,7 +81,7 @@ namespace Microsoft.PowerShell.Commands
                         name);
                 }
 
-                string value = s.Substring(index + 1);
+                string value = line.Substring(index + 1);
                 value = value.Trim();
 
                 value = Regex.Unescape(value);
@@ -89,4 +93,3 @@ namespace Microsoft.PowerShell.Commands
         }
     }
 }
-

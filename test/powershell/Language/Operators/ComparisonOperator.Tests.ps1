@@ -1,6 +1,6 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
-Describe "ComparisonOperator" -tag "CI" {
+Describe "ComparisonOperator" -Tag "CI" {
 
     It "Should be <result> for <lhs> <operator> <rhs>" -TestCases @(
         @{lhs = 1; operator = "-lt"; rhs = 2; result = $true},
@@ -82,9 +82,24 @@ Describe "ComparisonOperator" -tag "CI" {
         param($lhs, $operator, $rhs)
         Invoke-Expression "$lhs $operator $rhs" | Should -BeFalse
     }
+
+    It "Should be <result> for backtick comparison <lhs> <operator> <rhs>" -TestCases @(
+        @{ lhs = 'abc`def'; operator = '-like'; rhs = 'abc`def'; result = $false }
+        @{ lhs = 'abc`def'; operator = '-like'; rhs = 'abc``def'; result = $true }
+        @{ lhs = 'abc`def'; operator = '-like'; rhs = 'abc````def'; result = $false }
+        @{ lhs = 'abc``def'; operator = '-like'; rhs = 'abc````def'; result = $true }
+        @{ lhs = 'abc`def'; operator = '-like'; rhs = [WildcardPattern]::Escape('abc`def'); result = $true }
+        @{ lhs = 'abc`def'; operator = '-like'; rhs = [WildcardPattern]::Escape('abc``def'); result = $false }
+        @{ lhs = 'abc``def'; operator = '-like'; rhs = [WildcardPattern]::Escape('abc``def'); result = $true }
+        @{ lhs = 'abc``def'; operator = '-like'; rhs = [WildcardPattern]::Escape('abc````def'); result = $false }
+    ) {
+        param($lhs, $operator, $rhs, $result)
+        $expression = "'$lhs' $operator '$rhs'"
+        Invoke-Expression $expression | Should -Be $result
+    }
 }
 
-Describe "Bytewise Operator" -tag "CI" {
+Describe "Bytewise Operator" -Tag "CI" {
 
     It "Test -bor on enum with [byte] as underlying type" {
         $result = [System.Security.AccessControl.AceFlags]::ObjectInherit -bxor `

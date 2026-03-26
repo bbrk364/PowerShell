@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
@@ -27,18 +27,18 @@ namespace Microsoft.PowerShell.Commands
     ///
     /// Remove the runspace specified (no need for a parameter name)
     ///     $runspace = New-PSSession
-    ///     Remove-PSSession $runspace
+    ///     Remove-PSSession $runspace.
     /// </summary>
     [Cmdlet(VerbsCommon.Remove, "PSSession", SupportsShouldProcess = true,
             DefaultParameterSetName = RemovePSSessionCommand.IdParameterSet,
-            HelpUri = "https://go.microsoft.com/fwlink/?LinkID=135250", RemotingCapability = RemotingCapability.OwnedByCommand)]
+            HelpUri = "https://go.microsoft.com/fwlink/?LinkID=2096963", RemotingCapability = RemotingCapability.OwnedByCommand)]
     public class RemovePSSessionCommand : PSRunspaceCmdlet
     {
         #region Parameters
 
         /// <summary>
         /// Specifies the PSSession objects which need to be
-        /// removed
+        /// removed.
         /// </summary>
         [Parameter(Mandatory = true,
                    Position = 0,
@@ -91,7 +91,7 @@ namespace Microsoft.PowerShell.Commands
         ///     1. If runspace is in opened state,
         ///             a. stop any execution in process in the runspace
         ///             b. close the runspace
-        ///     2. Remove the runspace from the global cache
+        ///     2. Remove the runspace from the global cache.
         /// </summary>
         protected override void ProcessRecord()
         {
@@ -111,11 +111,13 @@ namespace Microsoft.PowerShell.Commands
 
                         toRemove = matches.Values;
                     }
+
                     break;
                 case RemovePSSessionCommand.SessionParameterSet:
                     {
                         toRemove = Session;
                     }
+
                     break;
                 default:
                     Diagnostics.Assert(false, "Invalid Parameter Set");

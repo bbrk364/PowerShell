@@ -1,12 +1,11 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System;
-using System.Text;
+using System.IO;
 using System.Management.Automation;
 using System.Management.Automation.Internal;
-using System.Management.Automation.Host;
-using System.IO;
+using System.Text;
+
 using Microsoft.PowerShell.Commands.Internal.Format;
 
 namespace Microsoft.PowerShell.Commands
@@ -20,13 +19,14 @@ namespace Microsoft.PowerShell.Commands
     }
 
     /// <summary>
-    /// implementation for the out-file command
+    /// Implementation for the out-file command.
     /// </summary>
-    [Cmdlet(VerbsData.Out, "File", SupportsShouldProcess = true, DefaultParameterSetName = "ByPath", HelpUri = "https://go.microsoft.com/fwlink/?LinkID=113363")]
+    [Cmdlet(VerbsData.Out, "File", SupportsShouldProcess = true, DefaultParameterSetName = "ByPath", HelpUri = "https://go.microsoft.com/fwlink/?LinkID=2096621")]
     public class OutFileCommand : FrontEndCommandBase
     {
         /// <summary>
-        /// set inner command
+        /// Initializes a new instance of the <see cref="OutFileCommand"/> class
+        /// and sets the inner command.
         /// </summary>
         public OutFileCommand()
         {
@@ -36,103 +36,116 @@ namespace Microsoft.PowerShell.Commands
         #region Command Line Parameters
 
         /// <summary>
-        /// mandatory file name to write to
+        /// Mandatory file name to write to.
         /// </summary>
         [Alias("Path")]
         [Parameter(Mandatory = true, Position = 0, ParameterSetName = "ByPath")]
         public string FilePath
         {
             get { return _fileName; }
+
             set { _fileName = value; }
         }
 
         private string _fileName;
 
         /// <summary>
-        /// mandatory file name to write to
+        /// Mandatory file name to write to.
         /// </summary>
         [Parameter(Mandatory = true, ValueFromPipelineByPropertyName = true, ParameterSetName = "ByLiteralPath")]
-        [Alias("PSPath","LP")]
+        [Alias("PSPath", "LP")]
         public string LiteralPath
         {
             get
             {
                 return _fileName;
             }
+
             set
             {
                 _fileName = value;
                 _isLiteralPath = true;
             }
         }
+
         private bool _isLiteralPath = false;
 
         /// <summary>
-        /// Encoding optional flag
+        /// Encoding optional flag.
         /// </summary>
-        ///
         [Parameter(Position = 1)]
-        [ArgumentToEncodingTransformationAttribute()]
-        [ArgumentCompletions(
-            EncodingConversion.Ascii,
-            EncodingConversion.BigEndianUnicode,
-            EncodingConversion.OEM,
-            EncodingConversion.Unicode,
-            EncodingConversion.Utf7,
-            EncodingConversion.Utf8,
-            EncodingConversion.Utf8Bom,
-            EncodingConversion.Utf8NoBom,
-            EncodingConversion.Utf32
-            )]
+        [ArgumentToEncodingTransformation]
+        [ArgumentEncodingCompletions]
         [ValidateNotNullOrEmpty]
-        public Encoding Encoding { get; set; } = ClrFacade.GetDefaultEncoding();
+        public Encoding Encoding
+        {
+            get
+            {
+                return _encoding;
+            }
+
+            set
+            {
+                EncodingConversion.WarnIfObsolete(this, value);
+                _encoding = value;
+            }
+        }
+
+        private Encoding _encoding = Encoding.Default;
 
         /// <summary>
         /// Property that sets append parameter.
         /// </summary>
-        [Parameter()]
+        [Parameter]
         public SwitchParameter Append
         {
             get { return _append; }
+
             set { _append = value; }
         }
+
         private bool _append;
 
         /// <summary>
         /// Property that sets force parameter.
         /// </summary>
-        [Parameter()]
+        [Parameter]
         public SwitchParameter Force
         {
             get { return _force; }
+
             set { _force = value; }
         }
+
         private bool _force;
 
         /// <summary>
         /// Property that prevents file overwrite.
         /// </summary>
-        [Parameter()]
+        [Parameter]
         [Alias("NoOverwrite")]
         public SwitchParameter NoClobber
         {
             get { return _noclobber; }
+
             set { _noclobber = value; }
         }
+
         private bool _noclobber;
 
         /// <summary>
-        /// optional, number of columns to use when writing to device
+        /// Optional, number of columns to use when writing to device.
         /// </summary>
-        [ValidateRangeAttribute(2, int.MaxValue)]
+        [ValidateRange(2, int.MaxValue)]
         [Parameter]
         public int Width
         {
             get { return (_width != null) ? _width.Value : 0; }
+
             set { _width = value; }
         }
 
-        private Nullable<int> _width = null;
+        private int? _width = null;
 
         /// <summary>
         /// False to add a newline to the end of the output string, true if not.
@@ -144,6 +157,7 @@ namespace Microsoft.PowerShell.Commands
             {
                 return _suppressNewline;
             }
+
             set
             {
                 _suppressNewline = value;
@@ -155,11 +169,11 @@ namespace Microsoft.PowerShell.Commands
         #endregion
 
         /// <summary>
-        /// read command line parameters
+        /// Read command line parameters.
         /// </summary>
         protected override void BeginProcessing()
         {
-            // set up the Scree Host interface
+            // set up the Screen Host interface
             OutputManagerInner outInner = (OutputManagerInner)this.implementation;
 
             // NOTICE: if any exception is thrown from here to the end of the method, the
@@ -176,11 +190,11 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        /// one time initialization: acquire a screen host interface
-        /// by creating one on top of a file
+        /// One-time initialization: acquire a screen host interface
+        /// by creating one on top of a file.
         /// NOTICE: we assume that at this time the file name is
         /// available in the CRO. JonN recommends: file name has to be
-        /// a MANDATORY parameter on the command line
+        /// a MANDATORY parameter on the command line.
         /// </summary>
         private LineOutput InstantiateLineOutputInterface()
         {
@@ -214,14 +228,14 @@ namespace Microsoft.PowerShell.Commands
             }
 
             // use the stream writer to create and initialize the Line Output writer
-            TextWriterLineOutput twlo = new TextWriterLineOutput(_sw, computedWidth, _suppressNewline);
+            TextWriterLineOutput twlo = new(_sw, computedWidth, _suppressNewline);
 
             // finally have the ILineOutput interface extracted
             return (LineOutput)twlo;
         }
 
         /// <summary>
-        /// execution entry point
+        /// Execution entry point.
         /// </summary>
         protected override void ProcessRecord()
         {
@@ -238,7 +252,7 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        /// execution entry point
+        /// Execution entry point.
         /// </summary>
         protected override void EndProcessing()
         {
@@ -268,7 +282,7 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        ///
+        /// InternalDispose.
         /// </summary>
         protected override void InternalDispose()
         {
@@ -293,17 +307,17 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        /// handle to file stream
+        /// Handle to file stream.
         /// </summary>
         private FileStream _fs;
 
         /// <summary>
-        /// stream writer used to write to file
+        /// Stream writer used to write to file.
         /// </summary>
         private StreamWriter _sw = null;
 
         /// <summary>
-        /// indicate whether the ProcessRecord method was executed.
+        /// Indicate whether the ProcessRecord method was executed.
         /// When the Out-File is used in a redirection pipelineProcessor,
         /// its ProcessRecord method may not be called when nothing is written to the
         /// output pipe, for example:
@@ -314,9 +328,8 @@ namespace Microsoft.PowerShell.Commands
         private bool _processRecordExecuted = false;
 
         /// <summary>
-        /// FileInfo of file to clear read-only flag when operation is complete
+        /// FileInfo of file to clear read-only flag when operation is complete.
         /// </summary>
         private FileInfo _readOnlyFileInfo = null;
     }
 }
-

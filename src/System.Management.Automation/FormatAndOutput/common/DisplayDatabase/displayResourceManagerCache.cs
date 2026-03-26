@@ -1,18 +1,19 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
 using System.Collections;
+using System.Management.Automation;
 using System.Reflection;
 using System.Resources;
-using System.Management.Automation;
 
 namespace Microsoft.PowerShell.Commands.Internal.Format
 {
     internal sealed class DisplayResourceManagerCache
     {
         internal enum LoadingResult { NoError, AssemblyNotFound, ResourceNotFound, StringNotFound }
-        internal enum AssemblyBindingStatus { NotFound, FoundInGac, FoundInPath };
+
+        internal enum AssemblyBindingStatus { NotFound, FoundInGac, FoundInPath }
 
         internal string GetTextTokenString(TextToken tt)
         {
@@ -22,6 +23,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                 if (resString != null)
                     return resString;
             }
+
             return tt.text;
         }
 
@@ -79,7 +81,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
             else
             {
                 resourceReference.assemblyLocation = loadResult.a.Location;
-            };
+            }
 
             // load now the resource from the resource manager cache
             try
@@ -109,11 +111,12 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                 Diagnostics.Assert(false, "ResourceManagerCache.GetResourceString unexpected exception " + e.GetType().FullName);
                 throw;
             }
+
             return null;
         }
 
         /// <summary>
-        /// Get a reference to an assembly object by looking up the currently loaded assemblies
+        /// Get a reference to an assembly object by looking up the currently loaded assemblies.
         /// </summary>
         /// <param name="resourceReference">the string resource reference object containing
         /// the name of the assembly to load</param>
@@ -128,6 +131,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
             foundInGac = false; // it always be false, since we return already loaded assemblies
             return _assemblyNameResolver.ResolveAssemblyName(resourceReference.assemblyName);
         }
+
         private sealed class AssemblyLoadResult
         {
             internal Assembly a;
@@ -135,13 +139,13 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         }
 
         /// <summary>
-        /// helper class to resolve an assembly name to an assembly reference
-        /// The class caches previous results for faster lookup
+        /// Helper class to resolve an assembly name to an assembly reference
+        /// The class caches previous results for faster lookup.
         /// </summary>
-        private class AssemblyNameResolver
+        private sealed class AssemblyNameResolver
         {
             /// <summary>
-            /// resolve the assembly name against the set of loaded assemblies
+            /// Resolve the assembly name against the set of loaded assemblies.
             /// </summary>
             /// <param name="assemblyName"></param>
             /// <returns></returns>
@@ -172,7 +176,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                 return retVal;
             }
 
-            private Assembly ResolveAssemblyNameInLoadedAssemblies(string assemblyName, bool fullName)
+            private static Assembly ResolveAssemblyNameInLoadedAssemblies(string assemblyName, bool fullName)
             {
                 Assembly result = null;
 
@@ -201,7 +205,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                         continue;
                     }
 
-                    String nameToCompare = fullName ? aName.FullName : aName.Name;
+                    string nameToCompare = fullName ? aName.FullName : aName.Name;
 
                     if (string.Equals(nameToCompare, assemblyName, StringComparison.Ordinal))
                     {
@@ -212,11 +216,10 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                 return result;
             }
 
-            private Hashtable _assemblyReferences = new Hashtable(StringComparer.OrdinalIgnoreCase);
+            private readonly Hashtable _assemblyReferences = new Hashtable(StringComparer.OrdinalIgnoreCase);
         }
 
-        private AssemblyNameResolver _assemblyNameResolver = new AssemblyNameResolver();
-        private Hashtable _resourceReferenceToAssemblyCache = new Hashtable();
+        private readonly AssemblyNameResolver _assemblyNameResolver = new AssemblyNameResolver();
+        private readonly Hashtable _resourceReferenceToAssemblyCache = new Hashtable();
     }
 }
-

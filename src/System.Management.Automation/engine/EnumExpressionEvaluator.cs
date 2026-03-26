@@ -1,12 +1,13 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Collections.Generic;
-using System.Text;
-using System.Reflection;
 using System.Diagnostics;
-using Dbg = System.Management.Automation;
 using System.Globalization;
+using System.Reflection;
+using System.Text;
+
+using Dbg = System.Management.Automation;
 
 namespace System.Management.Automation
 {
@@ -34,7 +35,7 @@ namespace System.Management.Automation
 
             _underType = Enum.GetUnderlyingType(typeof(T));
 
-            if (String.IsNullOrWhiteSpace(expression))
+            if (string.IsNullOrWhiteSpace(expression))
             {
                 throw InterpreterError.NewInterpreterException(expression, typeof(RuntimeException),
                     null, "EmptyInputString", EnumExpressionEvaluatorStrings.EmptyInputString);
@@ -74,7 +75,7 @@ namespace System.Management.Automation
 
             foreach (string inputClause in expression)
             {
-                if (String.IsNullOrWhiteSpace(inputClause))
+                if (string.IsNullOrWhiteSpace(inputClause))
                 {
                     throw InterpreterError.NewInterpreterException(expression, typeof(RuntimeException),
                         null, "EmptyInputString", EnumExpressionEvaluatorStrings.EmptyInputString);
@@ -130,7 +131,7 @@ namespace System.Management.Automation
                         Text = "NOT";
                         break;
                     default:
-                        Debug.Assert(false, "Invalid token kind passed in.");
+                        Debug.Fail("Invalid token kind passed in.");
                         break;
                 }
             }
@@ -156,6 +157,7 @@ namespace System.Management.Automation
             public Node Operand1 { get; set; }
 
             internal abstract bool Eval(object val);
+
             internal abstract bool ExistEnum(object enumVal);
         }
 
@@ -243,6 +245,7 @@ namespace System.Management.Automation
                 {
                     return _operandValue;
                 }
+
                 set
                 {
                     _operandValue = value;
@@ -280,6 +283,7 @@ namespace System.Management.Automation
                     long operandValue = (long)LanguagePrimitives.ConvertTo(_operandValue, typeof(long), CultureInfo.InvariantCulture);
                     satisfy = (operandValue == (valueToCheck & operandValue));
                 }
+
                 return satisfy;
             }
 
@@ -301,10 +305,11 @@ namespace System.Management.Automation
                     long operandValue = (long)LanguagePrimitives.ConvertTo(_operandValue, typeof(long), CultureInfo.InvariantCulture);
                     exist = valueToCheck == (valueToCheck & operandValue);
                 }
+
                 return exist;
             }
 
-            private bool isUnsigned(Type type)
+            private static bool isUnsigned(Type type)
             {
                 return (type == typeof(ulong) || type == typeof(uint) || type == typeof(ushort) || type == typeof(byte));
             }
@@ -314,7 +319,7 @@ namespace System.Management.Automation
 
         #region private members
 
-        private Type _underType = null;
+        private readonly Type _underType = null;
 
         #endregion
 
@@ -381,7 +386,7 @@ namespace System.Management.Automation
         /// <returns>
         /// A generic list of tokenized input.
         /// </returns>
-        private List<Token> TokenizeInput(string input)
+        private static List<Token> TokenizeInput(string input)
         {
             List<Token> tokenList = new List<Token>();
             int _offset = 0;
@@ -394,6 +399,7 @@ namespace System.Management.Automation
                     tokenList.Add(GetNextToken(input, ref _offset));
                 }
             }
+
             return tokenList;
         }
 
@@ -406,7 +412,7 @@ namespace System.Management.Automation
         /// <param name="_offset">
         /// Current offset position for the string parser.
         /// </param>
-        private void FindNextToken(string input, ref int _offset)
+        private static void FindNextToken(string input, ref int _offset)
         {
             while (_offset < input.Length)
             {
@@ -433,11 +439,11 @@ namespace System.Management.Automation
         /// <returns>
         /// The next token on the input string
         /// </returns>
-        private Token GetNextToken(string input, ref int _offset)
+        private static Token GetNextToken(string input, ref int _offset)
         {
             StringBuilder sb = new StringBuilder();
-            //bool singleQuoted = false;
-            //bool doubleQuoted = false;
+            // bool singleQuoted = false;
+            // bool doubleQuoted = false;
             bool readingIdentifier = false;
             while (_offset < input.Length)
             {
@@ -452,6 +458,7 @@ namespace System.Management.Automation
                     {
                         _offset--;
                     }
+
                     break;
                 }
                 else
@@ -459,7 +466,7 @@ namespace System.Management.Automation
                     sb.Append(cc);
                     readingIdentifier = true;
                 }
-            }//while
+            }
 
             string result = sb.ToString().Trim();
             // If resulting identifier is enclosed in paired quotes,
@@ -474,7 +481,7 @@ namespace System.Management.Automation
             result = result.Trim();
 
             // possible empty token because white spaces are enclosed in quotation marks.
-            if (String.IsNullOrWhiteSpace(result))
+            if (string.IsNullOrWhiteSpace(result))
             {
                 throw InterpreterError.NewInterpreterException(input, typeof(RuntimeException),
                     null, "EmptyTokenString", EnumExpressionEvaluatorStrings.EmptyTokenString,
@@ -489,6 +496,7 @@ namespace System.Management.Automation
                         null, "NoIdentifierGroupingAllowed", EnumExpressionEvaluatorStrings.NoIdentifierGroupingAllowed);
                 }
             }
+
             if (result.Equals(","))
             {
                 return (new Token(TokenKind.Or));
@@ -514,7 +522,7 @@ namespace System.Management.Automation
         /// <param name="tokenList">
         /// A list of tokenized input.
         /// </param>
-        private void CheckSyntaxError(List<Token> tokenList)
+        private static void CheckSyntaxError(List<Token> tokenList)
         {
             // Initialize, assuming preceded by OR
             TokenKind previous = TokenKind.Or;
@@ -558,6 +566,7 @@ namespace System.Management.Automation
                     string text = token.Text;
                     token.Text = EnumMinimumDisambiguation.EnumDisambiguate(text, typeof(T));
                 }
+
                 previous = token.Kind;
             }
         }
@@ -568,7 +577,7 @@ namespace System.Management.Automation
         /// <param name="tokenList">
         /// Tokenized list of the input string.
         /// </param>
-        private Node ConstructExpressionTree(List<Token> tokenList)
+        private static Node ConstructExpressionTree(List<Token> tokenList)
         {
             bool notFlag = false;
             Queue<Node> andQueue = new Queue<Node>();
@@ -599,7 +608,7 @@ namespace System.Management.Automation
                 }
                 else if (kind == TokenKind.And)
                 {
-                    ;   // do nothing
+                    // do nothing
                 }
                 else if (kind == TokenKind.Or)
                 {
@@ -612,9 +621,10 @@ namespace System.Management.Automation
                         andNode.Operand1 = andQueue.Dequeue();
                         andCurrent = andNode;
                     }
+
                     orQueue.Enqueue(andCurrent);
                 }
-            }//foreach
+            }
 
             // Dequeue all nodes from OR queue,
             // create the OR tree (final expression tree)
@@ -625,6 +635,7 @@ namespace System.Management.Automation
                 orNode.Operand1 = orQueue.Dequeue();
                 orCurrent = orNode;
             }
+
             return orCurrent;
         }
 

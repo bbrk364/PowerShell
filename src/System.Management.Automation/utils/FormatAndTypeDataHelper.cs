@@ -1,14 +1,12 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.IO;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Reflection;
-using System.Text;
-using System.Management.Automation.Host;
-using System.Collections.Concurrent;
+using System.IO;
 using System.Management.Automation.Internal;
+using System.Text;
 
 namespace System.Management.Automation.Runspaces
 {
@@ -48,14 +46,19 @@ namespace System.Management.Automation.Runspaces
         }
 
         internal ExtendedTypeDefinition FormatData { get; }
+
         internal TypeData TypeData { get; }
+
         internal bool IsRemove { get; }
+
         internal string FullPath { get; }
+
         internal FormatTable FormatTable { get; }
 
         internal ConcurrentBag<string> Errors { get; set; }
 
         internal string PSSnapinName { get { return psSnapinName; } }
+
         internal bool FailToLoadFile;
     }
 
@@ -70,7 +73,7 @@ namespace System.Management.Automation.Runspaces
 
         private static string GetBaseFolder(Collection<string> independentErrors)
         {
-            return Path.GetDirectoryName(PsUtils.GetMainModule(System.Diagnostics.Process.GetCurrentProcess()).FileName);
+            return Path.GetDirectoryName(Environment.ProcessPath);
         }
 
         private static string GetAndCheckFullFileName(
@@ -114,7 +117,7 @@ namespace System.Management.Automation.Runspaces
             string errorId,
             Collection<string> independentErrors,
             Collection<PSSnapInTypeAndFormatErrors> PSSnapinFilesCollection,
-            RunspaceConfigurationCategory category)
+            Category category)
         {
             Collection<string> errors = new Collection<string>();
             if (independentErrors != null)
@@ -148,15 +151,16 @@ namespace System.Management.Automation.Runspaces
             }
 
             string message = string.Empty;
-            if (category == RunspaceConfigurationCategory.Types)
+            if (category == Category.Types)
             {
                 message =
                     StringUtil.Format(ExtendedTypeSystem.TypesXmlError, allErrors.ToString());
             }
-            else if (category == RunspaceConfigurationCategory.Formats)
+            else if (category == Category.Formats)
             {
                 message = StringUtil.Format(FormatAndOutXmlLoadingStrings.FormatLoadingErrors, allErrors.ToString());
             }
+
             RuntimeException ex = new RuntimeException(message);
             ex.SetErrorId(errorId);
             throw ex;
@@ -165,9 +169,9 @@ namespace System.Management.Automation.Runspaces
         internal static void ThrowExceptionOnError(
             string errorId,
             ConcurrentBag<string> errors,
-            RunspaceConfigurationCategory category)
+            Category category)
         {
-            if (errors.Count == 0)
+            if (errors.IsEmpty)
             {
                 return;
             }
@@ -182,19 +186,25 @@ namespace System.Management.Automation.Runspaces
             }
 
             string message = string.Empty;
-            if (category == RunspaceConfigurationCategory.Types)
+            if (category == Category.Types)
             {
                 message =
                     StringUtil.Format(ExtendedTypeSystem.TypesXmlError, allErrors.ToString());
             }
-            else if (category == RunspaceConfigurationCategory.Formats)
+            else if (category == Category.Formats)
             {
                 message = StringUtil.Format(FormatAndOutXmlLoadingStrings.FormatLoadingErrors, allErrors.ToString());
             }
+
             RuntimeException ex = new RuntimeException(message);
             ex.SetErrorId(errorId);
             throw ex;
         }
+
+        internal enum Category
+        {
+            Types,
+            Formats,
+        }
     }
 }
-

@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
@@ -9,13 +9,12 @@ using System.IO;
 using System.Management.Automation;
 using System.Management.Automation.Internal;
 using System.Security;
-using Dbg = System.Management.Automation.Diagnostics;
 
 namespace Microsoft.PowerShell.Commands
 {
     /// <summary>
     /// A base class for the trace cmdlets that allow you to specify
-    /// which trace listeners to add to a TraceSource
+    /// which trace listeners to add to a TraceSource.
     /// </summary>
     public class TraceListenerCommandBase : TraceCommandBase
     {
@@ -25,22 +24,26 @@ namespace Microsoft.PowerShell.Commands
         /// The TraceSource parameter determines which TraceSource categories the
         /// operation will take place on.
         /// </summary>
-        ///
-        internal string[] NameInternal { get; set; } = new string[0];
+        internal string[] NameInternal { get; set; } = Array.Empty<string>();
 
         /// <summary>
-        /// The flags to be set on the TraceSource
+        /// The flags to be set on the TraceSource.
         /// </summary>
         /// <value></value>
         internal PSTraceSourceOptions OptionsInternal
         {
-            get { return _options; }
+            get
+            {
+                return _options;
+            }
+
             set
             {
                 _options = value;
                 optionsSpecified = true;
             }
-        } // Flags
+        }
+
         private PSTraceSourceOptions _options = PSTraceSourceOptions.All;
 
         /// <summary>
@@ -49,31 +52,34 @@ namespace Microsoft.PowerShell.Commands
         internal bool optionsSpecified;
 
         /// <summary>
-        /// The parameter which determines the options for output from the
-        /// trace listeners.
+        /// The parameter which determines the options for output from the trace listeners.
         /// </summary>
-        ///
         internal TraceOptions ListenerOptionsInternal
         {
-            get { return _traceOptions; }
+            get
+            {
+                return _traceOptions;
+            }
+
             set
             {
                 traceOptionsSpecified = true;
                 _traceOptions = value;
             }
         }
+
         private TraceOptions _traceOptions = TraceOptions.None;
 
         /// <summary>
-        /// True if the TraceOptions parameter was specified, or false otherwise
+        /// True if the TraceOptions parameter was specified, or false otherwise.
         /// </summary>
         internal bool traceOptionsSpecified;
 
         /// <summary>
-        /// Adds the file trace listener using the specified file
+        /// Adds the file trace listener using the specified file.
         /// </summary>
         /// <value></value>
-        internal string FileListener { get; set; } // File
+        internal string FileListener { get; set; }
 
         /// <summary>
         /// Property that sets force parameter.  This will clear the
@@ -82,25 +88,25 @@ namespace Microsoft.PowerShell.Commands
         /// <remarks>
         /// Note that we do not attempt to reset the read-only attribute.
         /// </remarks>
-        public bool ForceWrite { get; set; } // Force
+        public bool ForceWrite { get; set; }
 
         /// <summary>
-        /// If this parameter is specified the Debugger trace listener
-        /// will be added.
+        /// If this parameter is specified the Debugger trace listener will be added.
         /// </summary>
         /// <value></value>
-        internal bool DebuggerListener { get; set; } // Debugger
+        internal bool DebuggerListener { get; set; }
 
         /// <summary>
-        /// If this parameter is specified the Msh Host trace listener
-        /// will be added.
+        /// If this parameter is specified the Msh Host trace listener will be added.
         /// </summary>
         /// <value></value>
         internal SwitchParameter PSHostListener
         {
             get { return _host; }
+
             set { _host = value; }
-        } // UseHost
+        }
+
         private bool _host = false;
 
         #endregion Parameters
@@ -134,7 +140,7 @@ namespace Microsoft.PowerShell.Commands
 
             foreach (string notMatchedName in notMatched)
             {
-                if (String.IsNullOrEmpty(notMatchedName))
+                if (string.IsNullOrEmpty(notMatchedName))
                 {
                     continue;
                 }
@@ -147,7 +153,7 @@ namespace Microsoft.PowerShell.Commands
                 PSTraceSource newTraceSource =
                     PSTraceSource.GetNewTraceSource(
                         notMatchedName,
-                        String.Empty,
+                        string.Empty,
                         true);
 
                 preconfiguredSources.Add(newTraceSource);
@@ -186,10 +192,8 @@ namespace Microsoft.PowerShell.Commands
 
         #region AddTraceListeners
         /// <summary>
-        /// Adds the console, debugger, file, or host listener
-        /// if requested.
+        /// Adds the console, debugger, file, or host listener if requested.
         /// </summary>
-        ///
         internal void AddTraceListenersToSources(Collection<PSTraceSource> matchingSources)
         {
             if (DebuggerListener)
@@ -202,6 +206,7 @@ namespace Microsoft.PowerShell.Commands
                     // Note, this is not meant to be localized.
                     _defaultListener.Name = "Debug";
                 }
+
                 AddListenerToSources(matchingSources, _defaultListener);
             }
 
@@ -215,6 +220,7 @@ namespace Microsoft.PowerShell.Commands
                     // Note, this is not meant to be localized.
                     _hostListener.Name = "Host";
                 }
+
                 AddListenerToSources(matchingSources, _hostListener);
             }
 
@@ -229,7 +235,7 @@ namespace Microsoft.PowerShell.Commands
 
                     try
                     {
-                        Collection<string> resolvedPaths = new Collection<string>();
+                        Collection<string> resolvedPaths = new();
                         try
                         {
                             // Resolve the file path
@@ -269,6 +275,7 @@ namespace Microsoft.PowerShell.Commands
                                             FileListener,
                                             provider.FullName));
                             }
+
                             resolvedPaths.Add(path);
                         }
 
@@ -286,26 +293,26 @@ namespace Microsoft.PowerShell.Commands
                             if (ForceWrite && System.IO.File.Exists(resolvedPath))
                             {
                                 // remove readonly attributes on the file
-                                System.IO.FileInfo fInfo = new System.IO.FileInfo(resolvedPath);
+                                System.IO.FileInfo fInfo = new(resolvedPath);
                                 if (fInfo != null)
                                 {
                                     // Save some disk write time by checking whether file is readonly..
                                     if ((fInfo.Attributes & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
                                     {
-                                        //Make sure the file is not read only
+                                        // Make sure the file is not read only
                                         fInfo.Attributes &= ~(FileAttributes.ReadOnly);
                                     }
                                 }
                             }
 
                             // Trace commands always append..So there is no need to set overwrite with force..
-                            FileStream fileStream = new FileStream(resolvedPath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
+                            FileStream fileStream = new(resolvedPath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
                             FileStreams.Add(fileStream);
 
                             // Open the file stream
 
                             TextWriterTraceListener fileListener =
-                                    new TextWriterTraceListener(fileStream, resolvedPath);
+                                    new(fileStream, resolvedPath);
 
                             fileListener.Name = FileListener;
 
@@ -327,7 +334,7 @@ namespace Microsoft.PowerShell.Commands
                         if (fileOpenError != null)
                         {
                             ErrorRecord errorRecord =
-                                new ErrorRecord(
+                                new(
                                     fileOpenError,
                                     "FileListenerPathResolutionFailed",
                                     ErrorCategory.OpenError,
@@ -352,7 +359,7 @@ namespace Microsoft.PowerShell.Commands
                     if (error != null)
                     {
                         ErrorRecord errorRecord =
-                            new ErrorRecord(
+                            new(
                                 error,
                                 "FileListenerPathResolutionFailed",
                                 ErrorCategory.InvalidArgument,
@@ -368,14 +375,14 @@ namespace Microsoft.PowerShell.Commands
                 }
             }
         }
+
         private DefaultTraceListener _defaultListener;
         private PSHostTraceListener _hostListener;
         private Collection<TextWriterTraceListener> _fileListeners;
 
         /// <summary>
-        /// The file streams that were open by this command
+        /// The file streams that were open by this command.
         /// </summary>
-        ///
         internal Collection<FileStream> FileStreams { get; private set; }
 
         private static void AddListenerToSources(Collection<PSTraceSource> matchingSources, TraceListener listener)
@@ -392,9 +399,8 @@ namespace Microsoft.PowerShell.Commands
         #region RemoveTraceListeners
 
         /// <summary>
-        /// Removes the tracelisteners from the specified trace sources
+        /// Removes the tracelisteners from the specified trace sources.
         /// </summary>
-        ///
         internal static void RemoveListenersByName(
             Collection<PSTraceSource> matchingSources,
             string[] listenerNames,
@@ -417,7 +423,7 @@ namespace Microsoft.PowerShell.Commands
                 {
                     TraceListener listenerToRemove = source.Listeners[index];
 
-                    if (fileListenersOnly && !(listenerToRemove is TextWriterTraceListener))
+                    if (fileListenersOnly && listenerToRemove is not TextWriterTraceListener)
                     {
                         // Since we only want to remove file listeners, skip any that
                         // aren't file listeners
@@ -437,14 +443,14 @@ namespace Microsoft.PowerShell.Commands
                     }
                 }
             }
-        } // RemoveAllTraceListenersFromSource
+        }
 
         #endregion RemoveTraceListeners
 
         #region SetTraceListenerOptions
 
         /// <summary>
-        /// Sets the trace listener options based on the ListenerOptions parameter
+        /// Sets the trace listener options based on the ListenerOptions parameter.
         /// </summary>
         internal void SetTraceListenerOptions(Collection<PSTraceSource> matchingSources)
         {
@@ -466,9 +472,8 @@ namespace Microsoft.PowerShell.Commands
         #region SetFlags
 
         /// <summary>
-        /// Sets the flags for all the specified TraceSources
+        /// Sets the flags for all the specified TraceSources.
         /// </summary>
-        ///
         internal void SetFlags(Collection<PSTraceSource> matchingSources)
         {
             foreach (PSTraceSource structuredSource in matchingSources)
@@ -481,8 +486,7 @@ namespace Microsoft.PowerShell.Commands
         #region TurnOnTracing
 
         /// <summary>
-        /// Turns on tracing for the TraceSources, flags, and listeners defined by
-        /// the parameters
+        /// Turns on tracing for the TraceSources, flags, and listeners defined by the parameters.
         /// </summary>
         internal void TurnOnTracing(Collection<PSTraceSource> matchingSources, bool preConfigured)
         {
@@ -493,7 +497,7 @@ namespace Microsoft.PowerShell.Commands
                 {
                     // Copy the listeners into a different collection
 
-                    Collection<TraceListener> listenerCollection = new Collection<TraceListener>();
+                    Collection<TraceListener> listenerCollection = new();
                     foreach (TraceListener listener in source.Listeners)
                     {
                         listenerCollection.Add(listener);
@@ -593,11 +597,12 @@ namespace Microsoft.PowerShell.Commands
                     listener.Dispose();
                 }
             }
+
             _storedTraceSourceState.Clear();
         }
 
-        private Dictionary<PSTraceSource, KeyValuePair<PSTraceSourceOptions, Collection<TraceListener>>> _storedTraceSourceState =
-            new Dictionary<PSTraceSource, KeyValuePair<PSTraceSourceOptions, Collection<TraceListener>>>();
+        private readonly Dictionary<PSTraceSource, KeyValuePair<PSTraceSourceOptions, Collection<TraceListener>>> _storedTraceSourceState =
+            new();
 
         #endregion stored state
     }

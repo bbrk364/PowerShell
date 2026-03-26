@@ -1,18 +1,18 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
+
+using System.Management.Automation;
+using System.Text;
 
 // TODO/FIXME: move this to Microsoft.PowerShell.Cim namespace (and move in source depot folder as well)
 
 namespace Microsoft.PowerShell.Cmdletization.Cim
 {
-    using System.Management.Automation;
-    using System.Text;
-
     /// <summary>
     /// Translates a <see cref="WildcardPattern"/> into a like-operand for WQL.
     /// </summary>
     /// <remarks>
-    /// Documentation on MSDN (http://msdn.microsoft.com/library/aa392263(VS.85).aspx) is
+    /// Documentation on MSDN (https://msdn.microsoft.com/library/aa392263(VS.85).aspx) is
     /// 1) rather slim / incomplete
     /// 2) sometimes incorrect (i.e. says that '=' is used for character ranges, when it should have said '-')
     ///
@@ -20,7 +20,7 @@ namespace Microsoft.PowerShell.Cmdletization.Cim
     /// </remarks>
     internal class WildcardPatternToCimQueryParser : WildcardPatternParser
     {
-        private readonly StringBuilder _result = new StringBuilder();
+        private readonly StringBuilder _result = new();
         private bool _needClientSideFiltering;
 
         protected override void AppendLiteralCharacter(char c)
@@ -79,12 +79,13 @@ namespace Microsoft.PowerShell.Cmdletization.Cim
             // 93 = ]
             // 94 = ^
             // 95 = _
-            if ((91 <= startOfCharacterRange) && (startOfCharacterRange <= 94))
+            if ((startOfCharacterRange >= 91) && (startOfCharacterRange <= 94))
             {
                 startOfCharacterRange = (char)90;
                 _needClientSideFiltering = true;
             }
-            if ((91 <= endOfCharacterRange) && (endOfCharacterRange <= 94))
+
+            if ((endOfCharacterRange >= 91) && (endOfCharacterRange <= 94))
             {
                 endOfCharacterRange = (char)95;
                 _needClientSideFiltering = true;
@@ -98,6 +99,7 @@ namespace Microsoft.PowerShell.Cmdletization.Cim
                 startOfCharacterRange = (char)44;
                 _needClientSideFiltering = true;
             }
+
             if (endOfCharacterRange == 45)
             {
                 endOfCharacterRange = (char)46;

@@ -1,205 +1,116 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
-using System.Management.Automation;
+using System.Collections;
 using System.Collections.Generic;
-using System.Windows.Forms;
-using System.Globalization;
-using System.IO;
-using System.Linq;
-using System.Drawing;
-using System.Media;
-using System.Runtime.InteropServices;
-using System.ComponentModel;
-using System.Diagnostics.CodeAnalysis;
-using System.Collections.Specialized;
+using System.Management.Automation;
+using System.Management.Automation.Language;
+using Microsoft.PowerShell.Commands.Internal;
 
 namespace Microsoft.PowerShell.Commands
 {
     /// <summary>
-    /// Defines the different type supported by the clipboard.
-    /// </summary>
-    public enum ClipboardFormat
-    {
-        /// Text format as default.
-        Text = 0,
-
-        /// File format.
-        FileDropList = 1,
-
-        /// Image format.
-        Image = 2,
-
-        /// Audio format.
-        Audio = 3,
-    };
-
-    /// <summary>
     /// Defines the implementation of the 'Get-Clipboard' cmdlet.
     /// This cmdlet get the content from system clipboard.
     /// </summary>
-    [Cmdlet(VerbsCommon.Get, "Clipboard", HelpUri = "https://go.microsoft.com/fwlink/?LinkId=526219")]
+    [Cmdlet(VerbsCommon.Get, "Clipboard", HelpUri = "https://go.microsoft.com/fwlink/?LinkId=2109905")]
     [Alias("gcb")]
-    [OutputType(typeof(String), typeof(FileInfo), typeof(Image), typeof(Stream))]
+    [OutputType(typeof(string))]
     public class GetClipboardCommand : PSCmdlet
     {
-        /// <summary>
-        /// Property that sets clipboard type. This will return the required format from clipboard
-        /// </summary>
-        [Parameter]
-        public ClipboardFormat Format { get; set; }
-
-        /// <summary>
-        /// Property that sets format type when the return type is text.
-        /// </summary>
-        [Parameter]
-        [ValidateNotNullOrEmpty]
-        public TextDataFormat TextFormatType
-        {
-            get { return _textFormat; }
-            set
-            {
-                _isTextFormatTypeSet = true;
-                _textFormat = value;
-            }
-        }
-        private TextDataFormat _textFormat = TextDataFormat.UnicodeText;
-        private bool _isTextFormatTypeSet = false;
-
         /// <summary>
         /// Property that sets raw parameter. This will allow clipboard return text or file list as one string.
         /// </summary>
         [Parameter]
         public SwitchParameter Raw
         {
-            get { return _raw; }
+            get
+            {
+                return _raw;
+            }
+
             set
             {
-                _isRawSet = true;
                 _raw = value;
             }
         }
-        private bool _raw;
-        private bool _isRawSet = false;
 
         /// <summary>
-        /// This method implements the ProcessRecord method for Get-Clipboard command
+        /// Gets or sets the delimiters to use when splitting the clipboard content.
+        /// </summary>
+        [Parameter]
+        [ArgumentCompleter(typeof(DelimiterCompleter))]
+        public string[] Delimiter { get; set; } = [Environment.NewLine];
+
+        private bool _raw;
+
+        /// <summary>
+        /// This method implements the ProcessRecord method for Get-Clipboard command.
         /// </summary>
         protected override void BeginProcessing()
         {
-            // TextFormatType should only combine with Text.
-            if (Format != ClipboardFormat.Text && _isTextFormatTypeSet)
-            {
-                ThrowTerminatingError(new ErrorRecord(new InvalidOperationException(
-                    String.Format(CultureInfo.InvariantCulture, ClipboardResources.InvalidTypeCombine)),
-                    "FailedToGetClipboard", ErrorCategory.InvalidOperation, "Clipboard"));
-            }
-
-            // Raw should only combine with Text or FileDropList.
-            if (Format != ClipboardFormat.Text && Format != ClipboardFormat.FileDropList && _isRawSet)
-            {
-                ThrowTerminatingError(new ErrorRecord(new InvalidOperationException(
-                    String.Format(CultureInfo.InvariantCulture, ClipboardResources.InvalidRawCombine)),
-                    "FailedToGetClipboard", ErrorCategory.InvalidOperation, "Clipboard"));
-            }
-
-            if (Format == ClipboardFormat.Text)
-            {
-                this.WriteObject(GetClipboardContentAsText(_textFormat), true);
-            }
-            else if (Format == ClipboardFormat.Image)
-            {
-                this.WriteObject(Clipboard.GetImage());
-            }
-            else if (Format == ClipboardFormat.FileDropList)
-            {
-                if (_raw)
-                {
-                    this.WriteObject(Clipboard.GetFileDropList(), true);
-                }
-                else
-                {
-                    this.WriteObject(GetClipboardContentAsFileList());
-                }
-            }
-            else if (Format == ClipboardFormat.Audio)
-            {
-                this.WriteObject(Clipboard.GetAudioStream());
-            }
+            this.WriteObject(GetClipboardContentAsText(), true);
         }
 
         /// <summary>
         /// Returns the clipboard content as text format.
         /// </summary>
-        /// <param name="textFormat"></param>
-        /// <returns></returns>
-        private List<string> GetClipboardContentAsText(TextDataFormat textFormat)
+        /// <returns>Array of strings representing content from clipboard.</returns>
+        private List<string> GetClipboardContentAsText()
         {
-            if (!Clipboard.ContainsText(textFormat))
-            {
-                return null;
-            }
-            List<string> result = new List<string>();
+            var result = new List<string>();
+            string textContent = null;
 
-            // TextFormat default value is Text, by default it is same as Clipboard.GetText()
-            string textContent = Clipboard.GetText(textFormat);
+            try
+            {
+                textContent = Clipboard.GetText();
+            }
+            catch (PlatformNotSupportedException)
+            {
+                ThrowTerminatingError(new ErrorRecord(new InvalidOperationException(ClipboardResources.UnsupportedPlatform), "FailedToGetClipboardUnsupportedPlatform", ErrorCategory.InvalidOperation, "Clipboard"));
+            }
+
             if (_raw)
             {
                 result.Add(textContent);
             }
             else
             {
-                string[] splitSymbol = { Environment.NewLine };
-                result.AddRange(textContent.Split(splitSymbol, StringSplitOptions.None));
+                result.AddRange(textContent.Split(Delimiter, StringSplitOptions.None));
             }
+
             return result;
         }
+    }
 
+    /// <summary>
+    /// Provides argument completion for the Delimiter parameter.
+    /// </summary>
+    public sealed class DelimiterCompleter : IArgumentCompleter
+    {
         /// <summary>
-        /// Returns the clipboard content as file info.
+        /// Provides argument completion for the Delimiter parameter.
         /// </summary>
-        /// <returns></returns>
-        private List<PSObject> GetClipboardContentAsFileList()
+        /// <param name="commandName">The name of the command that is being completed.</param>
+        /// <param name="parameterName">The name of the parameter that is being completed.</param>
+        /// <param name="wordToComplete">The input text to filter the results by.</param>
+        /// <param name="commandAst">The ast of the command that triggered the completion.</param>
+        /// <param name="fakeBoundParameters">The parameters bound to the command.</param>
+        /// <returns>Completion results.</returns>
+        public IEnumerable<CompletionResult> CompleteArgument(string commandName, string parameterName, string wordToComplete, CommandAst commandAst, IDictionary fakeBoundParameters)
         {
-            if (!Clipboard.ContainsFileDropList())
+            wordToComplete ??= string.Empty;
+            var pattern = new WildcardPattern(wordToComplete + '*', WildcardOptions.IgnoreCase);
+            if (pattern.IsMatch("CRLF") || pattern.IsMatch("Windows"))
             {
-                return null;
+                yield return new CompletionResult("\"`r`n\"", "CRLF", CompletionResultType.ParameterValue, "Windows (CRLF)");
             }
-            List<PSObject> result = new List<PSObject>();
-            foreach (string filePath in Clipboard.GetFileDropList())
+
+            if (pattern.IsMatch("LF") || pattern.IsMatch("Unix") || pattern.IsMatch("Linux"))
             {
-                FileInfo file = new FileInfo(filePath);
-                result.Add(WrapOutputInPSObject(file, filePath));
+                yield return new CompletionResult("\"`n\"", "LF", CompletionResultType.ParameterValue, "UNIX (LF)");
             }
-            return result;
-        }
-
-        /// <summary>
-        /// Wraps the item in a PSObject and attaches some notes to the
-        /// object that deal with path information.
-        /// </summary>
-        /// <param name="item"></param>
-        /// <param name="path"></param>
-        /// <returns></returns>
-        private PSObject WrapOutputInPSObject(
-            FileInfo item,
-            string path)
-        {
-            PSObject result = new PSObject(item);
-
-            // Now get the parent path and child name
-            if (path != null)
-            {
-                // Get the parent path
-                string parentPath = Directory.GetParent(path).FullName;
-                result.AddOrSetProperty("PSParentPath", parentPath);
-
-                // Get the child name
-                string childName = item.Name;
-                result.AddOrSetProperty("PSChildName", childName);
-            }
-            return result;
         }
     }
 }

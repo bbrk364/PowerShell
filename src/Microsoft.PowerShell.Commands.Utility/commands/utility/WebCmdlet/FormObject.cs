@@ -1,37 +1,39 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
+
+#nullable enable
 
 using System.Collections.Generic;
 
 namespace Microsoft.PowerShell.Commands
 {
     /// <summary>
-    /// FormObject used in HtmlWebResponseObject
+    /// FormObject used in HtmlWebResponseObject.
     /// </summary>
     public class FormObject
     {
         /// <summary>
-        /// gets or private sets the Id property
+        /// Gets the Id property.
         /// </summary>
-        public string Id { get; private set; }
+        public string Id { get; }
 
         /// <summary>
-        /// gets or private sets the Method property
+        /// Gets the Method property.
         /// </summary>
-        public string Method { get; private set; }
+        public string Method { get; }
 
         /// <summary>
-        /// gets or private sets the Action property
+        /// Gets the Action property.
         /// </summary>
-        public string Action { get; private set; }
+        public string Action { get; }
 
         /// <summary>
-        /// gets or private sets the Fields property
+        /// Gets the Fields property.
         /// </summary>
-        public Dictionary<string, string> Fields { get; private set; }
+        public Dictionary<string, string> Fields { get; }
 
         /// <summary>
-        /// constructor for FormObject
+        /// Initializes a new instance of the <see cref="FormObject"/> class.
         /// </summary>
         /// <param name="id"></param>
         /// <param name="method"></param>
@@ -46,8 +48,7 @@ namespace Microsoft.PowerShell.Commands
 
         internal void AddField(string key, string value)
         {
-            string test;
-            if (key != null && !Fields.TryGetValue(key, out test))
+            if (key is not null && !Fields.TryGetValue(key, out string? _))
             {
                 Fields[key] = value;
             }

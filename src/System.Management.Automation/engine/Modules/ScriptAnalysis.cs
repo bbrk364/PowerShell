@@ -1,12 +1,12 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Collections;
-using System.Globalization;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
-using System.Text;
 using System.Management.Automation.Language;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace System.Management.Automation
@@ -14,7 +14,6 @@ namespace System.Management.Automation
     /// <summary>
     /// Class describing a PowerShell module...
     /// </summary>
-    [Serializable]
     internal class ScriptAnalysis
     {
         internal static ScriptAnalysis Analyze(string path, ExecutionContext context)
@@ -27,7 +26,7 @@ namespace System.Management.Automation
                 {
                     ProgressRecord analysisProgress = new ProgressRecord(0,
                         Modules.ScriptAnalysisPreparing,
-                        String.Format(CultureInfo.InvariantCulture, Modules.ScriptAnalysisModule, path));
+                        string.Format(CultureInfo.InvariantCulture, Modules.ScriptAnalysisModule, path));
                     analysisProgress.RecordType = ProgressRecordType.Processing;
 
                     // Write the progress using a static source ID so that all
@@ -41,7 +40,7 @@ namespace System.Management.Automation
                 // So eat the invalid operation
             }
 
-            string scriptContent = ReadScript(path);
+            string scriptContent = File.ReadAllText(path, Encoding.Default);
 
             ParseError[] errors;
             var moduleAst = (new Parser()).Parse(path, scriptContent, null, out errors, ParseMode.ModuleAnalysis);
@@ -90,25 +89,16 @@ namespace System.Management.Automation
             return result;
         }
 
-        internal static string ReadScript(string path)
-        {
-            using (FileStream readerStream = new FileStream(path, FileMode.Open, FileAccess.Read))
-            {
-                Encoding defaultEncoding = ClrFacade.GetDefaultEncoding();
-                Microsoft.Win32.SafeHandles.SafeFileHandle safeFileHandle = readerStream.SafeFileHandle;
-
-                using (StreamReader scriptReader = new StreamReader(readerStream, defaultEncoding))
-                {
-                    return scriptReader.ReadToEnd();
-                }
-            }
-        }
-
         internal List<string> DiscoveredExports { get; set; }
+
         internal Dictionary<string, string> DiscoveredAliases { get; set; }
+
         internal List<RequiredModuleInfo> DiscoveredModules { get; set; }
+
         internal List<string> DiscoveredCommandFilters { get; set; }
+
         internal bool AddsSelfToPath { get; set; }
+
         internal List<TypeDefinitionAst> DiscoveredClasses { get; set; }
     }
 
@@ -158,12 +148,19 @@ namespace System.Management.Automation
         }
 
         private readonly bool _forCompletion;
+
         internal List<string> DiscoveredExports { get; set; }
+
         internal List<RequiredModuleInfo> DiscoveredModules { get; set; }
+
         internal Dictionary<string, FunctionDefinitionAst> DiscoveredFunctions { get; set; }
+
         internal Dictionary<string, string> DiscoveredAliases { get; set; }
+
         internal List<string> DiscoveredCommandFilters { get; set; }
+
         internal bool AddsSelfToPath { get; set; }
+
         internal List<TypeDefinitionAst> DiscoveredClasses { get; set; }
 
         public override AstVisitAction VisitTypeDefinition(TypeDefinitionAst typeDefinitionAst)
@@ -179,12 +176,14 @@ namespace System.Management.Automation
             // recorded for command/parameter completion.
 
             // function Foo-Bar { ... }
+
             var functionName = functionDefinitionAst.Name;
             DiscoveredFunctions[functionName] = functionDefinitionAst;
             ModuleIntrinsics.Tracer.WriteLine("Discovered function definition: {0}", functionName);
 
             // Check if they've defined any aliases
             // function Foo-Bar { [Alias("Alias1", "...")] param() ... }
+
             var functionBody = functionDefinitionAst.Body;
             if ((functionBody.ParamBlock != null) && (functionBody.ParamBlock.Attributes != null))
             {
@@ -213,6 +212,7 @@ namespace System.Management.Automation
                 {
                     DiscoveredExports.Add(functionName);
                 }
+
                 return AstVisitAction.Continue;
             }
 
@@ -225,26 +225,37 @@ namespace System.Management.Automation
         public override AstVisitAction VisitAssignmentStatement(AssignmentStatementAst assignmentStatementAst)
         {
             // $env:PATH += "";$psScriptRoot""
-            if (String.Equals("$env:PATH", assignmentStatementAst.Left.ToString(), StringComparison.OrdinalIgnoreCase) &&
+            if (string.Equals("$env:PATH", assignmentStatementAst.Left.ToString(), StringComparison.OrdinalIgnoreCase) &&
                 Regex.IsMatch(assignmentStatementAst.Right.ToString(), "\\$psScriptRoot", RegexOptions.IgnoreCase))
             {
                 ModuleIntrinsics.Tracer.WriteLine("Module adds itself to the path.");
                 AddsSelfToPath = true;
             }
+
             return AstVisitAction.SkipChildren;
         }
 
         // We skip a bunch of random statements because we can't really be accurate detecting functions/classes etc. that
         // are conditionally defined.
         public override AstVisitAction VisitIfStatement(IfStatementAst ifStmtAst) { return AstVisitAction.SkipChildren; }
+
         public override AstVisitAction VisitDataStatement(DataStatementAst dataStatementAst) { return AstVisitAction.SkipChildren; }
+
         public override AstVisitAction VisitForEachStatement(ForEachStatementAst forEachStatementAst) { return AstVisitAction.SkipChildren; }
+
         public override AstVisitAction VisitForStatement(ForStatementAst forStatementAst) { return AstVisitAction.SkipChildren; }
+
         public override AstVisitAction VisitDoUntilStatement(DoUntilStatementAst doUntilStatementAst) { return AstVisitAction.SkipChildren; }
+
         public override AstVisitAction VisitDoWhileStatement(DoWhileStatementAst doWhileStatementAst) { return AstVisitAction.SkipChildren; }
+
         public override AstVisitAction VisitWhileStatement(WhileStatementAst whileStatementAst) { return AstVisitAction.SkipChildren; }
+
         public override AstVisitAction VisitInvokeMemberExpression(InvokeMemberExpressionAst methodCallAst) { return AstVisitAction.SkipChildren; }
+
         public override AstVisitAction VisitSwitchStatement(SwitchStatementAst switchStatementAst) { return AstVisitAction.SkipChildren; }
+
+        public override AstVisitAction VisitTernaryExpression(TernaryExpressionAst ternaryExpressionAst) { return AstVisitAction.SkipChildren; }
 
         // Visit one the other variations:
         //  - Dotting scripts
@@ -253,10 +264,22 @@ namespace System.Management.Automation
         //  - Exporting module members
         public override AstVisitAction VisitCommand(CommandAst commandAst)
         {
-            string commandName =
-                commandAst.GetCommandName() ??
-                GetSafeValueVisitor.GetSafeValue(commandAst.CommandElements[0], null, GetSafeValueVisitor.SafeValueContext.ModuleAnalysis) as string;
+            string commandName = commandAst.GetCommandName();
+            if (commandName is null)
+            {
+                // GetCommandName only works if the name is a string constant. GetSafeValueVistor can evaluate some safe dynamic expressions
+                try
+                {
+                    commandName = GetSafeValueVisitor.GetSafeValue(commandAst.CommandElements[0], null, GetSafeValueVisitor.SafeValueContext.ModuleAnalysis) as string;
+                }
+                catch (ParseException)
+                {
+                    // The script is invalid so we can't use GetSafeValue to get the name either.
+                }
+            }
 
+            // We couldn't get the name of the command. Either it's an anonymous scriptblock: & {"Some script"}
+            // Or it's a dynamic expression we couldn't safely resolve.
             if (commandName == null)
                 return AstVisitAction.SkipChildren;
 
@@ -274,12 +297,12 @@ namespace System.Management.Automation
             }
 
             // They are setting an alias.
-            if (String.Equals(commandName, "New-Alias", StringComparison.OrdinalIgnoreCase) ||
-                String.Equals(commandName, "Microsoft.PowerShell.Utility\\New-Alias", StringComparison.OrdinalIgnoreCase) ||
-                String.Equals(commandName, "Set-Alias", StringComparison.OrdinalIgnoreCase) ||
-                String.Equals(commandName, "Microsoft.PowerShell.Utility\\Set-Alias", StringComparison.OrdinalIgnoreCase) ||
-                String.Equals(commandName, "nal", StringComparison.OrdinalIgnoreCase) ||
-                String.Equals(commandName, "sal", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(commandName, "New-Alias", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(commandName, "Microsoft.PowerShell.Utility\\New-Alias", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(commandName, "Set-Alias", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(commandName, "Microsoft.PowerShell.Utility\\Set-Alias", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(commandName, "nal", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(commandName, "sal", StringComparison.OrdinalIgnoreCase))
             {
                 // Set-Alias Foo-Bar5 Foo-Bar
                 // Set-Alias -Name Foo-Bar6 -Value Foo-Bar
@@ -305,8 +328,8 @@ namespace System.Management.Automation
             }
 
             // They are importing a module
-            if (String.Equals(commandName, "Import-Module", StringComparison.OrdinalIgnoreCase) ||
-                String.Equals(commandName, "ipmo", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(commandName, "Import-Module", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(commandName, "ipmo", StringComparison.OrdinalIgnoreCase))
             {
                 // Import-Module Module1
                 // Import-Module Module2 -Function Foo-Module2*, Foo-Module2Second* -Cmdlet Foo-Module2Cmdlet,Foo-Module2Cmdlet*
@@ -320,10 +343,7 @@ namespace System.Management.Automation
 
                 List<string> commandsToPostFilter = new List<string>();
 
-                Action<string> onEachCommand = importedCommandName =>
-                {
-                    commandsToPostFilter.Add(importedCommandName);
-                };
+                Action<string> onEachCommand = importedCommandName => commandsToPostFilter.Add(importedCommandName);
 
                 // Process any exports from the module that we determine from
                 // the -Function, -Cmdlet, or -Alias parameters
@@ -349,9 +369,9 @@ namespace System.Management.Automation
             }
 
             // They are exporting a module member
-            if (String.Equals(commandName, "Export-ModuleMember", StringComparison.OrdinalIgnoreCase) ||
-                String.Equals(commandName, "Microsoft.PowerShell.Core\\Export-ModuleMember", StringComparison.OrdinalIgnoreCase) ||
-                String.Equals(commandName, "$script:ExportModuleMember", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(commandName, "Export-ModuleMember", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(commandName, "Microsoft.PowerShell.Core\\Export-ModuleMember", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(commandName, "$script:ExportModuleMember", StringComparison.OrdinalIgnoreCase))
             {
                 // Export-ModuleMember *
                 // Export-ModuleMember Exported-UnNamedModuleMember
@@ -397,7 +417,7 @@ namespace System.Management.Automation
 
             // They are exporting a module member using our advanced 'public' function
             // that we've presented in many demos
-            if ((String.Equals(commandName, "public", StringComparison.OrdinalIgnoreCase)) &&
+            if ((string.Equals(commandName, "public", StringComparison.OrdinalIgnoreCase)) &&
                 (commandAst.CommandElements.Count > 2))
             {
                 // public function Publicly-ExportedFunction
@@ -410,9 +430,12 @@ namespace System.Management.Automation
             return AstVisitAction.SkipChildren;
         }
 
-        private void ProcessCmdletArguments(object value, Action<string> onEachArgument)
+        private static void ProcessCmdletArguments(object value, Action<string> onEachArgument)
         {
-            if (value == null) return;
+            if (value == null)
+            {
+                return;
+            }
 
             var commandName = value as string;
             if (commandName != null)
@@ -439,7 +462,7 @@ namespace System.Management.Automation
         //
         // It also only populates the bound parameters for a limited set of parameters needed
         // for module analysis.
-        private Hashtable DoPsuedoParameterBinding(CommandAst commandAst, string commandName)
+        private static Hashtable DoPsuedoParameterBinding(CommandAst commandAst, string commandName)
         {
             var result = new Hashtable(StringComparer.OrdinalIgnoreCase);
 
@@ -480,6 +503,7 @@ namespace System.Management.Automation
                                 result[parameterInfo.name] =
                                     GetSafeValueVisitor.GetSafeValue(argumentAst, null, GetSafeValueVisitor.SafeValueContext.ModuleAnalysis);
                             }
+
                             break;
                         }
                     }
@@ -531,9 +555,9 @@ namespace System.Management.Automation
             return result;
         }
 
-        private static Dictionary<string, ParameterBindingInfo> s_parameterBindingInfoTable;
+        private static readonly Dictionary<string, ParameterBindingInfo> s_parameterBindingInfoTable;
 
-        private class ParameterBindingInfo
+        private sealed class ParameterBindingInfo
         {
             internal ParameterInfo[] parameterInfo;
         }
@@ -547,10 +571,10 @@ namespace System.Management.Automation
 
     // Class to keep track of modules we need to import, and commands that should
     // be filtered out of them.
-    [Serializable]
     internal class RequiredModuleInfo
     {
         internal string Name { get; set; }
+
         internal List<string> CommandsToPostFilter { get; set; }
     }
-} // System.Management.Automation
+}

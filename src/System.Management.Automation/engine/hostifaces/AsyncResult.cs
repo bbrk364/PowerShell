@@ -1,21 +1,22 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Threading;
+
 using Dbg = System.Management.Automation.Diagnostics;
 
 namespace System.Management.Automation.Runspaces
 {
     /// <summary>
     /// Base class for AsyncResult objects that are returned by various
-    /// Async operations supported by RunspacePool , PowerShell types
+    /// Async operations supported by RunspacePool , PowerShell types.
     /// </summary>
     internal class AsyncResult : IAsyncResult
     {
         #region Private Data
 
         private ManualResetEvent _completedWaitHandle;
-        // exception occured in the async thread.
+        // exception occurred in the async thread.
         // user supplied state object
 
         // Invoke on thread (remote debugging support).
@@ -28,7 +29,7 @@ namespace System.Management.Automation.Runspaces
         #region Constructor
 
         /// <summary>
-        /// Constructor
+        /// Constructor.
         /// </summary>
         /// <param name="ownerId">
         /// Instance Id of the object creating this instance
@@ -41,7 +42,7 @@ namespace System.Management.Automation.Runspaces
         /// </param>
         internal AsyncResult(Guid ownerId, AsyncCallback callback, object state)
         {
-            Dbg.Assert(Guid.Empty != ownerId, "ownerId cannot be empty");
+            Dbg.Assert(ownerId != Guid.Empty, "ownerId cannot be empty");
             OwnerId = ownerId;
             Callback = callback;
             AsyncState = state;
@@ -52,7 +53,7 @@ namespace System.Management.Automation.Runspaces
         #region IAsync Overrides
 
         /// <summary>
-        /// This always returns false
+        /// This always returns false.
         /// </summary>
         public bool CompletedSynchronously
         {
@@ -84,10 +85,7 @@ namespace System.Management.Automation.Runspaces
                 {
                     lock (SyncObject)
                     {
-                        if (_completedWaitHandle == null)
-                        {
-                            _completedWaitHandle = new ManualResetEvent(IsCompleted);
-                        }
+                        _completedWaitHandle ??= new ManualResetEvent(IsCompleted);
                     }
                 }
 
@@ -116,7 +114,7 @@ namespace System.Management.Automation.Runspaces
         internal AsyncCallback Callback { get; }
 
         /// <summary>
-        /// SyncObject
+        /// SyncObject.
         /// </summary>
         internal object SyncObject { get; } = new object();
 
@@ -124,11 +122,11 @@ namespace System.Management.Automation.Runspaces
         /// Marks the async operation as completed.
         /// </summary>
         /// <param name="exception">
-        /// Exception occured. null if no exception occured
+        /// Exception occurred. null if no exception occurred
         /// </param>
         internal void SetAsCompleted(Exception exception)
         {
-            //Dbg.Assert(!isCompleted, "AsynResult already completed");
+            // Dbg.Assert(!isCompleted, "AsynResult already completed");
             if (IsCompleted)
             {
                 return;
@@ -151,10 +149,7 @@ namespace System.Management.Automation.Runspaces
             }
 
             // call the user supplied callback
-            if (Callback != null)
-            {
-                Callback(this);
-            }
+            Callback?.Invoke(this);
         }
 
         /// <summary>
@@ -180,10 +175,7 @@ namespace System.Management.Automation.Runspaces
         {
             lock (SyncObject)
             {
-                if (_completedWaitHandle != null)
-                {
-                    _completedWaitHandle.Set();
-                }
+                _completedWaitHandle?.Set();
             }
         }
 
@@ -224,7 +216,7 @@ namespace System.Management.Automation.Runspaces
             _invokeOnThreadEvent.Dispose();
             _invokeOnThreadEvent = null;  // Allow early GC
 
-            // Operation is done: if an exception occured, throw it
+            // Operation is done: if an exception occurred, throw it
             if (Exception != null)
             {
                 throw Exception;
@@ -234,13 +226,13 @@ namespace System.Management.Automation.Runspaces
         /// <summary>
         /// Use blocked thread to invoke callback delegate.
         /// </summary>
-        /// <param name="callback">Callback delegate</param>
-        /// <param name="state">Callback state</param>
+        /// <param name="callback">Callback delegate.</param>
+        /// <param name="state">Callback state.</param>
         internal bool InvokeCallbackOnThread(WaitCallback callback, object state)
         {
             if (callback == null)
             {
-                throw new PSArgumentNullException("callback");
+                throw new PSArgumentNullException(nameof(callback));
             }
 
             _invokeCallback = callback;

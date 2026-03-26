@@ -1,11 +1,12 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Collections;
 using System.Globalization;
 using System.Linq;
-using Dbg = System.Management.Automation.Diagnostics;
-using System.Collections;
 using System.Reflection;
+
+using Dbg = System.Management.Automation.Diagnostics;
 
 namespace System.Management.Automation
 {
@@ -24,15 +25,13 @@ namespace System.Management.Automation
             _convertTypes = types;
         }
 
-        private Type[] _convertTypes;
+        private readonly Type[] _convertTypes;
 
         internal Type TargetType
         {
             get
             {
-                return _convertTypes == null
-                           ? null
-                           : _convertTypes.LastOrDefault();
+                return _convertTypes?.LastOrDefault();
             }
         }
 
@@ -66,9 +65,7 @@ namespace System.Management.Automation
                             else
                                 temp = result;
 
-                            PSReference reference = temp as PSReference;
-
-                            if (reference == null)
+                            if (temp is not PSReference reference)
                             {
                                 throw new PSInvalidCastException("InvalidCastExceptionReferenceTypeExpected", null,
                                                                    ExtendedTypeSystem.ReferenceTypeExpected);
@@ -105,11 +102,11 @@ namespace System.Management.Automation
                         }
                     }
 
-                    //BUGBUG
-                    //NTRAID#Windows Out of Band Releases - 930116 - 03/14/06
-                    //handling special case for boolean, switchparameter and Nullable<bool>
-                    //These parameter types will not be converted if the incoming value types are not
-                    //one of the accepted categories - $true/$false or numbers (0 or otherwise)
+                    // BUGBUG
+                    // NTRAID#Windows Out of Band Releases - 930116 - 03/14/06
+                    // handling special case for boolean, switchparameter and Nullable<bool>
+                    // These parameter types will not be converted if the incoming value types are not
+                    // one of the accepted categories - $true/$false or numbers (0 or otherwise)
                     if (LanguagePrimitives.IsBoolOrSwitchParameterType(_convertTypes[i]))
                     {
                         CheckBoolValue(result, _convertTypes[i]);
@@ -146,15 +143,14 @@ namespace System.Management.Automation
                     // Note - this is duplicated in ExecutionContext.cs as parameter binding for script cmdlets can avoid this code path.
                     if ((!bindingScriptCmdlet) && (!bindingParameters))
                     {
-                        // ActionPreference of Suspend is not supported as a preference variable. We can only block "Suspend"
-                        // during variable assignment (here) - "Ignore" is blocked during variable retrieval.
+                        // ActionPreference.Suspend is reserved for future use and is not supported as a preference variable.
                         if (_convertTypes[i] == typeof(ActionPreference))
                         {
                             ActionPreference resultPreference = (ActionPreference)result;
 
                             if (resultPreference == ActionPreference.Suspend)
                             {
-                                throw new PSInvalidCastException("InvalidActionPreference", null, ErrorPackage.UnsupportedPreferenceVariable, resultPreference);
+                                throw new PSInvalidCastException("InvalidActionPreference", null, ErrorPackage.ActionPreferenceReservedForFutureUseError, resultPreference);
                             }
                         }
                     }
@@ -163,6 +159,13 @@ namespace System.Management.Automation
             catch (PSInvalidCastException e)
             {
                 throw new ArgumentTransformationMetadataException(e.Message, e);
+            }
+
+            // Track the flow of untrusted object during the conversion when it's called directly from ParameterBinderBase.
+            // When it's called from the override Transform method, the tracking is taken care of in the base type.
+            if (bindingParameters || bindingScriptCmdlet)
+            {
+                ExecutionContext.PropagateInputSource(inputData, result, engineIntrinsics.SessionState.Internal.LanguageMode);
             }
 
             return result;
@@ -203,4 +206,3 @@ namespace System.Management.Automation
         }
     }
 }
-

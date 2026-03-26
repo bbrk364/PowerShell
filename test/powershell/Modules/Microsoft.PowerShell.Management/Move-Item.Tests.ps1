@@ -1,17 +1,27 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 Describe "Move-Item tests" -Tag "CI" {
     BeforeAll {
         $content = "This is content"
-        Setup -f originalfile.txt -content "This is content"
+        Setup -f originalfile.txt -Content "This is content"
         $source = "$TESTDRIVE/originalfile.txt"
         $target = "$TESTDRIVE/ItemWhichHasBeenMoved.txt"
+        Setup -f [orig-file].txt -Content "This is not content"
+        $sourceSp = "$TestDrive/``[orig-file``].txt"
+        $targetSpName = "$TestDrive/ItemWhichHasBeen[Moved].txt"
+        $targetSp = "$TestDrive/ItemWhichHasBeen``[Moved``].txt"
     }
     It "Move-Item will move a file" {
         Move-Item $source $target
         $source | Should -Not -Exist
         $target | Should -Exist
         "$target" | Should -FileContentMatchExactly "This is content"
+    }
+    It "Move-Item will move a file when path contains special char" {
+        Move-Item $sourceSp $targetSpName
+        $sourceSp | Should -Not -Exist
+        $targetSp | Should -Exist
+        $targetSp | Should -FileContentMatchExactly "This is not content"
     }
 
     Context "Move-Item with filters" {

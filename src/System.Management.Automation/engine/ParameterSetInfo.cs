@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Collections.Generic;
@@ -6,15 +6,16 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
+
 using Microsoft.PowerShell;
+
 using Dbg = System.Management.Automation.Diagnostics;
 
 namespace System.Management.Automation
 {
     /// <summary>
-    /// The information about a parameter set and its parameters for a cmdlet
+    /// The information about a parameter set and its parameters for a cmdlet.
     /// </summary>
-    ///
     public class CommandParameterSetInfo
     {
         #region ctor
@@ -23,31 +24,24 @@ namespace System.Management.Automation
         /// Constructs the parameter set information using the specified parameter name,
         /// and type metadata.
         /// </summary>
-        ///
         /// <param name="name">
         /// The formal name of the parameter.
         /// </param>
-        ///
         /// <param name="isDefaultParameterSet">
         /// True if the parameter set is the default parameter set, or false otherwise.
         /// </param>
-        ///
         /// <param name="parameterSetFlag">
         /// The bit that specifies the parameter set in the type metadata.
         /// </param>
-        ///
         /// <param name="parameterMetadata">
         /// The type metadata about the cmdlet.
         /// </param>
-        ///
         /// <exception cref="ArgumentException">
         /// If <paramref name="name"/> is null or empty.
         /// </exception>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If <paramref name="parameterMetadata"/> is null.
         /// </exception>
-        ///
         internal CommandParameterSetInfo(
             string name,
             bool isDefaultParameterSet,
@@ -55,15 +49,15 @@ namespace System.Management.Automation
             MergedCommandParameterMetadata parameterMetadata)
         {
             IsDefault = true;
-            Name = String.Empty;
-            if (String.IsNullOrEmpty(name))
+            Name = string.Empty;
+            if (string.IsNullOrEmpty(name))
             {
-                throw PSTraceSource.NewArgumentException("name");
+                throw PSTraceSource.NewArgumentException(nameof(name));
             }
 
             if (parameterMetadata == null)
             {
-                throw PSTraceSource.NewArgumentNullException("parameterMetadata");
+                throw PSTraceSource.NewArgumentNullException(nameof(parameterMetadata));
             }
 
             this.Name = name;
@@ -76,14 +70,14 @@ namespace System.Management.Automation
         #region public members
 
         /// <summary>
-        /// Gets the name of the parameter set
+        /// Gets the name of the parameter set.
         /// </summary>
-        public string Name { get; private set; }
+        public string Name { get; }
 
         /// <summary>
         /// Gets whether the parameter set is the default parameter set.
         /// </summary>
-        public bool IsDefault { get; private set; }
+        public bool IsDefault { get; }
 
         /// <summary>
         /// Gets the parameter information for the parameters in this parameter set.
@@ -91,24 +85,25 @@ namespace System.Management.Automation
         public ReadOnlyCollection<CommandParameterInfo> Parameters { get; private set; }
 
         /// <summary>
-        /// Gets the synopsis for the cmdlet as a string
+        /// Gets the synopsis for the cmdlet as a string.
         /// </summary>
         public override string ToString()
         {
             Text.StringBuilder result = new Text.StringBuilder();
 
             GenerateParametersInDisplayOrder(
-                                 parameter => AppendFormatCommandParameterInfo(parameter, result),
-                                 delegate (string str)
-                                     {
-                                         if (result.Length > 0)
-                                         {
-                                             result.Append(" ");
-                                         }
-                                         result.Append("[");
-                                         result.Append(str);
-                                         result.Append("]");
-                                     });
+                parameter => AppendFormatCommandParameterInfo(parameter, result),
+                (string str) =>
+                {
+                    if (result.Length > 0)
+                    {
+                        result.Append(' ');
+                    }
+
+                    result.Append('[');
+                    result.Append(str);
+                    result.Append(']');
+                });
 
             return result.ToString();
         }
@@ -166,6 +161,7 @@ namespace System.Management.Automation
                             sortedPositionalParameters.Add(null);
                         }
                     }
+
                     sortedPositionalParameters[parameter.Position] = parameter;
                 }
             }
@@ -237,7 +233,7 @@ namespace System.Management.Automation
             if (result.Length > 0)
             {
                 // Add a space between parameters
-                result.Append(" ");
+                result.Append(' ');
             }
 
             if (parameter.ParameterType == typeof(SwitchParameter))
@@ -250,15 +246,19 @@ namespace System.Management.Automation
 
                 if (parameter.IsMandatory)
                 {
-                    result.AppendFormat(CultureInfo.InvariantCulture,
-                                        parameter.Position != int.MinValue ? "[-{0}] <{1}>" : "-{0} <{1}>",
-                                        parameter.Name, parameterTypeString);
+                    result.AppendFormat(
+                        CultureInfo.InvariantCulture,
+                        parameter.Position != int.MinValue ? "[-{0}] <{1}>" : "-{0} <{1}>",
+                        parameter.Name,
+                        parameterTypeString);
                 }
                 else
                 {
-                    result.AppendFormat(CultureInfo.InvariantCulture,
-                                        parameter.Position != int.MinValue ? "[[-{0}] <{1}>]" : "[-{0} <{1}>]",
-                                        parameter.Name, parameterTypeString);
+                    result.AppendFormat(
+                        CultureInfo.InvariantCulture,
+                        parameter.Position != int.MinValue ? "[[-{0}] <{1}>]" : "[-{0} <{1}>]",
+                        parameter.Name,
+                        parameterTypeString);
                 }
             }
         }
@@ -288,7 +288,7 @@ namespace System.Management.Automation
                     parameterTypeString = typeName.PSTypeName;
 
                     // Drop the namespace from the typename, if any.
-                    var lastDotIndex = parameterTypeString.LastIndexOfAny(Utils.Separators.Dot);
+                    var lastDotIndex = parameterTypeString.LastIndexOf('.');
                     if (lastDotIndex != -1 && lastDotIndex + 1 < parameterTypeString.Length)
                     {
                         parameterTypeString = parameterTypeString.Substring(lastDotIndex + 1);
@@ -296,7 +296,7 @@ namespace System.Management.Automation
                 }
 
                 // If the type is really an array, but the typename didn't include [], then add it.
-                if (type.IsArray && (parameterTypeString.IndexOf("[]", StringComparison.OrdinalIgnoreCase) == -1))
+                if (type.IsArray && !parameterTypeString.Contains("[]", StringComparison.Ordinal))
                 {
                     var t = type;
                     while (t.IsArray)
@@ -311,6 +311,7 @@ namespace System.Management.Automation
                 Type parameterType = Nullable.GetUnderlyingType(type) ?? type;
                 parameterTypeString = ToStringCodeMethods.Type(parameterType, true);
             }
+
             return parameterTypeString;
         }
 
@@ -340,6 +341,5 @@ namespace System.Management.Automation
         }
 
         #endregion private members
-    } // class CommandParameterSetInfo
-} // namespace System.Management.Automation
-
+    }
+}

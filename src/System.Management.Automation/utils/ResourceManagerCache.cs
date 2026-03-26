@@ -1,14 +1,13 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Reflection;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Resources;
 
 namespace System.Management.Automation
 {
     /// <summary>
-    ///
     /// </summary>
     internal static class ResourceManagerCache
     {
@@ -17,43 +16,39 @@ namespace System.Management.Automation
         /// to the default resource assembly. The value is another dictionary that is keyed based on the base
         /// name for the resource that is being retrieved. The value for this dictionary is the ResourceManager.
         /// </summary>
-        private static Dictionary<string, Dictionary<string, ResourceManager>> s_resourceManagerCache =
+        private static readonly Dictionary<string, Dictionary<string, ResourceManager>> s_resourceManagerCache =
             new Dictionary<string, Dictionary<string, ResourceManager>>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
-        /// Used to synchronize access to the ResourceManagerCache
+        /// Used to synchronize access to the ResourceManagerCache.
         /// </summary>
-        private static object s_syncRoot = new Object();
+        private static readonly object s_syncRoot = new object();
 
         /// <summary>
         /// Gets the ResourceManager from the cache or gets an instance of the ResourceManager
         /// and returns it if it isn't already present in the cache.
         /// </summary>
-        ///
         /// <param name="assembly">
         /// The assembly to be used as the base for resource lookup.
         /// </param>
-        ///
         /// <param name="baseName">
         /// The base name of the resources to get the ResourceManager for.
         /// </param>
-        ///
         /// <returns>
         /// A ResourceManager instance for the assembly and base name that were specified.
         /// </returns>
-        ///
         internal static ResourceManager GetResourceManager(
             Assembly assembly,
             string baseName)
         {
             if (assembly == null)
             {
-                throw PSTraceSource.NewArgumentNullException("assembly");
+                throw PSTraceSource.NewArgumentNullException(nameof(assembly));
             }
 
-            if (String.IsNullOrEmpty(baseName))
+            if (string.IsNullOrEmpty(baseName))
             {
-                throw PSTraceSource.NewArgumentException("baseName");
+                throw PSTraceSource.NewArgumentException(nameof(baseName));
             }
 
             // Check to see if the manager is already in the cache
@@ -96,7 +91,7 @@ namespace System.Management.Automation
                     // cache entry and then add it into the cache keyed by the assembly
                     // location
 
-                    var baseNameCacheEntry = new Dictionary<String, ResourceManager>();
+                    var baseNameCacheEntry = new Dictionary<string, ResourceManager>();
 
                     baseNameCacheEntry[baseName] = manager;
 
@@ -112,43 +107,39 @@ namespace System.Management.Automation
                 "If the manager was not already created, it should have been dynamically created or an exception should have been thrown");
 
             return manager;
-        } // GetResourceManager
+        }
 
         /// <summary>
-        /// Design For Testability -- assert on failed resource lookup
+        /// Design For Testability -- assert on failed resource lookup.
         /// </summary>
         private static bool s_DFT_monitorFailingResourceLookup = true;
+
         internal static bool DFT_DoMonitorFailingResourceLookup
         {
             get { return ResourceManagerCache.s_DFT_monitorFailingResourceLookup; }
+
             set { ResourceManagerCache.s_DFT_monitorFailingResourceLookup = value; }
         }
 
         /// <summary>
         /// Gets the string from the resource manager based on the assembly,
-        /// base name, resource ID, and culture specified
+        /// base name, resource ID, and culture specified.
         /// </summary>
-        ///
         /// <param name="assembly">
         /// The base assembly from which to get the resources from.
         /// </param>
-        ///
         /// <param name="baseName">
         /// The base name of the resource to retrieve the string from.
         /// </param>
-        ///
         /// <param name="resourceId">
         /// Resource ID for which the localized string needs to be retrieved
         /// </param>
-        ///
         /// <returns>
         /// Localized String, or null if the string does not exist
         /// </returns>
-        ///
         /// <remarks>
         /// The current thread's UI culture is used.
         /// </remarks>
-        ///
         /// <throws>
         /// ArgumentException if <paramref name="baseName"/> or <paramref name="resourceId"/>
         ///     are null or empty..
@@ -163,17 +154,17 @@ namespace System.Management.Automation
         {
             if (assembly == null)
             {
-                throw PSTraceSource.NewArgumentNullException("assembly");
+                throw PSTraceSource.NewArgumentNullException(nameof(assembly));
             }
 
-            if (String.IsNullOrEmpty(baseName))
+            if (string.IsNullOrEmpty(baseName))
             {
-                throw PSTraceSource.NewArgumentException("baseName");
+                throw PSTraceSource.NewArgumentException(nameof(baseName));
             }
 
-            if (String.IsNullOrEmpty(resourceId))
+            if (string.IsNullOrEmpty(resourceId))
             {
-                throw PSTraceSource.NewArgumentException("resourceId");
+                throw PSTraceSource.NewArgumentException(nameof(resourceId));
             }
 
             ResourceManager resourceManager = null;
@@ -208,11 +199,12 @@ namespace System.Management.Automation
                 text = resourceManager.GetString(resourceId);
             }
 
-            if (String.IsNullOrEmpty(text) && s_DFT_monitorFailingResourceLookup)
+            if (string.IsNullOrEmpty(text) && s_DFT_monitorFailingResourceLookup)
             {
                 Diagnostics.Assert(false,
                     "Lookup failure: baseName " + baseName + " resourceId " + resourceId);
             }
+
             return text;
         }
 
@@ -227,7 +219,7 @@ namespace System.Management.Automation
         /// <param name="assemblyToUse">
         /// The main Assembly for the resources
         /// </param>
-        /// <returns>Resource Manager instance</returns>
+        /// <returns>Resource Manager instance.</returns>
         /// <exception cref="ArgumentException">
         /// Thrown if the resource manager instance could not be created
         /// </exception>
@@ -243,11 +235,10 @@ namespace System.Management.Automation
             {
                 // 2004/10/11-JonN Do we need a better error message?  I don't think so,
                 // since this is private.
-                throw PSTraceSource.NewArgumentException("assemblyToUse");
+                throw PSTraceSource.NewArgumentException(nameof(assemblyToUse));
             }
 
             return rm;
         }
-    } // class ResourceManagerCache
-} // namespace System.Management.Automation
-
+    }
+}

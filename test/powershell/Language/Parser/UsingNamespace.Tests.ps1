@@ -1,4 +1,4 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
 # There is an automatic 'using namespace system' which is
@@ -44,23 +44,23 @@ Describe "Using Namespace" -Tags "CI" {
     It "Type literals w/ using namespace" {
         [Thread].FullName | Should -Be System.Threading.Thread
         [Int32].FullName | Should -Be System.Int32
-        #[ElapsedEventHandler].FullName | Should Be System.Timers.ElapsedEventHandler
+        #[ElapsedEventHandler].FullName | Should -Be System.Timers.ElapsedEventHandler
 
         [C1].GetProperty("Thread").PropertyType.FullName | Should -Be System.Threading.Thread
         [C1].GetProperty("Int").PropertyType.FullName | Should -Be System.Int32
-        # [C1].GetProperty("EventHandler").PropertyType.FullName | Should Be System.Timers.ElapsedEventHandler
+        # [C1].GetProperty("EventHandler").PropertyType.FullName | Should -Be System.Timers.ElapsedEventHandler
     }
 
     It "Covert string to Type w/ using namespace" {
         ("Thread" -as [Type]).FullName | Should -Be System.Threading.Thread
         ("Int32" -as [Type]).FullName | Should -Be System.Int32
-        # ("ElapsedEventHandler" -as [Type]).FullName | Should Be System.Timers.ElapsedEventHandler
+        # ("ElapsedEventHandler" -as [Type]).FullName | Should -Be System.Timers.ElapsedEventHandler
 
         New-Object Int32 | Should -Be 0
         New-Object CompilerGeneratedAttribute | Should -Be System.Runtime.CompilerServices.CompilerGeneratedAttribute
     }
 
-    It "Attributes w/ using namespace" -pending {
+    It "Attributes w/ using namespace" -Pending {
         function foo
         {
             [DebuggerStepThrough()]
@@ -76,18 +76,18 @@ Describe "Using Namespace" -Tags "CI" {
         }
 
         foo | Should -Be OK
-        $cmdInfo = gcm foo
+        $cmdInfo = Get-Commmand foo
         $cmdInfo.ScriptBlock.Attributes[0] | Should -Be System.Diagnostics.DebuggerStepThroughAttribute
         $cmdInfo.Parameters['a'].Attributes[1] | Should -Be System.Runtime.CompilerServices.CompilerGeneratedAttribute
         $cmdInfo.Parameters['b'].Attributes[1] | Should -Be System.Runtime.CompilerServices.CompilerGeneratedAttribute
 
         [C1].GetProperty("Thread").GetCustomAttributesData()[0].AttributeType.FullName | Should -Be System.Runtime.CompilerServices.CompilerGeneratedAttribute
         [C1].GetProperty("Int").GetCustomAttributesData()[0].AttributeType.FullName | Should -Be System.Runtime.CompilerServices.CompilerGeneratedAttribute
-        # [C1].GetProperty("EventHandler").GetCustomAttributesData()[0].AttributeType.FullName | Should Be System.Runtime.CompilerServices.CompilerGeneratedAttribute
+        # [C1].GetProperty("EventHandler").GetCustomAttributesData()[0].AttributeType.FullName | Should -Be System.Runtime.CompilerServices.CompilerGeneratedAttribute
 
         [C2].GetProperty("Thread").GetCustomAttributesData()[0].AttributeType.FullName | Should -Be System.Runtime.CompilerServices.CompilerGeneratedAttribute
         [C2].GetProperty("Int").GetCustomAttributesData()[0].AttributeType.FullName | Should -Be System.Runtime.CompilerServices.CompilerGeneratedAttribute
-        # [C2].GetProperty("EventHandler").GetCustomAttributesData()[0].AttributeType.FullName | Should Be System.Runtime.CompilerServices.CompilerGeneratedAttribute
+        # [C2].GetProperty("EventHandler").GetCustomAttributesData()[0].AttributeType.FullName | Should -Be System.Runtime.CompilerServices.CompilerGeneratedAttribute
 
         [C1].GetCustomAttributesData()[0].AttributeType.FullName | Should -Be System.Runtime.CompilerServices.CompilerGeneratedAttribute
         [C2].GetCustomAttributesData()[0].AttributeType.FullName | Should -Be System.Runtime.CompilerServices.CompilerGeneratedAttribute
@@ -128,7 +128,10 @@ Describe "Using Namespace" -Tags "CI" {
 
     ShouldBeParseError "1; using namespace System" UsingMustBeAtStartOfScript 3
     ShouldBeParseError "using namespace Foo = System" UsingStatementNotSupported 0
+    ShouldBeParseError "using namespace ''" InvalidNamespaceValue 16
+    ShouldBeParseError "using namespace [System]" InvalidNamespaceValue 16
+    ShouldBeParseError "using namespace ',System'" InvalidNamespaceValue 16
+    ShouldBeParseError "using namespace ']System'" InvalidNamespaceValue 16
     # TODO: add diagnostic (low pri)
     # ShouldBeParseError "using namespace System; using namespace System" UsingNamespaceAlreadySpecified 24
 }
-

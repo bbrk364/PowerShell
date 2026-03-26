@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Management.Automation.Remoting.Server;
@@ -12,9 +12,9 @@ namespace System.Management.Automation.Remoting
     /// </summary>
     internal class ServerRemoteSessionDSHandlerImpl : ServerRemoteSessionDataStructureHandler
     {
-        private AbstractServerSessionTransportManager _transportManager;
-        private ServerRemoteSessionDSHandlerStateMachine _stateMachine;
-        private ServerRemoteSession _session;
+        private readonly AbstractServerSessionTransportManager _transportManager;
+        private readonly ServerRemoteSessionDSHandlerStateMachine _stateMachine;
+        private readonly ServerRemoteSession _session;
 
         internal override AbstractServerSessionTransportManager TransportManager
         {
@@ -91,7 +91,7 @@ namespace System.Management.Automation.Remoting
         internal override event EventHandler<RemoteDataEventArgs<string>> PublicKeyReceived;
 
         /// <summary>
-        /// Send the encrypted session key to the client side
+        /// Send the encrypted session key to the client side.
         /// </summary>
         /// <param name="encryptedSessionKey">encrypted session key
         /// as a string</param>
@@ -102,7 +102,7 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        /// Send request to the client for sending a public key
+        /// Send request to the client for sending a public key.
         /// </summary>
         internal override void SendRequestForPublicKey()
         {
@@ -111,9 +111,9 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        /// Raise the public key received event
+        /// Raise the public key received event.
         /// </summary>
-        /// <param name="receivedData">received data</param>
+        /// <param name="receivedData">Received data.</param>
         /// <remarks>This method is a hook to be called
         /// from the transport manager</remarks>
         internal override void RaiseKeyExchangeMessageReceived(RemoteDataObject<PSObject> receivedData)
@@ -143,7 +143,7 @@ namespace System.Management.Automation.Remoting
 
         /// <summary>
         /// This event indicates that the client has requested to create a new runspace pool
-        /// on the server side
+        /// on the server side.
         /// </summary>
         internal override event EventHandler<RemoteDataEventArgs> CreateRunspacePoolReceived;
 
@@ -165,7 +165,6 @@ namespace System.Management.Automation.Remoting
         /// <param name="dataArg">
         /// The received client data.
         /// </param>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If the parameter is null.
         /// </exception>
@@ -173,7 +172,7 @@ namespace System.Management.Automation.Remoting
         {
             if (dataArg == null)
             {
-                throw PSTraceSource.NewArgumentNullException("dataArg");
+                throw PSTraceSource.NewArgumentNullException(nameof(dataArg));
             }
 
             RemoteDataObject<PSObject> rcvdData = dataArg.ReceivedData;
@@ -191,6 +190,7 @@ namespace System.Management.Automation.Remoting
                         // need to import the clients public key
                         CreateRunspacePoolReceived.SafeInvoke(this, dataArg);
                     }
+
                     break;
 
                 case RemotingDataType.CloseSession:
@@ -223,6 +223,7 @@ namespace System.Management.Automation.Remoting
                         negotiationArg.RemoteData = rcvdData;
                         NegotiationReceived.SafeInvoke(this, negotiationArg);
                     }
+
                     break;
 
                 case RemotingDataType.PublicKey:
@@ -230,6 +231,7 @@ namespace System.Management.Automation.Remoting
                         string remotePublicKey = RemotingDecoder.GetPublicKey(rcvdData.Data);
                         PublicKeyReceived.SafeInvoke(this, new RemoteDataEventArgs<string>(remotePublicKey));
                     }
+
                     break;
 
                 default:
@@ -240,4 +242,3 @@ namespace System.Management.Automation.Remoting
         #endregion Overrides
     }
 }
-

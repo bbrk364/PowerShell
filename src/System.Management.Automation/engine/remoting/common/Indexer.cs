@@ -1,7 +1,8 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Collections;
+
 using Dbg = System.Management.Automation.Diagnostics;
 
 namespace System.Management.Automation.Remoting
@@ -15,12 +16,12 @@ namespace System.Management.Automation.Remoting
         /// <summary>
         /// Current.
         /// </summary>
-        private int[] _current;
+        private readonly int[] _current;
 
         /// <summary>
         /// Lengths.
         /// </summary>
-        private int[] _lengths;
+        private readonly int[] _lengths;
 
         /// <summary>
         /// Current.
@@ -48,7 +49,7 @@ namespace System.Management.Automation.Remoting
         /// Check lengths non negative.
         /// </summary>
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode")]
-        private bool CheckLengthsNonNegative(int[] lengths)
+        private static bool CheckLengthsNonNegative(int[] lengths)
         {
             for (int i = 0; i < lengths.Length; ++i)
             {

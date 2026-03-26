@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Collections.ObjectModel;
@@ -6,7 +6,6 @@ using System.Collections.ObjectModel;
 namespace System.Management.Automation
 {
     /// <summary>
-    ///
     /// Class HelpInfo keeps track of help information to be returned by help system.
     ///
     /// HelpInfo includes information in following aspect,
@@ -21,19 +20,18 @@ namespace System.Management.Automation
     /// etc.
     ///
     /// In general, there will be a specific helpInfo child class for each kind of help provider.
-    ///
     /// </summary>
     internal abstract class HelpInfo
     {
         /// <summary>
-        /// Constructor for HelpInfo
+        /// Constructor for HelpInfo.
         /// </summary>
         internal HelpInfo()
         {
         }
 
         /// <summary>
-        /// Name for help info
+        /// Name for help info.
         /// </summary>
         /// <value>Name for help info</value>
         internal abstract string Name
@@ -42,7 +40,7 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Synopsis for help info
+        /// Synopsis for help info.
         /// </summary>
         /// <value>Synopsis for help info</value>
         internal abstract string Synopsis
@@ -78,7 +76,7 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Help category for help info
+        /// Help category for help info.
         /// </summary>
         /// <value>Help category for help info</value>
         internal abstract HelpCategory HelpCategory
@@ -87,7 +85,7 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Forward help category for this help info
+        /// Forward help category for this help info.
         /// </summary>
         /// <remarks>
         /// If this is not HelpCategory.None, then some other help provider
@@ -139,16 +137,16 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Returns help information for a parameter(s) identified by pattern
+        /// Returns help information for a parameter(s) identified by pattern.
         /// </summary>
-        /// <param name="pattern">pattern to search for parameters</param>
-        /// <returns>A collection of parameters that match pattern</returns>
+        /// <param name="pattern">Pattern to search for parameters.</param>
+        /// <returns>A collection of parameters that match pattern.</returns>
         /// <remarks>
         /// The base method returns an empty list.
         /// </remarks>
         internal virtual PSObject[] GetParameter(string pattern)
         {
-            return new PSObject[0];
+            return Array.Empty<PSObject>();
         }
 
         /// <summary>
@@ -205,7 +203,7 @@ namespace System.Management.Automation
 
             if (this.FullHelp.Properties["Name"] == null)
             {
-                this.FullHelp.Properties.Add(new PSNoteProperty("Name", this.Name.ToString()));
+                this.FullHelp.Properties.Add(new PSNoteProperty("Name", this.Name));
             }
 
             if (this.FullHelp.Properties["Category"] == null)
@@ -215,7 +213,7 @@ namespace System.Management.Automation
 
             if (this.FullHelp.Properties["Synopsis"] == null)
             {
-                this.FullHelp.Properties.Add(new PSNoteProperty("Synopsis", this.Synopsis.ToString()));
+                this.FullHelp.Properties.Add(new PSNoteProperty("Synopsis", this.Synopsis));
             }
 
             if (this.FullHelp.Properties["Component"] == null)

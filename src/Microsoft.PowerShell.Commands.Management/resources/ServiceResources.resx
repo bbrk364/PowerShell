@@ -132,9 +132,6 @@
   <data name="ServiceHasDependentServicesNoForce" xml:space="preserve">
     <value>Cannot stop service '{1} ({0})' because it has dependent services.</value>
   </data>
-  <data name="ServiceIsDependentOnNoForce" xml:space="preserve">
-    <value>Cannot stop service '{1} ({0})' because it is dependent on other services.</value>
-  </data>
   <data name="CouldNotStopService" xml:space="preserve">
     <value>Service '{1} ({0})' cannot be stopped due to the following error: {2}</value>
   </data>
@@ -162,14 +159,14 @@
   <data name="CouldNotSetService" xml:space="preserve">
     <value>Service '{1} ({0})' cannot be configured due to the following error: {2}</value>
   </data>
-  <data name="CouldNotGetServiceInfo" xml:space="preserve">
-    <value>Service '{1} ({0})' cannot be queried due to the following error: {2}</value>
-  </data>
   <data name="CouldNotSetServiceDescription" xml:space="preserve">
     <value>Service '{1} ({0})' description cannot be configured due to the following error: {2}</value>
   </data>
   <data name="CouldNotSetServiceDelayedAutoStart" xml:space="preserve">
     <value>Service '{1} ({0})' automatic (delayed start) cannot be configured due to the following error: {2}</value>
+  </data>
+  <data name="CouldNotSetServiceSecurityDescriptorSddl" xml:space="preserve">
+    <value>Service '{0}' security descriptor cannot be configured due to the following error: {1}</value>
   </data>
   <data name="CouldNotNewService" xml:space="preserve">
     <value>Service '{1} ({0})' cannot be created due to the following error: {2}</value>
@@ -182,7 +179,7 @@
   </data>
   <data name="CouldNotRemoveService" xml:space="preserve">
     <value>Service '{1} ({0})' cannot be removed due to the following error: {2}</value>
-  </data> 
+  </data>
   <data name="CouldNotAccessDependentServices" xml:space="preserve">
     <value>'Cannot access dependent services of '{1} ({0})'</value>
   </data>
@@ -211,7 +208,7 @@
     <value>Service '{1} ({0})' resume failed.</value>
   </data>
   <data name="FailToOpenServiceControlManager" xml:space="preserve">
-    <value>Failed to configure the service '{1} ({0})' due to the following error: {2}. Run PowerShell as admin and run your command again.</value>
+    <value>Failed to open SCManager due to the following error: {0}. Run PowerShell as admin and run your command again.</value>
   </data>
   <data name="UnsupportedStartupType" xml:space="preserve">
     <value>The startup type '{0}' is not supported by {1}.</value>

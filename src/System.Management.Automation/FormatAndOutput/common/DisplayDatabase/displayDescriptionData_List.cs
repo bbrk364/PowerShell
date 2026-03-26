@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 // this file contains the data structures for the in memory database
@@ -13,18 +13,18 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
     #region List View Definitions
 
     /// <summary>
-    /// in line definition of a list control
+    /// In line definition of a list control.
     /// </summary>
     internal sealed class ListControlBody : ControlBody
     {
         /// <summary>
-        /// default list entry definition
-        /// It's mandatory
+        /// Default list entry definition
+        /// It's mandatory.
         /// </summary>
         internal ListControlEntryDefinition defaultEntryDefinition = null;
 
         /// <summary>
-        /// optional list of list entry definition overrides. It can be empty if there are no overrides
+        /// Optional list of list entry definition overrides. It can be empty if there are no overrides.
         /// </summary>
         internal List<ListControlEntryDefinition> optionalEntryList = new List<ListControlEntryDefinition>();
 
@@ -47,19 +47,19 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
     }
 
     /// <summary>
-    /// definition of the data to be displayed in a list entry
+    /// Definition of the data to be displayed in a list entry.
     /// </summary>
     internal sealed class ListControlEntryDefinition
     {
         /// <summary>
-        /// applicability clause
-        /// Only valid if not the default definition
+        /// Applicability clause
+        /// Only valid if not the default definition.
         /// </summary>
         internal AppliesTo appliesTo = null;
 
         /// <summary>
-        /// mandatory list of list view items.
-        /// It cannot be empty
+        /// Mandatory list of list view items.
+        /// It cannot be empty.
         /// </summary>
         internal List<ListControlItemDefinition> itemDefinitionList = new List<ListControlItemDefinition>();
 
@@ -81,24 +81,24 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
     }
 
     /// <summary>
-    /// cell definition inside a row
+    /// Cell definition inside a row.
     /// </summary>
     internal sealed class ListControlItemDefinition
     {
         /// <summary>
-        /// optional expression for conditional binding
+        /// Optional expression for conditional binding.
         /// </summary>
         internal ExpressionToken conditionToken;
 
         /// <summary>
-        /// optional label
+        /// Optional label
         /// If not present, use the name of the property from the matching
-        /// mandatory item description
+        /// mandatory item description.
         /// </summary>
         internal TextToken label = null;
 
         /// <summary>
-        /// format directive body telling how to format the cell
+        /// Format directive body telling how to format the cell
         /// RULE: the body can only contain
         ///     * TextToken
         ///     * PropertyToken
@@ -113,7 +113,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
 namespace System.Management.Automation
 {
     /// <summary>
-    /// Defines a list control
+    /// Defines a list control.
     /// </summary>
     public sealed class ListControl : PSControl
     {
@@ -173,7 +173,7 @@ namespace System.Management.Automation
             : this()
         {
             if (entries == null)
-                throw PSTraceSource.NewArgumentNullException("entries");
+                throw PSTraceSource.NewArgumentNullException(nameof(entries));
             foreach (ListControlEntry entry in entries)
             {
                 this.Entries.Add(entry);
@@ -196,7 +196,7 @@ namespace System.Management.Automation
     }
 
     /// <summary>
-    /// Defines one entry in a list control
+    /// Defines one entry in a list control.
     /// </summary>
     public sealed class ListControlEntry
     {
@@ -208,8 +208,7 @@ namespace System.Management.Automation
         {
             get
             {
-                if (EntrySelectedBy == null)
-                    EntrySelectedBy = new EntrySelectedBy { TypeNames = new List<string>() };
+                EntrySelectedBy ??= new EntrySelectedBy { TypeNames = new List<string>() };
                 return EntrySelectedBy.TypeNames;
             }
         }
@@ -230,6 +229,7 @@ namespace System.Management.Automation
             {
                 EntrySelectedBy = EntrySelectedBy.Get(entrydefn.appliesTo.referenceList);
             }
+
             foreach (ListControlItemDefinition itemdefn in entrydefn.itemDefinitionList)
             {
                 Items.Add(new ListControlEntryItem(itemdefn));
@@ -241,7 +241,7 @@ namespace System.Management.Automation
             : this()
         {
             if (listItems == null)
-                throw PSTraceSource.NewArgumentNullException("listItems");
+                throw PSTraceSource.NewArgumentNullException(nameof(listItems));
             foreach (ListControlEntryItem item in listItems)
             {
                 this.Items.Add(item);
@@ -252,9 +252,9 @@ namespace System.Management.Automation
         public ListControlEntry(IEnumerable<ListControlEntryItem> listItems, IEnumerable<string> selectedBy)
         {
             if (listItems == null)
-                throw PSTraceSource.NewArgumentNullException("listItems");
+                throw PSTraceSource.NewArgumentNullException(nameof(listItems));
             if (selectedBy == null)
-                throw PSTraceSource.NewArgumentNullException("selectedBy");
+                throw PSTraceSource.NewArgumentNullException(nameof(selectedBy));
 
             EntrySelectedBy = new EntrySelectedBy { TypeNames = new List<string>(selectedBy) };
             foreach (ListControlEntryItem item in listItems)
@@ -287,14 +287,14 @@ namespace System.Management.Automation
     }
 
     /// <summary>
-    /// Defines one row in a list control entry
+    /// Defines one row in a list control entry.
     /// </summary>
     public sealed class ListControlEntryItem
     {
         /// <summary>
         /// Gets the label for this List Control Entry Item
         /// If nothing is specified, then it uses the
-        /// property name
+        /// property name.
         /// </summary>
         public string Label { get; internal set; }
 
@@ -317,8 +317,8 @@ namespace System.Management.Automation
             {
                 Label = definition.label.text;
             }
-            FieldPropertyToken fpt = definition.formatTokenList[0] as FieldPropertyToken;
-            if (fpt != null)
+
+            if (definition.formatTokenList[0] is FieldPropertyToken fpt)
             {
                 if (fpt.fieldFormattingDirective.formatString != null)
                 {
@@ -335,7 +335,7 @@ namespace System.Management.Automation
 
         /// <summary>
         /// Public constructor for ListControlEntryItem
-        /// Label and Entry could be null
+        /// Label and Entry could be null.
         /// </summary>
         /// <param name="label"></param>
         /// <param name="entry"></param>

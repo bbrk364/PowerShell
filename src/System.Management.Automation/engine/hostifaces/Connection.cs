@@ -1,13 +1,14 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Diagnostics.CodeAnalysis;
-using System.Runtime.Serialization;
-using System.Threading;
-using System.Management.Automation.Host;
-using System.Management.Automation.Internal;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics.CodeAnalysis;
+using System.Management.Automation.Host;
+using System.Management.Automation.Internal;
+using System.Runtime.Serialization;
+using System.Threading;
+
 using Dbg = System.Management.Automation.Diagnostics;
 
 namespace System.Management.Automation.Runspaces
@@ -18,11 +19,10 @@ namespace System.Management.Automation.Runspaces
     /// Exception thrown when state of the runspace is different from
     /// expected state of runspace.
     /// </summary>
-    [Serializable]
     public class InvalidRunspaceStateException : SystemException
     {
         /// <summary>
-        /// Initializes a new instance of InvalidRunspaceStateException
+        /// Initializes a new instance of InvalidRunspaceStateException.
         /// </summary>
         public InvalidRunspaceStateException()
         : base
@@ -63,9 +63,9 @@ namespace System.Management.Automation.Runspaces
         /// Initializes a new instance of the InvalidRunspaceStateException
         /// with a specified error message and current and expected state.
         /// </summary>
-        /// <param name="message">The message that describes the error. </param>
-        /// <param name="currentState">Current state of runspace</param>
-        /// <param name="expectedState">Expected states of runspace</param>
+        /// <param name="message">The message that describes the error.</param>
+        /// <param name="currentState">Current state of runspace.</param>
+        /// <param name="expectedState">Expected states of runspace.</param>
         internal InvalidRunspaceStateException
         (
             string message,
@@ -95,9 +95,10 @@ namespace System.Management.Automation.Runspaces
         /// The <see cref="StreamingContext"/> that contains contextual information
         /// about the source or destination.
         /// </param>
+        [Obsolete("Legacy serialization support is deprecated since .NET 8", DiagnosticId = "SYSLIB0051")]
         protected InvalidRunspaceStateException(SerializationInfo info, StreamingContext context)
-        : base(info, context)
         {
+            throw new NotSupportedException();
         }
 
         #endregion
@@ -159,7 +160,7 @@ namespace System.Management.Automation.Runspaces
     public enum RunspaceState
     {
         /// <summary>
-        /// Beginning state upon creation
+        /// Beginning state upon creation.
         /// </summary>
         BeforeOpen = 0,
         /// <summary>
@@ -175,7 +176,7 @@ namespace System.Management.Automation.Runspaces
         /// </summary>
         Closed = 3,
         /// <summary>
-        /// The runspace is being closed
+        /// The runspace is being closed.
         /// </summary>
         Closing = 4,
         /// <summary>
@@ -197,17 +198,17 @@ namespace System.Management.Automation.Runspaces
     }
 
     /// <summary>
-    /// These options control whether a new thread is created when a command is executed within a runspace
+    /// These options control whether a new thread is created when a command is executed within a runspace.
     /// </summary>
     public enum PSThreadOptions
     {
         /// <summary>
-        /// Use the default options: UseNewThread for local Runspace, ReuseThread for local RunspacePool, server settings for remote Runspace and RunspacePool
+        /// Use the default options: UseNewThread for local Runspace, ReuseThread for local RunspacePool, server settings for remote Runspace and RunspacePool.
         /// </summary>
         Default = 0,
 
         /// <summary>
-        /// Creates a new thread for each invocation
+        /// Creates a new thread for each invocation.
         /// </summary>
         UseNewThread = 1,
 
@@ -218,18 +219,15 @@ namespace System.Management.Automation.Runspaces
         ReuseThread = 2,
 
         /// <summary>
-        /// Doesn't create a new thread; the execution occurs on the
-        /// thread that calls Invoke.
+        /// Doesn't create a new thread; the execution occurs on the thread
+        /// that calls Invoke. This option is not valid for asynchronous calls.
         /// </summary>
-        /// <remarks>
-        /// This option is not valid for asynchronous calls
-        /// </remarks>
         UseCurrentThread = 3
-    };
+    }
 
     /// <summary>
     /// Defines type which has information about RunspaceState and
-    /// Exception associated with RunspaceState
+    /// Exception associated with RunspaceState.
     /// </summary>
     public sealed class RunspaceStateInfo
     {
@@ -245,7 +243,7 @@ namespace System.Management.Automation.Runspaces
         }
 
         /// <summary>
-        /// Constructor for state changes with an optional error
+        /// Constructor for state changes with an optional error.
         /// </summary>
         /// <param name="state">The state of runspace.</param>
         /// <param name="reason">A non-null exception if the state change was
@@ -291,7 +289,7 @@ namespace System.Management.Automation.Runspaces
         #endregion public_properties
 
         /// <summary>
-        /// override for ToString()
+        /// Override for ToString()
         /// </summary>
         /// <returns></returns>
         public override string ToString()
@@ -300,9 +298,9 @@ namespace System.Management.Automation.Runspaces
         }
 
         /// <summary>
-        /// Clones current object
+        /// Clones current object.
         /// </summary>
-        /// <returns>Cloned object</returns>
+        /// <returns>Cloned object.</returns>
         internal RunspaceStateInfo Clone()
         {
             return new RunspaceStateInfo(this);
@@ -322,18 +320,19 @@ namespace System.Management.Automation.Runspaces
         #region constructors
 
         /// <summary>
-        /// Constructs RunspaceStateEventArgs using RunspaceStateInfo
+        /// Constructs RunspaceStateEventArgs using RunspaceStateInfo.
         /// </summary>
         /// <param name="runspaceStateInfo">The information about
         /// current state of the runspace.</param>
-        /// <exception cref="ArgumentNullException">runspaceStateInfo is null
+        /// <exception cref="ArgumentNullException">RunspaceStateInfo is null
         /// </exception>
         internal RunspaceStateEventArgs(RunspaceStateInfo runspaceStateInfo)
         {
             if (runspaceStateInfo == null)
             {
-                throw PSTraceSource.NewArgumentNullException("runspaceStateInfo");
+                throw PSTraceSource.NewArgumentNullException(nameof(runspaceStateInfo));
             }
+
             RunspaceStateInfo = runspaceStateInfo;
         }
 
@@ -342,7 +341,7 @@ namespace System.Management.Automation.Runspaces
         #region public_properties
 
         /// <summary>
-        /// Information about state of the runspace
+        /// Information about state of the runspace.
         /// </summary>
         /// <remarks>
         /// This value indicates the state of the runspace after the
@@ -354,27 +353,27 @@ namespace System.Management.Automation.Runspaces
     }
 
     /// <summary>
-    /// Enum to indicate whether a Runspace is busy or available
+    /// Enum to indicate whether a Runspace is busy or available.
     /// </summary>
     public enum RunspaceAvailability
     {
         /// <summary>
-        /// The Runspace is not been in the Opened state
+        /// The Runspace is not been in the Opened state.
         /// </summary>
         None = 0,
 
         /// <summary>
-        /// The Runspace is available to execute commands
+        /// The Runspace is available to execute commands.
         /// </summary>
         Available,
 
         /// <summary>
-        /// The Runspace is available to execute nested commands
+        /// The Runspace is available to execute nested commands.
         /// </summary>
         AvailableForNestedCommand,
 
         /// <summary>
-        /// The Runspace is busy executing a command
+        /// The Runspace is busy executing a command.
         /// </summary>
         Busy,
 
@@ -397,7 +396,7 @@ namespace System.Management.Automation.Runspaces
         }
 
         /// <summary>
-        /// Whether the Runspace is available to execute commands
+        /// Whether the Runspace is available to execute commands.
         /// </summary>
         public RunspaceAvailability RunspaceAvailability { get; }
     }
@@ -412,7 +411,7 @@ namespace System.Management.Automation.Runspaces
     public enum RunspaceCapability
     {
         /// <summary>
-        /// No additional capabilities beyond a default runspace.
+        /// Legacy capabilities for WinRM only, from Win7 timeframe.
         /// </summary>
         Default = 0x0,
 
@@ -434,13 +433,18 @@ namespace System.Management.Automation.Runspaces
         /// <summary>
         /// Runspace is based on SSH transport.
         /// </summary>
-        SSHTransport = 0x8
+        SSHTransport = 0x8,
+
+        /// <summary>
+        /// Runspace is based on open custom connection/transport support.
+        /// </summary>
+        CustomTransport = 0x100
     }
 
     #endregion
 
     /// <summary>
-    /// Public interface to Msh Runtime. Provides APIs for creating pipelines,
+    /// Public interface to PowerShell Runtime. Provides APIs for creating pipelines,
     /// access session state etc.
     /// </summary>
     public abstract class Runspace : IDisposable
@@ -448,16 +452,16 @@ namespace System.Management.Automation.Runspaces
         #region Private Data
 
         private static int s_globalId;
-        private Stack<PowerShell> _runningPowerShells;
+        private readonly Stack<PowerShell> _runningPowerShells;
         private PowerShell _baseRunningPowerShell;
-        private object _syncObject;
+        private readonly object _syncObject;
 
         #endregion
 
         #region constructor
 
         /// <summary>
-        /// Explicit default constructor
+        /// Explicit default constructor.
         /// </summary>
         internal Runspace()
         {
@@ -475,7 +479,7 @@ namespace System.Management.Automation.Runspaces
         }
 
         /// <summary>
-        /// Static Constructor
+        /// Static Constructor.
         /// </summary>
         static Runspace()
         {
@@ -496,7 +500,7 @@ namespace System.Management.Automation.Runspaces
         [ThreadStatic]
         private static Runspace t_threadSpecificDefaultRunspace = null;
         /// <summary>
-        /// Gets and sets the default Runspace used to evaluate scripts
+        /// Gets and sets the default Runspace used to evaluate scripts.
         /// </summary>
         /// <remarks>The Runspace used to set this property should not be shared between different threads.</remarks>
         public static Runspace DefaultRunspace
@@ -505,6 +509,7 @@ namespace System.Management.Automation.Runspaces
             {
                 return t_threadSpecificDefaultRunspace;
             }
+
             set
             {
                 if (value == null || !value.RunspaceIsRemote)
@@ -539,6 +544,7 @@ namespace System.Management.Automation.Runspaces
                 }
             }
         }
+
         private static Runspace s_primaryRunspace;
 
         /// <summary>
@@ -570,7 +576,7 @@ namespace System.Management.Automation.Runspaces
                     {
                         return
                             (localPipeline.NestedPipelineExecutionThread.ManagedThreadId
-                            == Threading.Thread.CurrentThread.ManagedThreadId);
+                            == Environment.CurrentManagedThreadId);
                     }
                 }
 
@@ -578,11 +584,10 @@ namespace System.Management.Automation.Runspaces
             }
         }
 
-#if !CORECLR // No ApartmentState In CoreCLR
         internal const ApartmentState DefaultApartmentState = ApartmentState.Unknown;
 
         /// <summary>
-        /// ApartmentState of the thread used to execute commands within this Runspace
+        /// ApartmentState of the thread used to execute commands within this Runspace.
         /// </summary>
         /// <remarks>
         /// Any updates to the value of this property must be done before the Runspace is opened
@@ -607,11 +612,11 @@ namespace System.Management.Automation.Runspaces
                 this.apartmentState = value;
             }
         }
+
         private ApartmentState apartmentState = Runspace.DefaultApartmentState;
-#endif
 
         /// <summary>
-        /// This property determines whether a new thread is create for each invocation
+        /// This property determines whether a new thread is create for each invocation.
         /// </summary>
         /// <remarks>
         /// Any updates to the value of this property must be done before the Runspace is opened
@@ -629,7 +634,7 @@ namespace System.Management.Automation.Runspaces
         }
 
         /// <summary>
-        /// Return version of this runspace
+        /// Return version of this runspace.
         /// </summary>
         public abstract Version Version
         {
@@ -641,18 +646,18 @@ namespace System.Management.Automation.Runspaces
         /// We can determine this by whether the runspace is an implementation of LocalRunspace
         /// or infer it from whether the ConnectionInfo property is null
         /// If it happens to be an instance of a LocalRunspace, but has a non-null ConnectionInfo
-        /// we declare it to be remote
+        /// we declare it to be remote.
         /// </summary>
         public bool RunspaceIsRemote
         {
             get
             {
-                return !(this is LocalRunspace || ConnectionInfo == null);
+                return this is not LocalRunspace && ConnectionInfo != null;
             }
         }
 
         /// <summary>
-        /// Retrieve information about current state of the runspace
+        /// Retrieve information about current state of the runspace.
         /// </summary>
         public abstract RunspaceStateInfo RunspaceStateInfo
         {
@@ -660,7 +665,7 @@ namespace System.Management.Automation.Runspaces
         }
 
         /// <summary>
-        /// Gets the current availability of the Runspace
+        /// Gets the current availability of the Runspace.
         /// </summary>
         public abstract RunspaceAvailability RunspaceAvailability
         {
@@ -678,21 +683,24 @@ namespace System.Management.Automation.Runspaces
 
         /// <summary>
         /// Get unique id for this instance of runspace. It is primarily used
-        /// for logging purposes
+        /// for logging purposes.
         /// </summary>
-        public Guid InstanceId { get;
+        public Guid InstanceId
+        {
+            get;
 
             // This id is also used to identify proxy and remote runspace objects.
             // We need to set this when reconstructing a remote runspace to connect
             // to an existing remote runspace.
-            internal set; } = Guid.NewGuid();
+            internal set;
+        } = Guid.NewGuid();
 
         /// <summary>
         /// Gets execution context.
         /// </summary>
         /// <exception cref="InvalidRunspaceStateException">Runspace is not opened.
         /// </exception>
-        internal System.Management.Automation.ExecutionContext ExecutionContext
+        internal ExecutionContext ExecutionContext
         {
             get
             {
@@ -701,17 +709,17 @@ namespace System.Management.Automation.Runspaces
         }
 
         /// <summary>
-        /// Skip user profile on engine initialization
+        /// Skip user profile on engine initialization.
         /// </summary>
         internal bool SkipUserProfile { get; set; } = false;
 
         /// <summary>
-        /// Connection information for remote Runspaces, null for local Runspaces
+        /// Connection information for remote Runspaces, null for local Runspaces.
         /// </summary>
         public abstract RunspaceConnectionInfo ConnectionInfo { get; }
 
         /// <summary>
-        /// ConnectionInfo originally supplied by the user
+        /// ConnectionInfo originally supplied by the user.
         /// </summary>
         public abstract RunspaceConnectionInfo OriginalConnectionInfo { get; }
 
@@ -752,14 +760,16 @@ namespace System.Management.Automation.Runspaces
         /// <summary>
         /// Gets the Runspace Id.
         /// </summary>
-        public int Id
-        {
-            get;
-            private set;
-        }
+        public int Id { get; }
+        
+        /// <summary>
+        /// Gets and sets a boolean indicating whether the runspace has a
+        /// debugger attached with <c>Debug-Runspace</c>.
+        /// </summary>
+        public bool IsRemoteDebuggerAttached { get; internal set; }
 
         /// <summary>
-        /// Returns protocol version that the remote server uses for PS remoting
+        /// Returns protocol version that the remote server uses for PS remoting.
         /// </summary>
         internal Version GetRemoteProtocolVersion()
         {
@@ -798,8 +808,9 @@ namespace System.Management.Automation.Runspaces
                 }
             }
         }
-        private static SortedDictionary<int, WeakReference<Runspace>> s_runspaceDictionary;
-        private static object s_syncObject;
+
+        private static readonly SortedDictionary<int, WeakReference<Runspace>> s_runspaceDictionary;
+        private static readonly object s_syncObject;
 
         /// <summary>
         /// Returns a read only list of runspaces.
@@ -841,7 +852,7 @@ namespace System.Management.Automation.Runspaces
         public abstract event EventHandler<RunspaceAvailabilityEventArgs> AvailabilityChanged;
 
         /// <summary>
-        /// Returns true if there are any subscribers to the AvailabilityChanged event
+        /// Returns true if there are any subscribers to the AvailabilityChanged event.
         /// </summary>
         internal abstract bool HasAvailabilityChangedSubscribers
         {
@@ -849,12 +860,12 @@ namespace System.Management.Automation.Runspaces
         }
 
         /// <summary>
-        /// Raises the AvailabilityChanged event
+        /// Raises the AvailabilityChanged event.
         /// </summary>
         protected abstract void OnAvailabilityChanged(RunspaceAvailabilityEventArgs e);
 
         /// <summary>
-        /// Used to raise the AvailabilityChanged event when the state of the currently executing pipeline changes
+        /// Used to raise the AvailabilityChanged event when the state of the currently executing pipeline changes.
         /// </summary>
         /// <remarks>
         /// The possible pipeline states are
@@ -883,6 +894,7 @@ namespace System.Management.Automation.Runspaces
 
                             // Otherwise no change.
                     }
+
                     break;
 
                 case RunspaceAvailability.Available:
@@ -896,6 +908,7 @@ namespace System.Management.Automation.Runspaces
                             this.RunspaceAvailability = Runspaces.RunspaceAvailability.None;
                             break;
                     }
+
                     break;
 
                 case RunspaceAvailability.AvailableForNestedCommand:
@@ -913,6 +926,7 @@ namespace System.Management.Automation.Runspaces
                         default:
                             break; // no change in the availability
                     }
+
                     break;
 
                 case RunspaceAvailability.Busy:
@@ -928,6 +942,7 @@ namespace System.Management.Automation.Runspaces
                             {
                                 this.RunspaceAvailability = RunspaceAvailability.None;
                             }
+
                             break;
 
                         case PipelineState.Stopping:
@@ -936,7 +951,8 @@ namespace System.Management.Automation.Runspaces
                         case PipelineState.Completed:
                         case PipelineState.Stopped:
                         case PipelineState.Failed:
-                            if (this.InNestedPrompt || !(this is RemoteRunspace) && this.Debugger.InBreakpoint)
+                            if (this.InNestedPrompt
+                                || (this is not RemoteRunspace && this.Debugger.InBreakpoint))
                             {
                                 this.RunspaceAvailability = RunspaceAvailability.AvailableForNestedCommand;
                             }
@@ -944,7 +960,7 @@ namespace System.Management.Automation.Runspaces
                             {
                                 RemoteRunspace remoteRunspace = this as RemoteRunspace;
                                 RemoteDebugger remoteDebugger = (remoteRunspace != null) ? remoteRunspace.Debugger as RemoteDebugger : null;
-                                Internal.ConnectCommandInfo remoteCommand = (remoteRunspace != null) ? remoteRunspace.RemoteCommand : null;
+                                Internal.ConnectCommandInfo remoteCommand = remoteRunspace?.RemoteCommand;
                                 if (((pipelineState == PipelineState.Completed) || (pipelineState == PipelineState.Failed) ||
                                     ((pipelineState == PipelineState.Stopped) && (this.RunspaceStateInfo.State == RunspaceState.Opened)))
                                     && (remoteCommand != null) && (cmdInstanceId != null) && (remoteCommand.CommandId == cmdInstanceId))
@@ -1020,6 +1036,7 @@ namespace System.Management.Automation.Runspaces
                                     }
                                 }
                             }
+
                             break;
 
                         case PipelineState.Running: // this can happen if a nested pipeline is created without entering a nested prompt
@@ -1028,6 +1045,7 @@ namespace System.Management.Automation.Runspaces
                         default:
                             break; // no change in the availability
                     }
+
                     break;
 
                 default:
@@ -1042,7 +1060,7 @@ namespace System.Management.Automation.Runspaces
         }
 
         /// <summary>
-        /// Used to update the runspace availability when the state of the currently executing PowerShell instance changes
+        /// Used to update the runspace availability when the state of the currently executing PowerShell instance changes.
         /// </summary>
         /// <remarks>
         /// The possible invocation states are
@@ -1092,7 +1110,7 @@ namespace System.Management.Automation.Runspaces
         }
 
         /// <summary>
-        /// Used to update the runspace availability event when the state of the runspace changes
+        /// Used to update the runspace availability event when the state of the runspace changes.
         /// </summary>
         /// <remarks>
         /// The possible runspace states are:
@@ -1132,11 +1150,13 @@ namespace System.Management.Automation.Runspaces
                                 this.RunspaceAvailability = (remoteCommand == null && GetCurrentlyRunningPipeline() == null) ?
                                     RunspaceAvailability.Available : RunspaceAvailability.Busy;
                             }
+
                             break;
 
                         default:
                             break; // no change in the availability
                     }
+
                     break;
 
                 case RunspaceAvailability.Available:
@@ -1155,6 +1175,7 @@ namespace System.Management.Automation.Runspaces
                         default:
                             break; // no change in the availability
                     }
+
                     break;
 
                 default:
@@ -1169,7 +1190,7 @@ namespace System.Management.Automation.Runspaces
         }
 
         /// <summary>
-        /// Used to update the runspace availability from Enter/ExitNestedPrompt and the debugger
+        /// Used to update the runspace availability from Enter/ExitNestedPrompt and the debugger.
         /// </summary>
         internal void UpdateRunspaceAvailability(RunspaceAvailability availability, bool raiseEvent)
         {
@@ -1184,7 +1205,7 @@ namespace System.Management.Automation.Runspaces
         }
 
         /// <summary>
-        /// Raises the AvailabilityChanged event
+        /// Raises the AvailabilityChanged event.
         /// </summary>
         internal void RaiseAvailabilityChangedEvent(RunspaceAvailability availability)
         {
@@ -1340,7 +1361,7 @@ namespace System.Management.Automation.Runspaces
         /// <summary>
         /// Returns Runspace capabilities.
         /// </summary>
-        /// <returns>RunspaceCapability</returns>
+        /// <returns>RunspaceCapability.</returns>
         public abstract RunspaceCapability GetCapabilities();
 
         #endregion
@@ -1387,15 +1408,15 @@ namespace System.Management.Automation.Runspaces
         public abstract void CloseAsync();
 
         /// <summary>
-        /// Create an empty pipeline
+        /// Create an empty pipeline.
         /// </summary>
-        /// <returns>An empty pipeline</returns>
+        /// <returns>An empty pipeline.</returns>
         public abstract Pipeline CreatePipeline();
 
         /// <summary>
-        /// Creates a pipeline for specified command string
+        /// Creates a pipeline for specified command string.
         /// </summary>
-        /// <param name="command">A valid command string</param>
+        /// <param name="command">A valid command string.</param>
         /// <returns>
         /// A pipeline pre-filled with a <see cref="Command"/> object for specified command parameter.
         /// </returns>
@@ -1407,8 +1428,8 @@ namespace System.Management.Automation.Runspaces
         /// <summary>
         /// Create a pipeline from a command string.
         /// </summary>
-        /// <param name="command">A valid command string</param>
-        /// <param name="addToHistory">if true command is added to history</param>
+        /// <param name="command">A valid command string.</param>
+        /// <param name="addToHistory">If true command is added to history.</param>
         /// <returns>
         /// A pipeline pre-filled with a <see cref="Command"/> object for specified command parameter.
         /// </returns>
@@ -1430,8 +1451,8 @@ namespace System.Management.Automation.Runspaces
         /// <summary>
         /// Creates a nested pipeline.
         /// </summary>
-        /// <param name="command">A valid command string</param>
-        /// <param name="addToHistory">if true command is added to history</param>
+        /// <param name="command">A valid command string.</param>
+        /// <param name="addToHistory">If true command is added to history.</param>
         /// <returns>
         /// A pipeline pre-filled with Command specified in commandString.
         /// </returns>
@@ -1441,7 +1462,7 @@ namespace System.Management.Automation.Runspaces
         public abstract Pipeline CreateNestedPipeline(string command, bool addToHistory);
 
         /// <summary>
-        /// Returns the currently executing pipeline,  or null if no pipeline is executing
+        /// Returns the currently executing pipeline,  or null if no pipeline is executing.
         /// </summary>
         internal abstract Pipeline GetCurrentlyRunningPipeline();
 
@@ -1459,7 +1480,7 @@ namespace System.Management.Automation.Runspaces
         public abstract PSPrimitiveDictionary GetApplicationPrivateData();
 
         /// <summary>
-        /// A method that runspace pools can use to propagate application private data into runspaces
+        /// A method that runspace pools can use to propagate application private data into runspaces.
         /// </summary>
         /// <param name="applicationPrivateData"></param>
         internal abstract void SetApplicationPrivateData(PSPrimitiveDictionary applicationPrivateData);
@@ -1467,7 +1488,7 @@ namespace System.Management.Automation.Runspaces
         /// <summary>
         /// Push a running PowerShell onto the stack.
         /// </summary>
-        /// <param name="ps">PowerShell</param>
+        /// <param name="ps">PowerShell.</param>
         internal void PushRunningPowerShell(PowerShell ps)
         {
             Dbg.Assert(ps != null, "Caller should not pass in null reference.");
@@ -1486,7 +1507,7 @@ namespace System.Management.Automation.Runspaces
         /// <summary>
         /// Pop the currently running PowerShell from stack.
         /// </summary>
-        /// <returns>PowerShell</returns>
+        /// <returns>PowerShell.</returns>
         internal PowerShell PopRunningPowerShell()
         {
             lock (_syncObject)
@@ -1495,7 +1516,11 @@ namespace System.Management.Automation.Runspaces
 
                 if (count > 0)
                 {
-                    if (count == 1) { _baseRunningPowerShell = null; }
+                    if (count == 1)
+                    {
+                        _baseRunningPowerShell = null;
+                    }
+
                     return _runningPowerShells.Pop();
                 }
             }
@@ -1513,7 +1538,7 @@ namespace System.Management.Automation.Runspaces
         #region SessionStateProxy
 
         /// <summary>
-        /// Gets session state proxy
+        /// Gets session state proxy.
         /// </summary>
         public SessionStateProxy SessionStateProxy
         {
@@ -1553,15 +1578,15 @@ namespace System.Management.Automation.Runspaces
         #endregion IDisposable Members
 
         /// <summary>
-        /// Gets the execution context
+        /// Gets the execution context.
         /// </summary>
-        internal abstract System.Management.Automation.ExecutionContext GetExecutionContext
+        internal abstract ExecutionContext GetExecutionContext
         {
             get;
         }
 
         /// <summary>
-        /// Returns true if the internal host is in a nested prompt
+        /// Returns true if the internal host is in a nested prompt.
         /// </summary>
         internal abstract bool InNestedPrompt
         {
@@ -1569,19 +1594,19 @@ namespace System.Management.Automation.Runspaces
         }
 
         /// <summary>
-        /// Gets the debugger
+        /// Gets the debugger.
         /// </summary>
         public virtual Debugger Debugger
         {
             get
             {
                 var context = GetExecutionContext;
-                return (context != null) ? context.Debugger : null;
+                return context?.Debugger;
             }
         }
 
         /// <summary>
-        /// InternalDebugger
+        /// InternalDebugger.
         /// </summary>
         internal Debugger InternalDebugger
         {
@@ -1590,7 +1615,7 @@ namespace System.Management.Automation.Runspaces
         }
 
         /// <summary>
-        /// Gets the event manager
+        /// Gets the event manager.
         /// </summary>
         public abstract PSEventManager Events
         {
@@ -1599,21 +1624,20 @@ namespace System.Management.Automation.Runspaces
 
 #if !CORECLR // Transaction Not Supported On CSS
         /// <summary>
-        /// Sets the base transaction for the runspace; any transactions created on this runspace will be nested to this instance
+        /// Sets the base transaction for the runspace; any transactions created on this runspace will be nested to this instance.
         /// </summary>
-        ///<param name="transaction">The base transaction</param>
-        ///<remarks>This overload uses RollbackSeverity.Error; i.e. the transaction will be rolled back automatically on a non-terminating error or worse</remarks>
+        /// <param name="transaction">The base transaction</param>
+        /// <remarks>This overload uses RollbackSeverity.Error; i.e. the transaction will be rolled back automatically on a non-terminating error or worse</remarks>
         public void SetBaseTransaction(System.Transactions.CommittableTransaction transaction)
         {
             this.ExecutionContext.TransactionManager.SetBaseTransaction(transaction, RollbackSeverity.Error);
         }
 
         /// <summary>
-        /// Sets the base transaction for the runspace; any transactions created on this runspace will be nested to this instance
+        /// Sets the base transaction for the runspace; any transactions created on this runspace will be nested to this instance.
         /// </summary>
-        ///<param name="transaction">The base transaction</param>
-        ///<param name="severity">The severity of error that causes PowerShell to automatically rollback the transaction</param>
-        ///
+        /// <param name="transaction">The base transaction</param>
+        /// <param name="severity">The severity of error that causes PowerShell to automatically rollback the transaction</param>
         public void SetBaseTransaction(System.Transactions.CommittableTransaction transaction, RollbackSeverity severity)
         {
             this.ExecutionContext.TransactionManager.SetBaseTransaction(transaction, severity);
@@ -1622,7 +1646,6 @@ namespace System.Management.Automation.Runspaces
         /// <summary>
         /// Clears the transaction set by SetBaseTransaction()
         /// </summary>
-        ///
         public void ClearBaseTransaction()
         {
             this.ExecutionContext.TransactionManager.ClearBaseTransaction();
@@ -1639,7 +1662,8 @@ namespace System.Management.Automation.Runspaces
 
         // Used for pipeline id generation.
         private long _pipelineIdSeed;
-        //Generate pipeline id unique to this runspace
+
+        // Generate pipeline id unique to this runspace
         internal long GeneratePipelineId()
         {
             return System.Threading.Interlocked.Increment(ref _pipelineIdSeed);
@@ -1656,7 +1680,8 @@ namespace System.Management.Automation.Runspaces
         {
         }
 
-        private RunspaceBase _runspace;
+        private readonly RunspaceBase _runspace;
+
         internal SessionStateProxy(RunspaceBase runspace)
         {
             Dbg.Assert(runspace != null, "Caller should validate the parameter");
@@ -1666,23 +1691,18 @@ namespace System.Management.Automation.Runspaces
         /// <summary>
         /// Set a variable in session state.
         /// </summary>
-        ///
         /// <param name="name">
         /// The name of the item to set.
         /// </param>
-        ///
         /// <param name="value">
         /// The new value of the item being set.
         /// </param>
-        ///
         /// <exception cref="ArgumentNullException">
         /// name is null
         /// </exception>
-        ///
         /// <exception cref="InvalidRunspaceStateException">
         /// Runspace is not open.
         /// </exception>
-        ///
         /// <exception cref="InvalidOperationException">
         /// Another SessionStateProxy call or another pipeline is in progress.
         /// </exception>
@@ -1690,31 +1710,27 @@ namespace System.Management.Automation.Runspaces
         {
             if (name == null)
             {
-                throw PSTraceSource.NewArgumentNullException("name");
+                throw PSTraceSource.NewArgumentNullException(nameof(name));
             }
+
             _runspace.SetVariable(name, value);
         }
 
         /// <summary>
         /// Get a variable out of session state.
         /// </summary>
-        ///
         /// <param name="name">
         /// name of variable to look up
         /// </param>
-        ///
         /// <returns>
         /// The value of the specified variable.
         /// </returns>
-        ///
         /// <exception cref="ArgumentNullException">
         /// name is null
         /// </exception>
-        ///
         /// <exception cref="InvalidRunspaceStateException">
         /// Runspace is not open.
         /// </exception>
-        ///
         /// <exception cref="InvalidOperationException">
         /// Another SessionStateProxy call or another pipeline is in progress.
         /// </exception>
@@ -1722,24 +1738,23 @@ namespace System.Management.Automation.Runspaces
         {
             if (name == null)
             {
-                throw PSTraceSource.NewArgumentNullException("name");
+                throw PSTraceSource.NewArgumentNullException(nameof(name));
             }
 
             if (name.Equals(string.Empty))
             {
                 return null;
             }
+
             return _runspace.GetVariable(name);
         }
 
         /// <summary>
         /// Get the list of applications out of session state.
         /// </summary>
-        ///
         /// <exception cref="InvalidRunspaceStateException">
         /// Runspace is not open.
         /// </exception>
-        ///
         /// <exception cref="InvalidOperationException">
         /// Another SessionStateProxy call or another pipeline is in progress.
         /// </exception>
@@ -1754,11 +1769,9 @@ namespace System.Management.Automation.Runspaces
         /// <summary>
         /// Get the list of scripts out of session state.
         /// </summary>
-        ///
         /// <exception cref="InvalidRunspaceStateException">
         /// Runspace is not open.
         /// </exception>
-        ///
         /// <exception cref="InvalidOperationException">
         /// Another SessionStateProxy call or another pipeline is in progress.
         /// </exception>
@@ -1771,13 +1784,11 @@ namespace System.Management.Automation.Runspaces
         }
 
         /// <summary>
-        /// Get the APIs to access drives out of session state
+        /// Get the APIs to access drives out of session state.
         /// </summary>
-        ///
         /// <exception cref="InvalidRunspaceStateException">
         /// Runspace is not open.
         /// </exception>
-        ///
         /// <exception cref="InvalidOperationException">
         /// Another SessionStateProxy call or another pipeline is in progress.
         /// </exception>
@@ -1789,28 +1800,25 @@ namespace System.Management.Automation.Runspaces
         /// <summary>
         /// Get/Set the language mode out of session state.
         /// </summary>
-        ///
         /// <exception cref="InvalidRunspaceStateException">
         /// Runspace is not open.
         /// </exception>
-        ///
         /// <exception cref="InvalidOperationException">
         /// Another SessionStateProxy call or another pipeline is in progress.
         /// </exception>
         public virtual PSLanguageMode LanguageMode
         {
             get { return _runspace.LanguageMode; }
+
             set { _runspace.LanguageMode = value; }
         }
 
         /// <summary>
         /// Get the module info out of session state.
         /// </summary>
-        ///
         /// <exception cref="InvalidRunspaceStateException">
         /// Runspace is not open.
         /// </exception>
-        ///
         /// <exception cref="InvalidOperationException">
         /// Another SessionStateProxy call or another pipeline is in progress.
         /// </exception>
@@ -1823,11 +1831,9 @@ namespace System.Management.Automation.Runspaces
         /// <summary>
         /// Get the APIs to access paths and locations out of session state.
         /// </summary>
-        ///
         /// <exception cref="InvalidRunspaceStateException">
         /// Runspace is not open.
         /// </exception>
-        ///
         /// <exception cref="InvalidOperationException">
         /// Another SessionStateProxy call or another pipeline is in progress.
         /// </exception>
@@ -1839,11 +1845,9 @@ namespace System.Management.Automation.Runspaces
         /// <summary>
         /// Get the APIs to access a provider out of session state.
         /// </summary>
-        ///
         /// <exception cref="InvalidRunspaceStateException">
         /// Runspace is not open.
         /// </exception>
-        ///
         /// <exception cref="InvalidOperationException">
         /// Another SessionStateProxy call or another pipeline is in progress.
         /// </exception>
@@ -1855,11 +1859,9 @@ namespace System.Management.Automation.Runspaces
         /// <summary>
         /// Get the APIs to access variables out of session state.
         /// </summary>
-        ///
         /// <exception cref="InvalidRunspaceStateException">
         /// Runspace is not open.
         /// </exception>
-        ///
         /// <exception cref="InvalidOperationException">
         /// Another SessionStateProxy call or another pipeline is in progress.
         /// </exception>
@@ -1871,11 +1873,9 @@ namespace System.Management.Automation.Runspaces
         /// <summary>
         /// Get the APIs to build script blocks and execute script out of session state.
         /// </summary>
-        ///
         /// <exception cref="InvalidRunspaceStateException">
         /// Runspace is not open.
         /// </exception>
-        ///
         /// <exception cref="InvalidOperationException">
         /// Another SessionStateProxy call or another pipeline is in progress.
         /// </exception>
@@ -1887,11 +1887,9 @@ namespace System.Management.Automation.Runspaces
         /// <summary>
         /// Gets the instance of the provider interface APIs out of session state.
         /// </summary>
-        ///
         /// <exception cref="InvalidRunspaceStateException">
         /// Runspace is not open.
         /// </exception>
-        ///
         /// <exception cref="InvalidOperationException">
         /// Another SessionStateProxy call or another pipeline is in progress.
         /// </exception>

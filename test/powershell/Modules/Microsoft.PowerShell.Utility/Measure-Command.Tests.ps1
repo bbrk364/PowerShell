@@ -1,4 +1,4 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 Describe "Measure-Command" -Tags "CI" {
 
@@ -12,13 +12,13 @@ Describe "Measure-Command" -Tags "CI" {
     Context "Validate that it is executing commands correctly" {
 
         It "Should return TimeSpan after executing a script" {
-            Measure-Command { echo hi } | Should -BeOfType timespan
+            Measure-Command { Write-Output hi } | Should -BeOfType timespan
         }
 
         It "Should return TimeSpan after executing a cmdlet" {
             $pesterscript = Join-Path -Path (Join-Path -Path $PSScriptRoot -ChildPath assets) -ChildPath echoscript.ps1
             $testfile = $pesterscript
-            $testcommand = "echo pestertestscript"
+            $testcommand = "Write-Output pestertestscript"
             $testcommand | Add-Content -Path $testfile
 
             Measure-Command { $pesterscript } | Should -BeOfType timespan

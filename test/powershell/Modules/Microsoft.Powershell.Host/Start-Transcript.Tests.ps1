@@ -1,4 +1,4 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 Describe "Start-Transcript, Stop-Transcript tests" -tags "CI" {
 
@@ -47,18 +47,18 @@ Describe "Start-Transcript, Stop-Transcript tests" -tags "CI" {
         }
         ## function ends here
 
-        $transcriptFilePath = join-path $TestDrive "transcriptdata.txt"
+        $transcriptFilePath = Join-Path $TestDrive "transcriptdata.txt"
         Remove-Item $transcriptFilePath -Force -ErrorAction SilentlyContinue
     }
 
     AfterEach {
         Remove-Item $transcriptFilePath -ErrorAction SilentlyContinue
-        [System.Management.Automation.Internal.InternalTestHooks]::SetTestHook('ForcePromptForChoiceDefaultOption', $False)
+        [System.Management.Automation.Internal.InternalTestHooks]::SetTestHook('ForcePromptForChoiceDefaultOption', $false)
     }
 
     It "Should create Transcript file at default path" {
         $script = "Start-Transcript"
-        if ($isWindows) {
+        if ($IsWindows) {
             $defaultTranscriptFilePath = [io.path]::Combine($env:USERPROFILE, "Documents", "PowerShell_transcript*")
         } else {
             $defaultTranscriptFilePath = [io.path]::Combine($env:HOME, "PowerShell_transcript*")
@@ -83,8 +83,13 @@ Describe "Start-Transcript, Stop-Transcript tests" -tags "CI" {
     }
     It "Should create Transcript file with 'OutputDirectory' parameter" {
         $script = "Start-Transcript -OutputDirectory $TestDrive"
-        $outputFilePath = join-path $TestDrive "PowerShell_transcript*"
+        $outputFilePath = Join-Path $TestDrive "PowerShell_transcript*"
         ValidateTranscription -scriptToExecute $script -outputFilePath $outputFilePath
+    }
+    It "Should create Transcript file with 'Transcript' preference variable" {
+        # Casting to PSObject is necessary because Set-Variable does not automatically wrap the value in a PSObject
+        $script = "Set-Variable -Scope Global -Name Transcript -Value ([PSObject]'$transcriptFilePath'); Start-Transcript"
+        ValidateTranscription -scriptToExecute $script -outputFilePath $transcriptFilePath
     }
     It "Should Append Transcript data in existing file if 'Append' parameter is used with Path parameter" {
         $script = "Start-Transcript -path $transcriptFilePath -Append"
@@ -102,11 +107,32 @@ Describe "Start-Transcript, Stop-Transcript tests" -tags "CI" {
     }
     It "Should return an error if file path is invalid" {
         $fileName = (Get-Random).ToString()
-        $inputPath = join-path $TestDrive $fileName
+        $inputPath = Join-Path $TestDrive $fileName
         $null = New-Item -Path $inputPath -ItemType File -Force -ErrorAction SilentlyContinue
         $script = "Start-Transcript -OutputDirectory $inputPath"
         $expectedError = "CannotStartTranscription,Microsoft.PowerShell.Commands.StartTranscriptCommand"
         ValidateTranscription -scriptToExecute $script -outputFilePath $null -expectedError $expectedError
+    }
+    It "Should not delete the file if it already exist" {
+        # Create an existing file
+        $transcriptFilePath = Join-Path $TestDrive ([System.IO.Path]::GetRandomFileName())
+        Out-File $transcriptFilePath
+
+        $FileSystemWatcher = [System.IO.FileSystemWatcher]::new((Split-Path -Parent $transcriptFilePath), (Split-Path -Leaf $transcriptFilePath))
+
+        $Job = Register-ObjectEvent -InputObject $FileSystemWatcher -EventName "Deleted" -SourceIdentifier "FileDeleted" -Action {
+            return "FileDeleted"
+        }
+
+        try {
+            Start-Transcript -Path $transcriptFilePath
+            Stop-Transcript
+        } finally {
+            Unregister-Event -SourceIdentifier "FileDeleted"
+        }
+
+        # Nothing should have been returned by the FileSystemWatcher
+        Receive-Job $job | Should -Be $null
     }
     It "Transcription should remain active if other runspace in the host get closed" {
         try {
@@ -128,9 +154,7 @@ Describe "Start-Transcript, Stop-Transcript tests" -tags "CI" {
     }
 
     It "Transcription should be closed if the only runspace gets closed" {
-        $powerShellPath = [System.Diagnostics.Process]::GetCurrentProcess().Path
-        $powerShellCommand = $powerShellPath + ' -c "start-transcript $transcriptFilePath; Write-Host ''Before Dispose'';"'
-        Invoke-Expression $powerShellCommand
+        & "$PSHOME/pwsh" -c "start-transcript $transcriptFilePath; Write-Host ''Before Dispose'';"
 
         $transcriptFilePath | Should -Exist
         $transcriptFilePath | Should -FileContentMatch "Before Dispose"
@@ -168,9 +192,10 @@ Describe "Start-Transcript, Stop-Transcript tests" -tags "CI" {
 
     It "Transcription should not record Write-Information output when InformationAction is set to SilentlyContinue" {
         [String]$message = New-Guid
+        $traceData = Join-Path $TESTDRIVE tracedata.txt
         $script = {
             Start-Transcript -Path $transcriptFilePath
-            Write-Information -Message $message -InformationAction SilentlyContinue
+            Trace-Command -File $traceData -Name param* { Write-Information -Message $message -InformationAction SilentlyContinue }
             Stop-Transcript
         }
 
@@ -178,7 +203,7 @@ Describe "Start-Transcript, Stop-Transcript tests" -tags "CI" {
 
         $transcriptFilePath | Should -Exist
         $transcriptFilePath | Should -Not -FileContentMatch "INFO: "
-        $transcriptFilePath | Should -Not -FileContentMatch $message
+        $transcriptFilePath | Should -Not -FileContentMatch $message -Because (get-content $transcriptFilePath,$traceData)
     }
 
     It "Transcription should not record Write-Information output when InformationAction is set to Ignore" {
@@ -201,7 +226,7 @@ Describe "Start-Transcript, Stop-Transcript tests" -tags "CI" {
         $newLine = [System.Environment]::NewLine
         $expectedContent = "$message$($newLine)Confirm$($newLine)Continue with this operation?"
         $script = {
-            [System.Management.Automation.Internal.InternalTestHooks]::SetTestHook('ForcePromptForChoiceDefaultOption', $True)
+            [System.Management.Automation.Internal.InternalTestHooks]::SetTestHook('ForcePromptForChoiceDefaultOption', $true)
             Start-Transcript -Path $transcriptFilePath
             Write-Information -Message $message -InformationAction Inquire
             Stop-Transcript
@@ -261,7 +286,7 @@ Describe "Start-Transcript, Stop-Transcript tests" -tags "CI" {
         $newLine = [System.Environment]::NewLine
         $expectedContent = "$message$($newLine)Confirm$($newLine)Continue with this operation?"
         $script = {
-            [System.Management.Automation.Internal.InternalTestHooks]::SetTestHook('ForcePromptForChoiceDefaultOption', $True)
+            [System.Management.Automation.Internal.InternalTestHooks]::SetTestHook('ForcePromptForChoiceDefaultOption', $true)
             Start-Transcript -Path $transcriptFilePath
             Write-Host -Message $message -InformationAction Inquire
             Stop-Transcript
@@ -271,5 +296,29 @@ Describe "Start-Transcript, Stop-Transcript tests" -tags "CI" {
 
         $transcriptFilePath | Should -Exist
         $transcriptFilePath | Should -FileContentMatchMultiline $expectedContent
+    }
+
+    It "UseMinimalHeader should reduce length of transcript header" {
+        $script = {
+            Start-Transcript -Path $transcriptFilePath
+            Stop-Transcript
+        }
+
+        $transcriptMinHeaderFilePath = $transcriptFilePath + "_minimal"
+        $scriptMinHeader = {
+            Start-Transcript -Path $transcriptMinHeaderFilePath -UseMinimalHeader
+            Stop-Transcript
+        }
+
+        & $script
+        $transcriptFilePath | Should -Exist
+        $transcriptLength = (Get-Content -Path $transcriptFilePath -Raw).Length
+
+        & $scriptMinHeader
+        $transcriptMinHeaderFilePath | Should -Exist
+        $transcriptMinHeaderLength = (Get-Content -Path $transcriptMinHeaderFilePath -Raw).Length
+        Remove-Item $transcriptMinHeaderFilePath -ErrorAction SilentlyContinue
+
+        $transcriptMinHeaderLength | Should -BeLessThan $transcriptLength
     }
 }

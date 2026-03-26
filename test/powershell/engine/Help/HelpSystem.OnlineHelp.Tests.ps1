@@ -1,6 +1,9 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
-Describe 'Online help tests for PowerShell Core Cmdlets' -Tags "CI" {
+
+Import-Module HelpersCommon
+
+Describe 'Online help tests for PowerShell Cmdlets' -Tags "Feature" {
 
     # The csv files (V2Cmdlets.csv and V3Cmdlets.csv) contain a list of cmdlets and expected HelpURIs.
     # The HelpURI is part of the cmdlet metadata, and when the user runs 'get-help <cmdletName> -online'
@@ -31,10 +34,17 @@ Describe 'Online help tests for PowerShell Core Cmdlets' -Tags "CI" {
         foreach ($cmdlet in $cmdletList)
         {
             # If the cmdlet is not preset in CoreCLR, skip it.
-            $skipTest = $null -eq (Get-Command $cmdlet.TopicTitle -ErrorAction SilentlyContinue)
+            $command = Get-Command $cmdlet.TopicTitle -ErrorAction SilentlyContinue
+            $skipTest = $null -eq ($command)
+            if ((-not $skipTest) -and $command.Module.PrivateData.ImplicitRemoting)
+            {
+                $skipTest = $true
+                Remove-Module $command.Module
+            }
 
             # TopicTitle - is the cmdlet name in the csv file
             # HelpURI - is the expected help URI in the csv file
+            # If this is correct, then launching the cmdlet should open the expected help URI.
 
             It "Validate 'get-help $($cmdlet.TopicTitle) -Online'" -Skip:$skipTest {
                 $actualURI = Get-Help $cmdlet.TopicTitle -Online
@@ -45,52 +55,26 @@ Describe 'Online help tests for PowerShell Core Cmdlets' -Tags "CI" {
     }
 }
 
-Describe 'Get-Help -Online opens the default web browser and navigates to the cmdlet help content' -Tags "Feature" {
-
-    $skipTest = [System.Management.Automation.Platform]::IsIoT -or
-                [System.Management.Automation.Platform]::IsNanoServer
-
-    # this code is a workaround for issue: https://github.com/PowerShell/PowerShell/issues/3079
-    if((-not ($skipTest)) -and $IsWindows)
-    {
-        $skipTest = $true
-        $regKey = "HKCU:\Software\Microsoft\Windows\Shell\Associations\UrlAssociations\http\UserChoice"
-
-        try
-        {
-            $progId = (Get-ItemProperty $regKey).ProgId
-            if($progId)
-            {
-                if (-not (Test-Path 'HKCR:\'))
-                {
-                    New-PSDrive -PSProvider registry -Root HKEY_CLASSES_ROOT -Name HKCR | Should NotBeNullOrEmpty
-                }
-                $browserExe = ((Get-ItemProperty "HKCR:\$progId\shell\open\command")."(default)" -replace '"', '') -split " "
-                if ($browserExe.count -ge 1)
-                {
-                    if($browserExe[0] -match '.exe')
-                    {
-                        $skipTest = $false
-                    }
-                }
-            }
-        }
-        catch
-        {
-            # We are not able to access Registry, skipping test.
-        }
-    }
-
-    It "Get-Help get-process -online" -skip:$skipTest {
-        { Get-Help get-process -online } | Should -Not -Throw
-    }
-}
-
 Describe 'Get-Help -Online is not supported on Nano Server and IoT' -Tags "CI" {
 
     $skipTest = -not ([System.Management.Automation.Platform]::IsIoT -or [System.Management.Automation.Platform]::IsNanoServer)
 
-    It "Get-help -online <cmdletName> throws InvalidOperation." -skip:$skipTest {
+    It "Get-help -online <cmdletName> throws InvalidOperation." -Skip:$skipTest {
         { Get-Help Get-Help -Online } | Should -Throw -ErrorId "InvalidOperation,Microsoft.PowerShell.Commands.GetHelpCommand"
+    }
+}
+
+Describe 'Get-Help should throw on network paths' -Tags "CI" {
+    BeforeAll {
+        $script:skipTest = -not $IsWindows
+    }
+
+    It "Get-Help should throw not on <command>" -Skip:$skipTest -TestCases (Get-HelpNetworkTestCases -PositiveCases) {
+        param(
+            $Command,
+            $ExpectedError
+        )
+
+        { Get-Help -Name $Command  } | Should -Not -Throw
     }
 }

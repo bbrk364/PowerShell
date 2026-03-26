@@ -1,8 +1,9 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System.Collections.Generic;
 using System.Text;
+
 using Dbg = System.Management.Automation;
 
 namespace System.Management.Automation
@@ -30,9 +31,9 @@ namespace System.Management.Automation
         #endregion
 
         /// <summary>
-        /// Perform disambiguation on enum names
+        /// Perform disambiguation on enum names.
         /// </summary>
-        /// <returns>complete enum name after disambiguation</returns>
+        /// <returns>Complete enum name after disambiguation.</returns>
         internal static string EnumDisambiguate(string text, Type enumType)
         {
             // Get all enum names in the given enum type
@@ -80,16 +81,17 @@ namespace System.Management.Automation
                         {
                             return tName;
                         }
-                    }//foreach
-                }//if
+                    }
+                }
                 // No special cases match, throw error for multiple matches.
                 StringBuilder matchListSB = new StringBuilder(namesWithMatchingPrefix[0]);
-                string separator = ", ";
+                const string separator = ", ";
                 for (int i = 1; i < namesWithMatchingPrefix.Count; i++)
                 {
                     matchListSB.Append(separator);
                     matchListSB.Append(namesWithMatchingPrefix[i]);
                 }
+
                 throw InterpreterError.NewInterpreterException(null, typeof(RuntimeException),
                     null, "MultipleEnumNameMatch", EnumExpressionEvaluatorStrings.MultipleEnumNameMatch,
                     text, matchListSB.ToString());
@@ -104,7 +106,7 @@ namespace System.Management.Automation
         internal static string EnumAllValues(Type enumType)
         {
             string[] names = Enum.GetNames(enumType);
-            string separator = ", ";
+            const string separator = ", ";
             StringBuilder returnValue = new StringBuilder();
             if (names.Length != 0)
             {
@@ -113,11 +115,13 @@ namespace System.Management.Automation
                     returnValue.Append(names[i]);
                     returnValue.Append(separator);
                 }
+
                 returnValue.Remove(returnValue.Length - separator.Length, separator.Length);
             }
+
             return returnValue.ToString();
         }
 
-        private static Dictionary<Type, string[]> s_specialDisambiguateCases = new Dictionary<Type, string[]>();
+        private static readonly Dictionary<Type, string[]> s_specialDisambiguateCases = new Dictionary<Type, string[]>();
     }
 }

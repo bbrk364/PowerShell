@@ -1,208 +1,111 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
-using System.IO;
-using System.Xml;
-using System.Net;
-using System.Resources;
-using System.Reflection;
-using System.ComponentModel;
-
-using System.Collections;
-using System.Collections.Generic;
-
-using System.Runtime.InteropServices;
 using System.Diagnostics.CodeAnalysis;
-using System.Runtime.CompilerServices;
+using System.Net;
 
 [assembly: CLSCompliant(true)]
+
 namespace Microsoft.WSMan.Management
 {
-
     /// <summary>
-    /// Session option class
+    /// Session option class.
     /// </summary>
-
     public sealed class SessionOption
     {
-
         /// <summary>
-        /// property
+        /// Property.
         /// </summary>
-        public bool SkipCACheck
-        {
-            get { return _SkipCACheck; }
-            set
-            {
-                _SkipCACheck = value;
-            }
-        }
-        private bool _SkipCACheck;
+        public bool SkipCACheck { get; set; }
 
         /// <summary>
-        /// property
+        /// Property.
         /// </summary>
-        public bool SkipCNCheck
-        {
-            get { return _SkipCNCheck; }
-            set
-            {
-                _SkipCNCheck = value;
-            }
-        }
-        private bool _SkipCNCheck;
+        public bool SkipCNCheck { get; set; }
 
         /// <summary>
-        /// property
+        /// Property.
         /// </summary>
-        ///
-        public bool SkipRevocationCheck
-        {
-            get { return _SkipRevocationCheck; }
-            set
-            {
-                _SkipRevocationCheck = value;
-            }
-
-        }
-        private bool _SkipRevocationCheck;
+        public bool SkipRevocationCheck { get; set; }
 
         /// <summary>
-        /// property
+        /// Property.
         /// </summary>
-        public bool UseEncryption
-        {
-            get { return _useencryption; }
-            set
-            {
-                _useencryption = value;
-            }
-        }
-        private bool _useencryption = true;
+        public bool UseEncryption { get; set; } = true;
 
         /// <summary>
-        /// property
+        /// Property.
         /// </summary>
-        public bool UseUtf16
-        {
-            get { return _UTF16; }
-            set
-            {
-                _UTF16 = value;
-            }
-        }
-        private bool _UTF16;
+        public bool UseUtf16 { get; set; }
 
         /// <summary>
-        /// property
+        /// Property.
         /// </summary>
-        public ProxyAuthentication ProxyAuthentication
-        {
-            get { return _ProxyAuthentication; }
-            set
-            {
-                _ProxyAuthentication = value;
-            }
-        }
-        private ProxyAuthentication _ProxyAuthentication;
+        public ProxyAuthentication ProxyAuthentication { get; set; }
 
         /// <summary>
-        /// property
+        /// Property.
         /// </summary>
         [SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly", MessageId = "SPN")]
-        public int SPNPort
-        {
-            get { return _SPNPort; }
-            set
-            {
-                _SPNPort = value;
-            }
-        }
-
-        private int _SPNPort;
+        public int SPNPort { get; set; }
 
         /// <summary>
-        /// property
+        /// Property.
         /// </summary>
-        public int OperationTimeout
-        {
-            get { return _OperationTimeout; }
-            set
-            {
-                _OperationTimeout = value;
-            }
-        }
-        private int _OperationTimeout;
+        public int OperationTimeout { get; set; }
 
         /// <summary>
-        /// property
+        /// Property.
         /// </summary>
-        public NetworkCredential ProxyCredential
-        {
-            get { return _ProxyCredential; }
-            set
-            {
-                _ProxyCredential = value;
-            }
-        }
-        private NetworkCredential _ProxyCredential;
+        public NetworkCredential ProxyCredential { get; set; }
 
         /// <summary>
-        /// property
+        /// Property.
         /// </summary>
-        public ProxyAccessType ProxyAccessType
-        {
-            get { return _proxyaccesstype; }
-            set
-            {
-                _proxyaccesstype = value;
-            }
-        }
-
-        private ProxyAccessType _proxyaccesstype;
+        public ProxyAccessType ProxyAccessType { get; set; }
     }
 
     /// <summary>
-    /// property
+    /// Property.
     /// </summary>
     public enum ProxyAccessType
     {
         /// <summary>
-        /// property
+        /// Property.
         /// </summary>
         ProxyIEConfig = 0,
         /// <summary>
-        /// property
+        /// Property.
         /// </summary>
         ProxyWinHttpConfig = 1,
         /// <summary>
-        /// property
+        /// Property.
         /// </summary>
         ProxyAutoDetect = 2,
         /// <summary>
-        /// property
+        /// Property.
         /// </summary>
         ProxyNoProxyServer = 3
     }
 
     /// <summary>
-    /// property
+    /// Property.
     /// </summary>
     [SuppressMessage("Microsoft.Design", "CA1027:MarkEnumsWithFlags")]
     [SuppressMessage("Microsoft.Design", "CA1008:EnumsShouldHaveZeroValue")]
     public enum ProxyAuthentication
     {
         /// <summary>
-        /// property
+        /// Property.
         /// </summary>
         Negotiate = 1,
         /// <summary>
-        /// property
+        /// Property.
         /// </summary>
         Basic = 2,
         /// <summary>
-        /// property
+        /// Property.
         /// </summary>
         Digest = 4
     }

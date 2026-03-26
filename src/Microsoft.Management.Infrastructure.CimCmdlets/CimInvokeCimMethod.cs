@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 #region Using directives
@@ -8,7 +8,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
-using System.Management.Automation;
 
 #endregion
 
@@ -28,9 +27,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         internal class CimInvokeCimMethodContext : XOperationContextBase
         {
             /// <summary>
-            /// <para>
-            /// Constructor
-            /// </para>
+            /// Initializes a new instance of the <see cref="CimInvokeCimMethodContext"/> class.
             /// </summary>
             /// <param name="theNamespace"></param>
             /// <param name="theCollection"></param>
@@ -41,40 +38,24 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                 CimSessionProxy theProxy)
             {
                 this.proxy = theProxy;
-                this.methodName = theMethodName;
-                this.collection = theCollection;
+                this.MethodName = theMethodName;
+                this.ParametersCollection = theCollection;
                 this.nameSpace = theNamespace;
             }
 
             /// <summary>
             /// <para>namespace</para>
             /// </summary>
-            internal string MethodName
-            {
-                get
-                {
-                    return this.methodName;
-                }
-            }
-            private string methodName;
+            internal string MethodName { get; }
 
             /// <summary>
             /// <para>parameters collection</para>
             /// </summary>
-            internal CimMethodParametersCollection ParametersCollection
-            {
-                get
-                {
-                    return this.collection;
-                }
-            }
-            private CimMethodParametersCollection collection;
+            internal CimMethodParametersCollection ParametersCollection { get; }
         }
 
         /// <summary>
-        /// <para>
-        /// Constructor
-        /// </para>
+        /// Initializes a new instance of the <see cref="CimInvokeCimMethod"/> class.
         /// </summary>
         public CimInvokeCimMethod()
             : base()
@@ -86,12 +67,12 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         /// Base on parametersetName to retrieve ciminstances
         /// </para>
         /// </summary>
-        /// <param name="cmdlet"><see cref="GetCimInstanceCommand"/> object</param>
+        /// <param name="cmdlet"><see cref="GetCimInstanceCommand"/> object.</param>
         public void InvokeCimMethod(InvokeCimMethodCommand cmdlet)
         {
             IEnumerable<string> computerNames = ConstValue.GetComputerNames(cmdlet.ComputerName);
             string nameSpace;
-            List<CimSessionProxy> proxys = new List<CimSessionProxy>();
+            List<CimSessionProxy> proxys = new();
             string action = string.Format(CultureInfo.CurrentUICulture, actionTemplate, cmdlet.MethodName);
 
             switch (cmdlet.ParameterSetName)
@@ -101,6 +82,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                     {
                         proxys.Add(CreateSessionProxy(computerName, cmdlet.CimInstance, cmdlet));
                     }
+
                     break;
                 case CimBaseCommand.ClassNameComputerSet:
                 case CimBaseCommand.CimClassComputerSet:
@@ -110,6 +92,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                     {
                         proxys.Add(CreateSessionProxy(computerName, cmdlet));
                     }
+
                     break;
                 case CimBaseCommand.ClassNameSessionSet:
                 case CimBaseCommand.CimClassSessionSet:
@@ -121,10 +104,12 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                         CimSessionProxy proxy = CreateSessionProxy(session, cmdlet);
                         proxys.Add(proxy);
                     }
+
                     break;
                 default:
                     break;
             }
+
             CimMethodParametersCollection paramsCollection =
                 CreateParametersCollection(cmdlet.Arguments, cmdlet.CimClass, cmdlet.CimInstance, cmdlet.MethodName);
 
@@ -137,7 +122,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                 case CimBaseCommand.ResourceUriComputerSet:
                     {
                         string target = string.Format(CultureInfo.CurrentUICulture, targetClass, cmdlet.ClassName);
-                        if(cmdlet.ResourceUri != null )
+                        if (cmdlet.ResourceUri != null)
                         {
                             nameSpace = cmdlet.Namespace;
                         }
@@ -145,12 +130,14 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                         {
                             nameSpace = ConstValue.GetNamespace(cmdlet.Namespace);
                         }
+
                         foreach (CimSessionProxy proxy in proxys)
                         {
                             if (!cmdlet.ShouldProcess(target, action))
                             {
                                 return;
                             }
+
                             proxy.InvokeMethodAsync(
                                 nameSpace,
                                 cmdlet.ClassName,
@@ -158,6 +145,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                                 paramsCollection);
                         }
                     }
+
                     break;
                 case CimBaseCommand.CimClassComputerSet:
                 case CimBaseCommand.CimClassSessionSet:
@@ -170,6 +158,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                             {
                                 return;
                             }
+
                             proxy.InvokeMethodAsync(
                                 nameSpace,
                                 cmdlet.CimClass.CimSystemProperties.ClassName,
@@ -177,6 +166,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                                 paramsCollection);
                         }
                     }
+
                     break;
                 case CimBaseCommand.QueryComputerSet:
                 case CimBaseCommand.QuerySessionSet:
@@ -184,7 +174,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                     foreach (CimSessionProxy proxy in proxys)
                     {
                         // create context object
-                        CimInvokeCimMethodContext context = new CimInvokeCimMethodContext(
+                        CimInvokeCimMethodContext context = new(
                             nameSpace,
                             cmdlet.MethodName,
                             paramsCollection,
@@ -193,12 +183,13 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                         // firstly query instance and then invoke method upon returned instances
                         proxy.QueryInstancesAsync(nameSpace, ConstValue.GetQueryDialectWithDefault(cmdlet.QueryDialect), cmdlet.Query);
                     }
+
                     break;
                 case CimBaseCommand.CimInstanceComputerSet:
                 case CimBaseCommand.CimInstanceSessionSet:
                     {
                         string target = cmdlet.CimInstance.ToString();
-                        if(cmdlet.ResourceUri != null )
+                        if (cmdlet.ResourceUri != null)
                         {
                             nameSpace = cmdlet.Namespace;
                         }
@@ -206,12 +197,14 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                         {
                             nameSpace = ConstValue.GetNamespace(cmdlet.CimInstance.CimSystemProperties.Namespace);
                         }
+
                         foreach (CimSessionProxy proxy in proxys)
                         {
                             if (!cmdlet.ShouldProcess(target, action))
                             {
                                 return;
                             }
+
                             proxy.InvokeMethodAsync(
                                 nameSpace,
                                 cmdlet.CimInstance,
@@ -219,6 +212,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                                 paramsCollection);
                         }
                     }
+
                     break;
                 default:
                     break;
@@ -260,12 +254,12 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         /// </summary>
         /// <param name="proxy"></param>
         /// <param name="cmdlet"></param>
-        private void SetSessionProxyProperties(
+        private static void SetSessionProxyProperties(
             ref CimSessionProxy proxy,
             InvokeCimMethodCommand cmdlet)
         {
             proxy.OperationTimeout = cmdlet.OperationTimeoutSec;
-            if(cmdlet.ResourceUri != null )
+            if (cmdlet.ResourceUri != null)
             {
                 proxy.ResourceUri = cmdlet.ResourceUri;
             }
@@ -308,7 +302,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         }
 
         /// <summary>
-        /// Create <see cref="CimSessionProxy"/> and set properties
+        /// Create <see cref="CimSessionProxy"/> and set properties.
         /// </summary>
         /// <param name="session"></param>
         /// <param name="cmdlet"></param>
@@ -333,8 +327,8 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
         /// <param name="cimInstance"></param>
         /// <param name="methodName"></param>
         /// <returns></returns>
-        /// <exception cref="ArgumentNullException">See CimProperty.Create</exception>
-        /// <exception cref="ArgumentException">CimProperty.Create</exception>
+        /// <exception cref="ArgumentNullException">See CimProperty.Create.</exception>
+        /// <exception cref="ArgumentException">CimProperty.Create.</exception>
         private CimMethodParametersCollection CreateParametersCollection(
             IDictionary parameters,
             CimClass cimClass,
@@ -359,7 +353,7 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
             {
                 string parameterName = enumerator.Key.ToString();
 
-                CimFlags parameterFlags = CimFlags.In;
+                const CimFlags parameterFlags = CimFlags.In;
                 object parameterValue = GetBaseObject(enumerator.Value);
 
                 DebugHelper.WriteLog(@"Create parameter name= {0}, value= {1}, flags= {2}.", 4,
@@ -376,8 +370,8 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                     declaration = cimClass.CimClassMethods[methodName];
                     if (declaration == null)
                     {
-                        throw new ArgumentException(String.Format(
-                                CultureInfo.CurrentUICulture, Strings.InvalidMethod, methodName, className));
+                        throw new ArgumentException(string.Format(
+                                CultureInfo.CurrentUICulture, CimCmdletStrings.InvalidMethod, methodName, className));
                     }
                 }
                 else if (cimInstance != null)
@@ -391,9 +385,10 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                     CimMethodParameterDeclaration paramDeclaration = declaration.Parameters[parameterName];
                     if (paramDeclaration == null)
                     {
-                        throw new ArgumentException(String.Format(
-                            CultureInfo.CurrentUICulture, Strings.InvalidMethodParameter, parameterName, methodName, className));
+                        throw new ArgumentException(string.Format(
+                            CultureInfo.CurrentUICulture, CimCmdletStrings.InvalidMethodParameter, parameterName, methodName, className));
                     }
+
                     parameter = CimMethodParameter.Create(
                         parameterName,
                         parameterValue,
@@ -434,23 +429,25 @@ namespace Microsoft.Management.Infrastructure.CimCmdlets
                         }
                     }
                 }
+
                 if (parameter != null)
                     collection.Add(parameter);
             }
+
             return collection;
         }
         #endregion
 
         #region const strings
         /// <summary>
-        /// operation target
+        /// Operation target.
         /// </summary>
         private const string targetClass = @"{0}";
 
         /// <summary>
-        /// action
+        /// Action.
         /// </summary>
         private const string actionTemplate = @"Invoke-CimMethod: {0}";
         #endregion
-    }//End Class
-}//End namespace
+    }
+}

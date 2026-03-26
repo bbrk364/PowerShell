@@ -1,4 +1,4 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 Describe "Adapter Tests" -tags "CI" {
     Context "Property Adapter Tests" {
@@ -21,7 +21,7 @@ Describe "Adapter Tests" -tags "CI" {
             $testmethod = [TestCodeMethodClass].GetMethod("TestCodeMethod")
             $psmemberset | Add-Member -MemberType CodeMethod -Name TestCodeMethod -Value $testmethod
 
-            $document = new-object System.Xml.XmlDocument
+            $document = New-Object System.Xml.XmlDocument
             $document.LoadXml("<book ISBN='12345'><title>Pride And Prejudice</title><price>19.95</price></book>")
             $doc = $document.DocumentElement
         }
@@ -174,7 +174,7 @@ Describe "Adapter Tests" -tags "CI" {
             $x.Count | Should -Be 1
             $x[0].foo | Should -BeExactly "bar"
 
-            $x = ([pscustomobject]@{ foo = 'bar' }).Foreach({$_ | Add-Member -NotePropertyName "foo2" -NotePropertyValue "bar2" -PassThru})
+            $x = ([pscustomobject]@{ foo = 'bar' }).ForEach({$_ | Add-Member -NotePropertyName "foo2" -NotePropertyValue "bar2" -PassThru})
             $x.Count | Should -Be 1
             $x[0].foo | Should -BeExactly "bar"
             $x[0].foo2 | Should -BeExactly "bar2"
@@ -199,6 +199,17 @@ Describe "Adapter Tests" -tags "CI" {
             $results[1] | Should -Be 123
 
             # TODO: dynamic method calls
+        }
+
+        It "Can use PSForEach as an alias for the Foreach magic method" {
+            $x = 5
+            $x.PSForEach({$_}) | Should -Be 5
+
+            $p = $null.PSForEach{"I didn't run"}
+            $p.GetType().Name | Should -BeExactly 'Collection`1'
+            $p.Count | Should -BeExactly 0
+
+            ([pscustomobject]@{ Name = 'bar' }).PSForEach({$_.Name}) | Should -BeExactly 'bar'
         }
     }
 
@@ -239,6 +250,17 @@ Describe "Adapter Tests" -tags "CI" {
                    $param1*2
                 } -PassThru -Force
             $x.Where(5) | Should -Be 10
+        }
+
+        It "Can use PSWhere as an alias for the Where magic method" {
+            $x = 5
+            $x.PSWhere{$true} | Should -Be 5
+
+            $p = $null.PSWhere{"I didn't run"}
+            $p.GetType().Name | Should -BeExactly 'Collection`1'
+            $p.Count | Should -BeExactly 0
+
+            ([pscustomobject]@{ Name = 'bar' }).PSWhere({$_.Name}) | ForEach-Object Name | Should -BeExactly 'bar'
         }
     }
 }

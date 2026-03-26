@@ -1,14 +1,15 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
-using System.IO;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Management.Automation;
 using System.Management.Automation.Internal;
 using System.Management.Automation.Runspaces;
+using Microsoft.PowerShell.Commands;
 
 namespace Microsoft.PowerShell.Commands.Internal.Format
 {
@@ -19,7 +20,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
     internal class InnerFormatShapeCommandBase : ImplementationCommandBase
     {
         /// <summary>
-        /// constructor to set up the formatting context
+        /// Constructor to set up the formatting context.
         /// </summary>
         internal InnerFormatShapeCommandBase()
         {
@@ -27,24 +28,24 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         }
 
         /// <summary>
-        /// enum listing the possible states the context is in
+        /// Enum listing the possible states the context is in.
         /// </summary>
         internal enum FormattingContextState { none, document, group }
 
         /// <summary>
-        /// context manager: stack to keep track in which context
-        /// the formatter is
+        /// Context manager: stack to keep track in which context
+        /// the formatter is.
         /// </summary>
         protected Stack<FormattingContextState> contextManager = new Stack<FormattingContextState>();
     }
 
     /// <summary>
-    /// core inner implementation for format/xxx commands
+    /// Core inner implementation for format/xxx commands.
     /// </summary>
     internal class InnerFormatShapeCommand : InnerFormatShapeCommandBase
     {
         /// <summary>
-        /// constructor to glue to the CRO
+        /// Constructor to glue to the CRO.
         /// </summary>
         internal InnerFormatShapeCommand(FormatShape shape)
         {
@@ -59,8 +60,9 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                 // Win8: 192504
                 if (LocalPipeline.GetExecutionContextFromTLS() != null)
                 {
-                    enumLimitVal = LocalPipeline.GetExecutionContextFromTLS().SessionState.PSVariable.
-                        GetValue("global:" + InitialSessionState.FormatEnumerationLimit);
+                    enumLimitVal = LocalPipeline.GetExecutionContextFromTLS()
+                        .SessionState.PSVariable
+                        .GetValue("global:" + InitialSessionState.FormatEnumerationLimit);
                 }
             }
             // Eat the following exceptions, enumerationLimit will use the default value
@@ -88,7 +90,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         }
 
         /// <summary>
-        /// execution entry point
+        /// Execution entry point.
         /// </summary>
         internal override void ProcessRecord()
         {
@@ -117,6 +119,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                             ProcessObject(PSObjectHelper.AsPSObject(obj));
                         }
                     }
+
                     break;
                 case EnumerableExpansion.Both:
                     {
@@ -128,12 +131,14 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                             ProcessObject(PSObjectHelper.AsPSObject(obj));
                         }
                     }
+
                     break;
                 default:
                     {
                         // do not enumerate at all (CoreOnly)
                         ProcessObject(so);
                     }
+
                     break;
             }
         }
@@ -168,18 +173,22 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                     {
                         msg = FormatAndOut_format_xxx.IEnum_NoObjects;
                     }
+
                     break;
                 case 1:
                     {
                         msg = FormatAndOut_format_xxx.IEnum_OneObject;
                     }
+
                     break;
                 default:
                     {
                         msg = StringUtil.Format(FormatAndOut_format_xxx.IEnum_ManyObjects, count);
                     }
+
                     break;
             }
+
             SendCommentOutOfBand(msg);
         }
 
@@ -193,9 +202,9 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         }
 
         /// <summary>
-        /// execute formatting on a single object
+        /// Execute formatting on a single object.
         /// </summary>
-        /// <param name="so">object to process</param>
+        /// <param name="so">Object to process.</param>
         private void ProcessObject(PSObject so)
         {
             // we do protect against reentrancy, assuming
@@ -254,6 +263,9 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
             }
             else if (transition == GroupTransition.startNew)
             {
+                // Add newline before each group except first
+                WriteNewLineObject();
+
                 // double transition
                 PopGroup(); // exit the current one
                 PushGroup(so); // start a sibling group
@@ -265,6 +277,23 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
             }
         }
 
+        private void WriteNewLineObject()
+        {
+            FormatEntryData fed = new FormatEntryData();
+            fed.outOfBand = true;
+
+            ComplexViewEntry cve = new ComplexViewEntry();
+            FormatEntry fe = new FormatEntry();
+            cve.formatValueList.Add(fe);
+
+            // Formating system writes newline before each object
+            // so no need to add newline here like:
+            //     fe.formatValueList.Add(new FormatNewLine());
+            fed.formatEntryInfo = cve;
+
+            this.WriteObject(fed);
+        }
+
         private bool ShouldProcessOutOfBand
         {
             get
@@ -273,6 +302,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                 {
                     return true;
                 }
+
                 return !_parameters.forceFormattingAlsoOnOutOfBand;
             }
         }
@@ -399,7 +429,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                     this.WriteObject(endFormat);
                     contextManager.Pop();
                 }
-            } // while
+            }
         }
 
         internal void SetCommandLineParameters(FormattingCommandLineParameters commandLineParameters)
@@ -409,18 +439,18 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         }
 
         /// <summary>
-        /// group transitions:
+        /// Group transitions:
         /// none: stay in the same group
         /// enter: start a new group
-        /// exit: exit from the current group
+        /// exit: exit from the current group.
         /// </summary>
         private enum GroupTransition { none, enter, exit, startNew }
 
         /// <summary>
-        /// compute the group transition, given an input object
+        /// Compute the group transition, given an input object.
         /// </summary>
-        /// <param name="so">object received from the input pipeline</param>
-        /// <returns>GroupTransition enumeration</returns>
+        /// <param name="so">Object received from the input pipeline.</param>
+        /// <returns>GroupTransition enumeration.</returns>
         private GroupTransition ComputeGroupTransition(PSObject so)
         {
             // check if we have to start a group
@@ -446,15 +476,15 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         }
 
         /// <summary>
-        /// write a payplad object by properly wrapping it into
-        /// a FormatEntry object
+        /// Write a payplad object by properly wrapping it into
+        /// a FormatEntry object.
         /// </summary>
-        /// <param name="so">object to process</param>
+        /// <param name="so">Object to process.</param>
         private void WritePayloadObject(PSObject so)
         {
             Diagnostics.Assert(so != null, "object so cannot be null");
             FormatEntryData fed = _viewManager.ViewGenerator.GeneratePayload(so, _enumerationLimit);
-            fed.SetStreamTypeFromPSObject(so);
+            fed.writeStream = so.WriteStream;
             this.WriteObject(fed);
 
             List<ErrorRecord> errors = _viewManager.ViewGenerator.ErrorManager.DrainFailedResultList();
@@ -462,8 +492,8 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         }
 
         /// <summary>
-        /// inject the start group information
-        /// and push group context on stack
+        /// Inject the start group information
+        /// and push group context on stack.
         /// </summary>
         /// <param name="firstObjectInGroup">current pipeline object
         /// that is starting the group</param>
@@ -475,8 +505,8 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         }
 
         /// <summary>
-        /// inject the end group information
-        /// and pop group context out of stack
+        /// Inject the end group information
+        /// and pop group context out of stack.
         /// </summary>
         private void PopGroup()
         {
@@ -486,9 +516,9 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         }
 
         /// <summary>
-        /// the formatting shape this formatter emits
+        /// The formatting shape this formatter emits.
         /// </summary>
-        private FormatShape _shape;
+        private readonly FormatShape _shape;
 
         #region expression factory
 
@@ -508,34 +538,33 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         private TypeInfoDataBase _typeInfoDataBase = null;
 
         private FormattingCommandLineParameters _parameters = null;
-        private FormatViewManager _viewManager = new FormatViewManager();
+        private readonly FormatViewManager _viewManager = new FormatViewManager();
 
         private int _enumerationLimit = InitialSessionState.DefaultFormatEnumerationLimit;
     }
 
     /// <summary>
-    ///
     /// </summary>
     public class OuterFormatShapeCommandBase : FrontEndCommandBase
     {
         #region Command Line Switches
 
         /// <summary>
-        /// optional, non positional parameter to specify the
-        /// group by property
+        /// Optional, non positional parameter to specify the
+        /// group by property.
         /// </summary>
         [Parameter]
         public object GroupBy { get; set; } = null;
 
         /// <summary>
-        /// optional, non positional parameter
+        /// Optional, non positional parameter.
         /// </summary>
         /// <value></value>
         [Parameter]
         public string View { get; set; } = null;
 
         /// <summary>
-        /// optional, non positional parameter
+        /// Optional, non positional parameter.
         /// </summary>
         /// <value></value>
         [Parameter]
@@ -547,12 +576,17 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                     return showErrorsAsMessages.Value;
                 return false;
             }
-            set { showErrorsAsMessages = value; }
+
+            set
+            {
+                showErrorsAsMessages = value;
+            }
         }
-        internal Nullable<bool> showErrorsAsMessages = null;
+
+        internal bool? showErrorsAsMessages = null;
 
         /// <summary>
-        /// optional, non positional parameter
+        /// Optional, non positional parameter.
         /// </summary>
         /// <value></value>
         [Parameter]
@@ -564,24 +598,31 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                     return showErrorsInFormattedOutput.Value;
                 return false;
             }
-            set { showErrorsInFormattedOutput = value; }
+
+            set
+            {
+                showErrorsInFormattedOutput = value;
+            }
         }
-        internal Nullable<bool> showErrorsInFormattedOutput = null;
+
+        internal bool? showErrorsInFormattedOutput = null;
 
         /// <summary>
-        /// optional, non positional parameter
+        /// Optional, non positional parameter.
         /// </summary>
         /// <value></value>
         [Parameter]
         public SwitchParameter Force
         {
             get { return _forceFormattingAlsoOnOutOfBand; }
+
             set { _forceFormattingAlsoOnOutOfBand = value; }
         }
+
         private bool _forceFormattingAlsoOnOutOfBand;
 
         /// <summary>
-        /// optional, non positional parameter
+        /// Optional, non positional parameter.
         /// </summary>
         /// <value></value>
         [Parameter]
@@ -590,11 +631,11 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                         EnumerableExpansionConversion.BothString, IgnoreCase = true)]
         public string Expand { get; set; } = null;
 
-        internal Nullable<EnumerableExpansion> expansion = null;
+        internal EnumerableExpansion? expansion = null;
 
-        internal Nullable<EnumerableExpansion> ProcessExpandParameter()
+        internal EnumerableExpansion? ProcessExpandParameter()
         {
-            Nullable<EnumerableExpansion> retVal = null;
+            EnumerableExpansion? retVal = null;
             if (string.IsNullOrEmpty(Expand))
             {
                 return null;
@@ -608,6 +649,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                 // NOTE: this is an exception that should never be triggered
                 throw PSTraceSource.NewArgumentException("Expand", FormatAndOut_MshParameter.IllegalEnumerableExpansionValue);
             }
+
             retVal = temp;
             return retVal;
         }
@@ -633,7 +675,6 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         #endregion
 
         /// <summary>
-        ///
         /// </summary>
         protected override void BeginProcessing()
         {
@@ -649,11 +690,11 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         }
 
         /// <summary>
-        /// it reads the command line switches and collects them into a
+        /// It reads the command line switches and collects them into a
         /// FormattingCommandLineParameters instance, ready to pass to the
-        /// inner format command
+        /// inner format command.
         /// </summary>
-        /// <returns>parameters collected in unified manner</returns>
+        /// <returns>Parameters collected in unified manner.</returns>
         internal virtual FormattingCommandLineParameters GetCommandLineParameters()
         {
             return null;
@@ -675,7 +716,6 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
     }
 
     /// <summary>
-    ///
     /// </summary>
     public class OuterFormatTableAndListBase : OuterFormatShapeCommandBase
     {
@@ -688,7 +728,14 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         /// will be determined using property sets, etc.
         /// </summary>
         [Parameter(Position = 0)]
+        [ValidateNotNullOrEmpty]
         public object[] Property { get; set; }
+
+        /// <summary>
+        /// Optional parameter for excluding properties from formatting.
+        /// </summary>
+        [Parameter]
+        public string[] ExcludeProperty { get; set; }
 
         #endregion
 
@@ -712,6 +759,18 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
 
         internal void GetCommandLineProperties(FormattingCommandLineParameters parameters, bool isTable)
         {
+            // Check View conflicts first (before any auto-expansion)
+            if (!string.IsNullOrEmpty(this.View))
+            {
+                // View cannot be used with Property or ExcludeProperty
+                if ((Property is not null && Property.Length != 0) || (ExcludeProperty is not null && ExcludeProperty.Length != 0))
+                {
+                    ReportCannotSpecifyViewAndProperty();
+                }
+
+                parameters.viewName = this.View;
+            }
+
             if (Property != null)
             {
                 CommandParameterDefinition def;
@@ -726,27 +785,33 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                 parameters.mshParameterList = processor.ProcessParameters(Property, invocationContext);
             }
 
-            if (!string.IsNullOrEmpty(this.View))
+            if (ExcludeProperty is not null)
             {
-                // we have a view command line switch
-                if (parameters.mshParameterList.Count != 0)
+                parameters.excludePropertyFilter = new PSPropertyExpressionFilter(ExcludeProperty);
+
+                // ExcludeProperty implies -Property * for better UX
+                if (Property is null || Property.Length == 0)
                 {
-                    ReportCannotSpecifyViewAndProperty();
+                    CommandParameterDefinition def = isTable
+                        ? new FormatTableParameterDefinition()
+                        : new FormatListParameterDefinition();
+                    ParameterProcessor processor = new ParameterProcessor(def);
+                    TerminatingErrorContext invocationContext = new TerminatingErrorContext(this);
+
+                    parameters.mshParameterList = processor.ProcessParameters(new object[] { "*" }, invocationContext);
                 }
-                parameters.viewName = this.View;
             }
         }
     }
 
     /// <summary>
-    ///
     /// </summary>
     public class OuterFormatTableBase : OuterFormatTableAndListBase
     {
         #region Command Line Switches
 
         /// <summary>
-        /// optional, non positional parameter
+        /// Optional, non positional parameter.
         /// </summary>
         /// <value></value>
         [Parameter]
@@ -758,12 +823,23 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                     return _autosize.Value;
                 return false;
             }
-            set { _autosize = value; }
+
+            set
+            {
+                _autosize = value;
+            }
         }
-        private Nullable<bool> _autosize = null;
+
+        private bool? _autosize = null;
 
         /// <summary>
-        /// optional, non positional parameter
+        /// Gets or sets if header is repeated per screen.
+        /// </summary>
+        [Parameter]
+        public SwitchParameter RepeatHeader { get; set; }
+
+        /// <summary>
+        /// Optional, non positional parameter.
         /// </summary>
         /// <value></value>
         [Parameter]
@@ -775,12 +851,17 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                     return _hideHeaders.Value;
                 return false;
             }
-            set { _hideHeaders = value; }
+
+            set
+            {
+                _hideHeaders = value;
+            }
         }
-        private Nullable<bool> _hideHeaders = null;
+
+        private bool? _hideHeaders = null;
 
         /// <summary>
-        /// optional, non positional parameter
+        /// Optional, non positional parameter.
         /// </summary>
         /// <value></value>
         [Parameter]
@@ -792,9 +873,14 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                     return _multiLine.Value;
                 return false;
             }
-            set { _multiLine = value; }
+
+            set
+            {
+                _multiLine = value;
+            }
         }
-        private Nullable<bool> _multiLine = null;
+
+        private bool? _multiLine = null;
 
         #endregion
         internal override FormattingCommandLineParameters GetCommandLineParameters()
@@ -813,6 +899,11 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
             if (_autosize.HasValue)
                 parameters.autosize = _autosize.Value;
 
+            if (RepeatHeader)
+            {
+                parameters.repeatHeader = true;
+            }
+
             parameters.groupByParameter = this.ProcessGroupByParameter();
 
             TableSpecificParameters tableParameters = new TableSpecificParameters();
@@ -827,8 +918,8 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
             {
                 tableParameters.multiLine = _multiLine.Value;
             }
+
             return parameters;
         }
     }
 }
-

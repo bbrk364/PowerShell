@@ -1,19 +1,20 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.IO;
-using System.Text;
-using System.Collections.ObjectModel;
-using System.Management.Automation.Runspaces;
-using Microsoft.PowerShell.Commands;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.IO;
 using System.Management.Automation.Language;
+using System.Management.Automation.Runspaces;
 using System.Management.Automation.Security;
+using System.Text;
+
+using Microsoft.PowerShell.Commands;
 
 namespace System.Management.Automation
 {
     /// <summary>
-    /// Provides information for MSH scripts that are directly executable by MSH
+    /// Provides information for scripts that are directly executable by PowerShell
     /// but are not built into the runspace configuration.
     /// </summary>
     public class ExternalScriptInfo : CommandInfo, IScriptCommandInfo
@@ -23,33 +24,27 @@ namespace System.Management.Automation
         /// <summary>
         /// Creates an instance of the ExternalScriptInfo class with the specified name, and path.
         /// </summary>
-        ///
         /// <param name="name">
         /// The name of the script.
         /// </param>
-        ///
         /// <param name="path">
         /// The path to the script
         /// </param>
-        ///
         /// <param name="context">
         /// The context of the currently running engine.
         /// </param>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If <paramref name="context"/> is null.
         /// </exception>
-        ///
         /// <exception cref="ArgumentException">
         /// If <paramref name="path"/> is null or empty.
         /// </exception>
-        ///
         internal ExternalScriptInfo(string name, string path, ExecutionContext context)
             : base(name, CommandTypes.ExternalScript, context)
         {
-            if (String.IsNullOrEmpty(path))
+            if (string.IsNullOrEmpty(path))
             {
-                throw PSTraceSource.NewArgumentException("path");
+                throw PSTraceSource.NewArgumentException(nameof(path));
             }
 
             Diagnostics.Assert(IO.Path.IsPathRooted(path), "Caller makes sure that 'path' is already resolved.");
@@ -61,25 +56,22 @@ namespace System.Management.Automation
 
         /// <summary>
         /// Creates an instance of ExternalScriptInfo that has no ExecutionContext.
-        /// This is used exclusively to pass it to the AuthorizationManager that just uses the path parameter
+        /// This is used exclusively to pass it to the AuthorizationManager that just uses the path parameter.
         /// </summary>
         /// <param name="name">
         /// The name of the script.
         /// </param>
-        ///
         /// <param name="path">
         /// The path to the script
         /// </param>
-        ///
         /// <exception cref="ArgumentException">
         /// If <paramref name="path"/> is null or empty.
         /// </exception>
-        ///
         internal ExternalScriptInfo(string name, string path) : base(name, CommandTypes.ExternalScript)
         {
-            if (String.IsNullOrEmpty(path))
+            if (string.IsNullOrEmpty(path))
             {
-                throw PSTraceSource.NewArgumentException("path");
+                throw PSTraceSource.NewArgumentException(nameof(path));
             }
 
             Diagnostics.Assert(IO.Path.IsPathRooted(path), "Caller makes sure that 'path' is already resolved.");
@@ -100,7 +92,7 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Common initialization for all constructors
+        /// Common initialization for all constructors.
         /// </summary>
         private void CommonInitialization()
         {
@@ -111,14 +103,21 @@ namespace System.Management.Automation
                 // Get the lock down policy with no handle. This only impacts command discovery,
                 // as the real language mode assignment will be done when we read the script
                 // contents.
-                SystemEnforcementMode scriptSpecificPolicy = SystemPolicy.GetLockdownPolicy(_path, null);
-                if (scriptSpecificPolicy != SystemEnforcementMode.Enforce)
+                switch (SystemPolicy.GetLockdownPolicy(_path, null))
                 {
-                    this.DefiningLanguageMode = PSLanguageMode.FullLanguage;
-                }
-                else
-                {
-                    this.DefiningLanguageMode = PSLanguageMode.ConstrainedLanguage;
+                    case SystemEnforcementMode.None:
+                        DefiningLanguageMode = PSLanguageMode.FullLanguage;
+                        break;
+
+                    case SystemEnforcementMode.Audit:
+                        // For policy audit mode, language mode is set to CL but audit messages are emitted to log
+                        // instead of applying restrictions.
+                        DefiningLanguageMode = PSLanguageMode.ConstrainedLanguage;
+                        break;
+
+                    case SystemEnforcementMode.Enforce:
+                        DefiningLanguageMode = PSLanguageMode.ConstrainedLanguage;
+                        break;
                 }
             }
         }
@@ -147,7 +146,8 @@ namespace System.Management.Automation
         {
             get { return _path; }
         }
-        private readonly string _path = String.Empty;
+
+        private readonly string _path = string.Empty;
 
         /// <summary>
         /// Gets the path to the script file.
@@ -158,7 +158,7 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Gets the source of this command
+        /// Gets the source of this command.
         /// </summary>
         public override string Source
         {
@@ -166,7 +166,7 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Returns the syntax of a command
+        /// Returns the syntax of a command.
         /// </summary>
         internal override string Syntax
         {
@@ -177,7 +177,7 @@ namespace System.Management.Automation
                 foreach (CommandParameterSetInfo parameterSet in ParameterSets)
                 {
                     synopsis.AppendLine(
-                        String.Format(
+                        string.Format(
                             Globalization.CultureInfo.CurrentCulture,
                             "{0} {1}",
                             Name,
@@ -195,17 +195,23 @@ namespace System.Management.Automation
         {
             get
             {
-                if (Context == null) return SessionStateEntryVisibility.Public;
+                if (Context == null)
+                {
+                    return SessionStateEntryVisibility.Public;
+                }
 
                 return Context.EngineSessionState.CheckScriptVisibility(_path);
             }
-            set { throw PSTraceSource.NewNotImplementedException(); }
+
+            set
+            {
+                throw PSTraceSource.NewNotImplementedException();
+            }
         }
 
         /// <summary>
-        /// The script block that represents the external script
+        /// The script block that represents the external script.
         /// </summary>
-        ///
         public ScriptBlock ScriptBlock
         {
             get
@@ -221,12 +227,13 @@ namespace System.Management.Automation
                     }
 
                     // parse the script into an expression tree...
-                    ScriptBlock newScriptBlock = ScriptBlock.Create(new Parser(), _path, ScriptContents);
+                    ScriptBlock newScriptBlock = ParseScriptContents(new Parser(), _path, ScriptContents, DefiningLanguageMode);
                     this.ScriptBlock = newScriptBlock;
                 }
 
                 return _scriptBlock;
             }
+
             private set
             {
                 _scriptBlock = value;
@@ -236,8 +243,34 @@ namespace System.Management.Automation
                 }
             }
         }
+
         private ScriptBlock _scriptBlock;
         private ScriptBlockAst _scriptBlockAst;
+
+        private static ScriptBlock ParseScriptContents(Parser parser, string fileName, string fileContents, PSLanguageMode? definingLanguageMode)
+        {
+            // If we are in ConstrainedLanguage mode but the defining language mode is FullLanguage, then we need
+            // to parse the script contents in FullLanguage mode context.  Otherwise we will get bogus parsing errors
+            // such as "Configuration keyword not allowed".
+            if (definingLanguageMode.HasValue && (definingLanguageMode == PSLanguageMode.FullLanguage))
+            {
+                var context = LocalPipeline.GetExecutionContextFromTLS();
+                if ((context != null) && (context.LanguageMode == PSLanguageMode.ConstrainedLanguage))
+                {
+                    context.LanguageMode = PSLanguageMode.FullLanguage;
+                    try
+                    {
+                        return ScriptBlock.Create(parser, fileName, fileContents);
+                    }
+                    finally
+                    {
+                        context.LanguageMode = PSLanguageMode.ConstrainedLanguage;
+                    }
+                }
+            }
+
+            return ScriptBlock.Create(parser, fileName, fileContents);
+        }
 
         internal ScriptBlockAst GetScriptBlockAst()
         {
@@ -246,30 +279,53 @@ namespace System.Management.Automation
             {
                 this.ScriptBlock = ScriptBlock.TryGetCachedScriptBlock(_path, scriptContents);
             }
+
             if (_scriptBlock != null)
             {
                 return (ScriptBlockAst)_scriptBlock.Ast;
             }
+
             if (_scriptBlockAst == null)
             {
                 ParseError[] errors;
                 Parser parser = new Parser();
-                _scriptBlockAst = parser.Parse(_path, ScriptContents, null, out errors, ParseMode.Default);
+
+                // If we are in ConstrainedLanguage mode but the defining language mode is FullLanguage, then we need
+                // to parse the script contents in FullLanguage mode context.  Otherwise we will get bogus parsing errors
+                // such as "Configuration or Class keyword not allowed".
+                var context = LocalPipeline.GetExecutionContextFromTLS();
+                if (context != null && context.LanguageMode == PSLanguageMode.ConstrainedLanguage &&
+                    DefiningLanguageMode == PSLanguageMode.FullLanguage)
+                {
+                    context.LanguageMode = PSLanguageMode.FullLanguage;
+                    try
+                    {
+                        _scriptBlockAst = parser.Parse(_path, ScriptContents, null, out errors, ParseMode.Default);
+                    }
+                    finally
+                    {
+                        context.LanguageMode = PSLanguageMode.ConstrainedLanguage;
+                    }
+                }
+                else
+                {
+                    _scriptBlockAst = parser.Parse(_path, ScriptContents, null, out errors, ParseMode.Default);
+                }
+
                 if (errors.Length == 0)
                 {
                     this.ScriptBlock = new ScriptBlock(_scriptBlockAst, isFilter: false);
                     ScriptBlock.CacheScriptBlock(_scriptBlock.Clone(), _path, scriptContents);
                 }
             }
+
             return _scriptBlockAst;
         }
 
         /// <summary>
-        /// Validates the external script info
+        /// Validates the external script info.
         /// </summary>
-        ///
         /// <param name="host"></param>
-        ///
         public void ValidateScriptInfo(Host.PSHost host)
         {
             if (!_signatureChecked)
@@ -292,7 +348,7 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// The output type(s) is specified in the script block
+        /// The output type(s) is specified in the script block.
         /// </summary>
         public override ReadOnlyCollection<PSTypeName> OutputType
         {
@@ -303,6 +359,7 @@ namespace System.Management.Automation
         {
             set { _signatureChecked = value; }
         }
+
         private bool _signatureChecked;
 
         #region Internal
@@ -314,11 +371,11 @@ namespace System.Management.Automation
         {
             get
             {
-                return _commandMetadata ??
-                       (_commandMetadata =
-                        new CommandMetadata(this.ScriptBlock, this.Name, LocalPipeline.GetExecutionContextFromTLS()));
+                return _commandMetadata ??=
+                    new CommandMetadata(this.ScriptBlock, this.Name, LocalPipeline.GetExecutionContextFromTLS());
             }
         }
+
         private CommandMetadata _commandMetadata;
 
         /// <summary>
@@ -337,7 +394,7 @@ namespace System.Management.Automation
 
                 // If we got here, there was some sort of parsing exception.  We'll just
                 // ignore it and assume the script does not implement dynamic parameters.
-                // Futhermore, we'll clear out the fields so that the next attempt to
+                // Furthermore, we'll clear out the fields so that the next attempt to
                 // access ScriptBlock will result in an exception that doesn't get ignored.
                 _scriptBlock = null;
                 _scriptContents = null;
@@ -358,7 +415,7 @@ namespace System.Management.Automation
             get
             {
                 var data = GetRequiresData();
-                return data == null ? null : data.RequiredApplicationId;
+                return data?.RequiredApplicationId;
             }
         }
 
@@ -372,7 +429,7 @@ namespace System.Management.Automation
             get
             {
                 var data = GetRequiresData();
-                return data == null ? null : data.RequiredPSVersion;
+                return data?.RequiredPSVersion;
             }
         }
 
@@ -381,7 +438,7 @@ namespace System.Management.Automation
             get
             {
                 var data = GetRequiresData();
-                return data == null ? null : data.RequiredPSEditions;
+                return data?.RequiredPSEditions;
             }
         }
 
@@ -390,7 +447,7 @@ namespace System.Management.Automation
             get
             {
                 var data = GetRequiresData();
-                return data == null ? null : data.RequiredModules;
+                return data?.RequiredModules;
             }
         }
 
@@ -399,22 +456,13 @@ namespace System.Management.Automation
             get
             {
                 var data = GetRequiresData();
-                return data == null ? false : data.IsElevationRequired;
+                return data != null && data.IsElevationRequired;
             }
         }
 
         internal uint PSVersionLineNumber
         {
             get { return 0; }
-        }
-
-        internal IEnumerable<PSSnapInSpecification> RequiresPSSnapIns
-        {
-            get
-            {
-                var data = GetRequiresData();
-                return data == null ? null : data.RequiresPSSnapIns;
-            }
         }
 
         /// <summary>
@@ -432,6 +480,7 @@ namespace System.Management.Automation
                 return _scriptContents;
             }
         }
+
         private string _scriptContents;
 
         /// <summary>
@@ -449,6 +498,7 @@ namespace System.Management.Automation
                 return _originalEncoding;
             }
         }
+
         private Encoding _originalEncoding;
 
         private void ReadScriptContents()
@@ -466,33 +516,54 @@ namespace System.Management.Automation
                 {
                     using (FileStream readerStream = new FileStream(_path, FileMode.Open, FileAccess.Read))
                     {
-                        Encoding defaultEncoding = ClrFacade.GetDefaultEncoding();
-                        Microsoft.Win32.SafeHandles.SafeFileHandle safeFileHandle = readerStream.SafeFileHandle;
-
-                        using (StreamReader scriptReader = new StreamReader(readerStream, defaultEncoding))
+                        using (StreamReader scriptReader = new StreamReader(readerStream, Encoding.Default))
                         {
                             _scriptContents = scriptReader.ReadToEnd();
                             _originalEncoding = scriptReader.CurrentEncoding;
 
-                            // Check if this came from a trusted path. If so, set its language mode to FullLanguage.
-                            if (SystemPolicy.GetSystemLockdownPolicy() != SystemEnforcementMode.None)
+                            // Check this file against any system wide enforcement policies.
+                            SystemScriptFileEnforcement filePolicyEnforcement = SystemPolicy.GetFilePolicyEnforcement(_path, readerStream);
+                            switch (filePolicyEnforcement)
                             {
-                                SystemEnforcementMode scriptSpecificPolicy = SystemPolicy.GetLockdownPolicy(_path, safeFileHandle);
-                                if (scriptSpecificPolicy != SystemEnforcementMode.Enforce)
-                                {
-                                    this.DefiningLanguageMode = PSLanguageMode.FullLanguage;
-                                }
-                                else
-                                {
-                                    this.DefiningLanguageMode = PSLanguageMode.ConstrainedLanguage;
-                                }
-                            }
-                            else
-                            {
-                                if (this.Context != null)
-                                {
-                                    this.DefiningLanguageMode = this.Context.LanguageMode;
-                                }
+                                case SystemScriptFileEnforcement.None:
+                                    if (Context != null)
+                                    {
+                                        DefiningLanguageMode = Context.LanguageMode;
+                                    }
+                                    break;
+
+                                case SystemScriptFileEnforcement.Allow:
+                                    DefiningLanguageMode = PSLanguageMode.FullLanguage;
+                                    break;
+
+                                case SystemScriptFileEnforcement.AllowConstrained:
+                                    DefiningLanguageMode = PSLanguageMode.ConstrainedLanguage;
+                                    break;
+
+                                case SystemScriptFileEnforcement.AllowConstrainedAudit:
+                                    SystemPolicy.LogWDACAuditMessage(
+                                        context: Context,
+                                        title: SecuritySupportStrings.ExternalScriptWDACLogTitle,
+                                        message: string.Format(Globalization.CultureInfo.CurrentUICulture, SecuritySupportStrings.ExternalScriptWDACLogMessage, _path),
+                                        fqid: "ScriptFileNotTrustedByPolicy");
+                                    // We set the language mode to Constrained Language, even though in policy audit mode no restrictions are applied
+                                    // and instead an audit log message is generated wherever a restriction would be applied.
+                                    DefiningLanguageMode = PSLanguageMode.ConstrainedLanguage;
+                                    break;
+
+                                case SystemScriptFileEnforcement.Block:
+                                    throw new PSSecurityException(
+                                        string.Format(
+                                            Globalization.CultureInfo.CurrentUICulture,
+                                            SecuritySupportStrings.ScriptFileBlockedBySystemPolicy,
+                                            _path));
+
+                                default:
+                                    throw new PSSecurityException(
+                                        string.Format(
+                                            Globalization.CultureInfo.CurrentUICulture,
+                                            SecuritySupportStrings.UnknownSystemScriptFileEnforcement,
+                                            filePolicyEnforcement));
                             }
                         }
                     }
@@ -524,7 +595,7 @@ namespace System.Management.Automation
             CommandNotFoundException cmdE = new CommandNotFoundException(innerException.Message, innerException);
             throw cmdE;
         }
-    } // ExternalScriptInfo
+    }
 
     /// <summary>
     /// Thrown when fail to parse #requires statements. Caught by CommandDiscovery.
@@ -538,9 +609,8 @@ namespace System.Management.Automation
     }
 
     /// <summary>
-    /// Defines the name and version tuple of a PSSnapin
+    /// Defines the name and version tuple of a PSSnapin.
     /// </summary>
-    [Serializable]
     public class PSSnapInSpecification
     {
         internal PSSnapInSpecification(string psSnapinName)
@@ -560,5 +630,4 @@ namespace System.Management.Automation
         /// </summary>
         public Version Version { get; internal set; }
     }
-} // namespace System.Management.Automation
-
+}

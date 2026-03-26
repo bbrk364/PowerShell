@@ -1,16 +1,18 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
+
 using Microsoft.Management.Infrastructure;
+
 using Dbg = System.Management.Automation.Diagnostics;
 
 namespace Microsoft.PowerShell.Cmdletization.Cim
 {
     /// <summary>
-    /// Job wrapping invocation of a CreateInstance intrinsic CIM method
+    /// Job wrapping invocation of a CreateInstance intrinsic CIM method.
     /// </summary>
-    internal class CreateInstanceJob : PropertySettingJob<CimInstance>
+    internal sealed class CreateInstanceJob : PropertySettingJob<CimInstance>
     {
         private CimInstance _resultFromCreateInstance;
         private CimInstance _resultFromGetInstance;
@@ -65,8 +67,8 @@ namespace Microsoft.PowerShell.Cmdletization.Cim
                 }
 
 #if DEBUG
-                Dbg.Assert(_getInstanceOperationGotStarted == false, "CreateInstance should be started *before* GetInstance");
-                Dbg.Assert(_createInstanceOperationGotStarted == false, "Should not start CreateInstance operation twice");
+                Dbg.Assert(!_getInstanceOperationGotStarted, "CreateInstance should be started *before* GetInstance");
+                Dbg.Assert(!_createInstanceOperationGotStarted, "Should not start CreateInstance operation twice");
                 _createInstanceOperationGotStarted = true;
 #endif
                 return GetCreateInstanceOperation();
@@ -74,8 +76,8 @@ namespace Microsoft.PowerShell.Cmdletization.Cim
             else
             {
 #if DEBUG
-                Dbg.Assert(_createInstanceOperationGotStarted == true, "GetInstance should be started *after* CreateInstance");
-                Dbg.Assert(_getInstanceOperationGotStarted == false, "Should not start GetInstance operation twice");
+                Dbg.Assert(_createInstanceOperationGotStarted, "GetInstance should be started *after* CreateInstance");
+                Dbg.Assert(!_getInstanceOperationGotStarted, "Should not start GetInstance operation twice");
                 Dbg.Assert(_resultFromGetInstance == null, "GetInstance operation shouldn't happen twice");
                 _getInstanceOperationGotStarted = true;
 #endif

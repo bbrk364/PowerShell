@@ -1,27 +1,25 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
+using System.Globalization;
 using System.Management.Automation;
 using System.Management.Automation.Internal;
-using System.Globalization;
 
 namespace Microsoft.PowerShell.Commands
 {
     /// <summary>
-    ///
     /// </summary>
     [Cmdlet(VerbsCommon.Get, "Unique", DefaultParameterSetName = "AsString",
-        HelpUri = "https://go.microsoft.com/fwlink/?LinkID=113335", RemotingCapability = RemotingCapability.None)]
+        HelpUri = "https://go.microsoft.com/fwlink/?LinkID=2097028", RemotingCapability = RemotingCapability.None)]
     public sealed class GetUniqueCommand : PSCmdlet
     {
         #region Parameters
         /// <summary>
-        ///
         /// </summary>
         /// <value></value>
         [Parameter(ValueFromPipeline = true)]
-        public PSObject InputObject { set; get; } = AutomationNull.Value;
+        public PSObject InputObject { get; set; } = AutomationNull.Value;
 
         /// <summary>
         /// This parameter specifies that objects should be converted to
@@ -32,8 +30,10 @@ namespace Microsoft.PowerShell.Commands
         public SwitchParameter AsString
         {
             get { return _asString; }
+
             set { _asString = value; }
         }
+
         private bool _asString;
 
         /// <summary>
@@ -45,14 +45,22 @@ namespace Microsoft.PowerShell.Commands
         public SwitchParameter OnType
         {
             get { return _onType; }
+
             set { _onType = value; }
         }
+
         private bool _onType = false;
+
+        /// <summary>
+        /// Gets or sets case insensitive switch for string comparison.
+        /// </summary>
+        [Parameter]
+        public SwitchParameter CaseInsensitive { get; set; }
+
         #endregion Parameters
 
         #region Overrides
         /// <summary>
-        ///
         /// </summary>
         protected override void ProcessRecord()
         {
@@ -71,14 +79,12 @@ namespace Microsoft.PowerShell.Commands
             else if (AsString)
             {
                 string inputString = InputObject.ToString();
-                if (_lastObjectAsString == null)
-                {
-                    _lastObjectAsString = _lastObject.ToString();
-                }
-                if (0 == String.Compare(
+                _lastObjectAsString ??= _lastObject.ToString();
+
+                if (string.Equals(
                     inputString,
                     _lastObjectAsString,
-                    StringComparison.CurrentCulture))
+                    CaseInsensitive.IsPresent ? StringComparison.CurrentCultureIgnoreCase : StringComparison.CurrentCulture))
                 {
                     isUnique = false;
                 }
@@ -89,14 +95,12 @@ namespace Microsoft.PowerShell.Commands
             }
             else // compare as objects
             {
-                if (_comparer == null)
-                {
-                    _comparer = new ObjectCommandComparer(
-                        true, // ascending (doesn't matter)
-                        CultureInfo.CurrentCulture,
-                        true); // case-sensitive
-                }
-                isUnique = (0 != _comparer.Compare(InputObject, _lastObject));
+                _comparer ??= new ObjectCommandComparer(
+                    ascending: true,
+                    CultureInfo.CurrentCulture,
+                    caseSensitive: !CaseInsensitive.IsPresent);
+
+                isUnique = (_comparer.Compare(InputObject, _lastObject) != 0);
             }
 
             if (isUnique)
@@ -114,4 +118,3 @@ namespace Microsoft.PowerShell.Commands
         #endregion Internal
     }
 }
-

@@ -1,14 +1,15 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
 using System.Globalization;
 using System.Management.Automation;
+
 using Microsoft.Management.Infrastructure;
 
 namespace Microsoft.PowerShell.Cmdletization.Cim
 {
-    internal class CimJobContext
+    internal sealed class CimJobContext
     {
         internal CimJobContext(
             CimCmdletInvocationContext cmdletInvocationContext,
@@ -21,10 +22,11 @@ namespace Microsoft.PowerShell.Cmdletization.Cim
             this.TargetObject = targetObject ?? this.ClassName;
         }
 
-        public CimCmdletInvocationContext CmdletInvocationContext { get; private set; }
+        public CimCmdletInvocationContext CmdletInvocationContext { get; }
 
-        public CimSession Session { get; private set; }
-        public object TargetObject { get; private set; }
+        public CimSession Session { get; }
+
+        public object TargetObject { get; }
 
         public string ClassName
         {
@@ -42,6 +44,7 @@ namespace Microsoft.PowerShell.Cmdletization.Cim
                 {
                     return null;
                 }
+
                 return this.ClassName;
             }
         }
@@ -54,6 +57,7 @@ namespace Microsoft.PowerShell.Cmdletization.Cim
                 {
                     return this.CmdletInvocationContext.NamespaceOverride;
                 }
+
                 return GetCimNamespace(this.CmdletInvocationContext.CmdletDefinitionContext.CmdletizationClassName);
             }
         }

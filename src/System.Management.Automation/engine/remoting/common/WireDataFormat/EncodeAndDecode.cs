@@ -1,20 +1,23 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Management.Automation.Tracing;
-using System.Threading;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Management.Automation.Internal;
+using System.Management.Automation;
 using System.Management.Automation.Host;
+using System.Management.Automation.Internal;
+using System.Management.Automation.Remoting;
 using System.Management.Automation.Runspaces;
 using System.Management.Automation.Runspaces.Internal;
-using System.Management.Automation.Remoting;
+using System.Management.Automation.Tracing;
+using System.Reflection;
+using System.Threading;
+
 using Microsoft.PowerShell;
 using Microsoft.PowerShell.Commands;
+
 using Dbg = System.Management.Automation.Diagnostics;
-using System.Reflection;
 
 namespace System.Management.Automation
 {
@@ -28,7 +31,6 @@ namespace System.Management.Automation
     #region Constructors
 
         /// <summary>
-        ///
         /// </summary>
         public RemotingEncodingException()
             : base()
@@ -36,7 +38,6 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="message"></param>
         public RemotingEncodingException(string message)
@@ -45,7 +46,6 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="message"></param>
         /// <param name="innerException"></param>
@@ -55,7 +55,6 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="message"></param>
         /// <param name="innerException"></param>
@@ -75,12 +74,13 @@ namespace System.Management.Automation
     /// </summary>
     internal static class RemotingConstants
     {
-        internal static readonly Version HostVersion = new Version(1, 0, 0, 0);
+        internal static readonly Version HostVersion = PSVersionInfo.PSVersion;
 
-        internal static readonly Version ProtocolVersionWin7RC = new Version(2, 0);
-        internal static readonly Version ProtocolVersionWin7RTM = new Version(2, 1);
-        internal static readonly Version ProtocolVersionWin8RTM = new Version(2, 2);
-        internal static readonly Version ProtocolVersionWin10RTM = new Version(2, 3);
+        internal static readonly Version ProtocolVersion_2_0 = new(2, 0); // Window 7 RC
+        internal static readonly Version ProtocolVersion_2_1 = new(2, 1); // Window 7 RTM
+        internal static readonly Version ProtocolVersion_2_2 = new(2, 2); // Window 8 RTM
+        internal static readonly Version ProtocolVersion_2_3 = new(2, 3); // Window 10 RTM
+        internal static readonly Version ProtocolVersion_2_4 = new(2, 4); // PowerShell 7.6
 
         // Minor will be incremented for each change in PSRP client/server stack and new versions will be
         // forked on early major release/drop changes history.
@@ -88,14 +88,21 @@ namespace System.Management.Automation
         //      2.102 to 2.103 - Key exchange protocol changes in M3
         //      2.103 to 2.2   - Final ship protocol version value, no change to protocol
         //      2.2 to 2.3     - Enabling informational stream
-        internal static readonly Version ProtocolVersionCurrent = new Version(2, 3);
+        //      2.3 to 2.4     - Deprecate the 'Session_Key' exchange. The following messages are obsolete when both server and client are v2.4+:
+        //                        - PUBLIC_KEY
+        //                        - PUBLIC_KEY_REQUEST
+        //                        - ENCRYPTED_SESSION_KEY
+        //                       The padding algorithm 'RSAEncryptionPadding.Pkcs1' used in the 'Session_Key' exchange is NOT secure, and therefore,
+        //                       PSRP needs to be used on top of a secure transport and the 'Session_Key' doesn't add any extra security.
+        //                       So, we decided to deprecate the 'Session_Key' exchange in PSRP and skip encryption and decryption for 'SecureString'
+        //                       objects. Instead, we require the transport to be secure for secure data transfer between PSRP clients and servers.
+        internal static readonly Version ProtocolVersionCurrent = new(2, 4);
         internal static readonly Version ProtocolVersion = ProtocolVersionCurrent;
         // Used by remoting commands to add remoting specific note properties.
         internal static readonly string ComputerNameNoteProperty = "PSComputerName";
         internal static readonly string RunspaceIdNoteProperty = "RunspaceId";
         internal static readonly string ShowComputerNameNoteProperty = "PSShowComputerName";
         internal static readonly string SourceJobInstanceId = "PSSourceJobInstanceId";
-        internal static readonly string SourceLength = "Length";
         internal static readonly string EventObject = "PSEventObject";
         // used by Custom Shell related cmdlets.
         internal const string PSSessionConfigurationNoun = "PSSessionConfiguration";
@@ -126,231 +133,6 @@ namespace System.Management.Automation
         // used by negotiation algorithm. Server sends this information back
         // to client to let client know if the negotiation succeeded.
         internal const string IsNegotiationSucceeded = "IsNegotiationSucceeded";
-
-        #region "PSv2 Tab Expansion Function"
-
-        internal const string PSv2TabExpansionFunction = "TabExpansion";
-
-        /// <summary>
-        /// This is the PSv2 function for tab expansion. It's only for legacy purpose - used in
-        /// an interactive remote session from a win7 machine to a win8 machine (or later).
-        /// </summary>
-        internal const string PSv2TabExpansionFunctionText = @"
-            param($line, $lastWord)
-            & {
-                function Write-Members ($sep='.')
-                {
-                    Invoke-Expression ('$_val=' + $_expression)
-
-                    $_method = [Management.Automation.PSMemberTypes] `
-                        'Method,CodeMethod,ScriptMethod,ParameterizedProperty'
-                    if ($sep -eq '.')
-                    {
-                        $params = @{view = 'extended','adapted','base'}
-                    }
-                    else
-                    {
-                        $params = @{static=$true}
-                    }
-
-                    foreach ($_m in ,$_val | Get-Member @params $_pat |
-                        Sort-Object membertype,name)
-                    {
-                        if ($_m.MemberType -band $_method)
-                        {
-                            # Return a method...
-                            $_base + $_expression + $sep + $_m.name + '('
-                        }
-                        else {
-                            # Return a property...
-                            $_base + $_expression + $sep + $_m.name
-                        }
-                    }
-                }
-
-                # If a command name contains any of these chars, it needs to be quoted
-                $_charsRequiringQuotes = ('`&@''#{}()$,;|<> ' + ""`t"").ToCharArray()
-
-                # If a variable name contains any of these characters it needs to be in braces
-                $_varsRequiringQuotes = ('-`&@''#{}()$,;|<> .\/' + ""`t"").ToCharArray()
-
-                switch -regex ($lastWord)
-                {
-                    # Handle property and method expansion rooted at variables...
-                    # e.g. $a.b.<tab>
-                    '(^.*)(\$(\w|:|\.)+)\.([*\w]*)$' {
-                        $_base = $matches[1]
-                        $_expression = $matches[2]
-                        $_pat = $matches[4] + '*'
-                        Write-Members
-                        break;
-                    }
-
-                    # Handle simple property and method expansion on static members...
-                    # e.g. [datetime]::n<tab>
-                    '(^.*)(\[(\w|\.|\+)+\])(\:\:|\.){0,1}([*\w]*)$' {
-                        $_base = $matches[1]
-                        $_expression = $matches[2]
-                        $_pat = $matches[5] + '*'
-                        Write-Members $(if (! $matches[4]) {'::'} else {$matches[4]})
-                        break;
-                    }
-
-                    # Handle complex property and method expansion on static members
-                    # where there are intermediate properties...
-                    # e.g. [datetime]::now.d<tab>
-                    '(^.*)(\[(\w|\.|\+)+\](\:\:|\.)(\w+\.)+)([*\w]*)$' {
-                        $_base = $matches[1]  # everything before the expression
-                        $_expression = $matches[2].TrimEnd('.') # expression less trailing '.'
-                        $_pat = $matches[6] + '*'  # the member to look for...
-                        Write-Members
-                        break;
-                    }
-
-                    # Handle variable name expansion...
-                    '(^.*\$)([*\w:]+)$' {
-                        $_prefix = $matches[1]
-                        $_varName = $matches[2]
-                        $_colonPos = $_varname.IndexOf(':')
-                        if ($_colonPos -eq -1)
-                        {
-                            $_varName = 'variable:' + $_varName
-                            $_provider = ''
-                        }
-                        else
-                        {
-                            $_provider = $_varname.Substring(0, $_colonPos+1)
-                        }
-
-                        foreach ($_v in Get-ChildItem ($_varName + '*') | sort Name)
-                        {
-                            $_nameFound = $_v.name
-                            $(if ($_nameFound.IndexOfAny($_varsRequiringQuotes) -eq -1) {'{0}{1}{2}'}
-                            else {'{0}{{{1}{2}}}'}) -f $_prefix, $_provider, $_nameFound
-                        }
-                        break;
-                    }
-
-                    # Do completion on parameters...
-                    '^-([*\w0-9]*)' {
-                        $_pat = $matches[1] + '*'
-
-                        # extract the command name from the string
-                        # first split the string into statements and pipeline elements
-                        # This doesn't handle strings however.
-                        $_command = [regex]::Split($line, '[|;=]')[-1]
-
-                        #  Extract the trailing unclosed block e.g. ls | foreach { cp
-                        if ($_command -match '\{([^\{\}]*)$')
-                        {
-                            $_command = $matches[1]
-                        }
-
-                        # Extract the longest unclosed parenthetical expression...
-                        if ($_command -match '\(([^()]*)$')
-                        {
-                            $_command = $matches[1]
-                        }
-
-                        # take the first space separated token of the remaining string
-                        # as the command to look up. Trim any leading or trailing spaces
-                        # so you don't get leading empty elements.
-                        $_command = $_command.TrimEnd('-')
-                        $_command,$_arguments = $_command.Trim().Split()
-
-                        # now get the info object for it, -ArgumentList will force aliases to be resolved
-                        # it also retrieves dynamic parameters
-                        try
-                        {
-                            $_command = @(Get-Command -type 'Alias,Cmdlet,Function,Filter,ExternalScript' `
-                                -Name $_command -ArgumentList $_arguments)[0]
-                        }
-                        catch
-                        {
-                            # see if the command is an alias. If so, resolve it to the real command
-                            if(Test-Path alias:\$_command)
-                            {
-                                $_command = @(Get-Command -Type Alias $_command)[0].Definition
-                            }
-
-                            # If we were unsuccessful retrieving the command, try again without the parameters
-                            $_command = @(Get-Command -type 'Cmdlet,Function,Filter,ExternalScript' `
-                                -Name $_command)[0]
-                        }
-
-                        # remove errors generated by the command not being found, and break
-                        if(-not $_command) { $error.RemoveAt(0); break; }
-
-                        # expand the parameter sets and emit the matching elements
-                        # need to use psbase.Keys in case 'keys' is one of the parameters
-                        # to the cmdlet
-                        foreach ($_n in $_command.Parameters.psbase.Keys)
-                        {
-                            if ($_n -like $_pat) { '-' + $_n }
-                        }
-                        break;
-                    }
-
-                    # Tab complete against history either #<pattern> or #<id>
-                    '^#(\w*)' {
-                        $_pattern = $matches[1]
-                        if ($_pattern -match '^[0-9]+$')
-                        {
-                            Get-History -ea SilentlyContinue -Id $_pattern | ForEach-Object { $_.CommandLine }
-                        }
-                        else
-                        {
-                            $_pattern = '*' + $_pattern + '*'
-                            Get-History -Count 32767 | Sort-Object -Descending Id| ForEach-Object { $_.CommandLine } | where { $_ -like $_pattern }
-                        }
-                        break;
-                    }
-
-                    # try to find a matching command...
-                    default {
-                        # parse the script...
-                        $_tokens = [System.Management.Automation.PSParser]::Tokenize($line,
-                            [ref] $null)
-
-                        if ($_tokens)
-                        {
-                            $_lastToken = $_tokens[$_tokens.count - 1]
-                            if ($_lastToken.Type -eq 'Command')
-                            {
-                                $_cmd = $_lastToken.Content
-
-                                # don't look for paths...
-                                if ($_cmd.IndexOfAny('/\:') -eq -1)
-                                {
-                                    # handle parsing errors - the last token string should be the last
-                                    # string in the line...
-                                    if ($lastword.Length -ge $_cmd.Length -and
-                                        $lastword.substring($lastword.length-$_cmd.length) -eq $_cmd)
-                                    {
-                                        $_pat = $_cmd + '*'
-                                        $_base = $lastword.substring(0, $lastword.length-$_cmd.length)
-
-                                        # get files in current directory first, then look for commands...
-                                        $( try {Resolve-Path -ea SilentlyContinue -Relative $_pat } catch {} ;
-                                           try { $ExecutionContext.InvokeCommand.GetCommandName($_pat, $true, $false) |
-                                               Sort-Object -Unique } catch {} ) |
-                                                   # If the command contains non-word characters (space, ) ] ; ) etc.)
-                                                   # then it needs to be quoted and prefixed with &
-                                                   ForEach-Object {
-                                                        if ($_.IndexOfAny($_charsRequiringQuotes) -eq -1) { $_ }
-                                                        elseif ($_.IndexOf('''') -ge 0) {'& ''{0}''' -f $_.Replace('''','''''') }
-                                                        else { '& ''{0}''' -f $_ }} |
-                                                   ForEach-Object {'{0}{1}' -f $_base,$_ }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        ";
-
-        #endregion "PSv2 Tab Expansion Function"
 
         #region Host Related Strings
 
@@ -420,15 +202,15 @@ namespace System.Management.Automation
         #region StateInfo
 
         /// <summary>
-        /// Name of property when Exception is serialized as error record
+        /// Name of property when Exception is serialized as error record.
         /// </summary>
         internal const string ExceptionAsErrorRecord = "ExceptionAsErrorRecord";
         /// <summary>
-        /// Property used for encoding state of pipeline when serializing PipelineStateInfo
+        /// Property used for encoding state of pipeline when serializing PipelineStateInfo.
         /// </summary>
         internal const string PipelineState = "PipelineState";
         /// <summary>
-        /// Property used for encoding state of runspace when serializing RunspaceStateInfo
+        /// Property used for encoding state of runspace when serializing RunspaceStateInfo.
         /// </summary>
         internal const string RunspaceState = "RunspaceState";
 
@@ -437,7 +219,7 @@ namespace System.Management.Automation
         #region PSEventArgs
 
         /// <summary>
-        /// Properties used for serialization of PSEventArgs
+        /// Properties used for serialization of PSEventArgs.
         /// </summary>
         internal const string PSEventArgsComputerName = "PSEventArgs.ComputerName";
         internal const string PSEventArgsRunspaceId = "PSEventArgs.RunspaceId";
@@ -636,21 +418,21 @@ namespace System.Management.Automation
 
         /// <summary>
         /// This method generates a Remoting data structure handler message for
-        /// creating a RunspacePool on the server
+        /// creating a RunspacePool on the server.
         /// </summary>
-        /// <param name="clientRunspacePoolId">id of the clientRunspacePool</param>
+        /// <param name="clientRunspacePoolId">Id of the clientRunspacePool.</param>
         /// <param name="minRunspaces">minRunspaces for the RunspacePool
         /// to be created at the server</param>
         /// <param name="maxRunspaces">maxRunspaces for the RunspacePool
         /// to be created at the server</param>
-        /// <param name="runspacePool">local runspace pool</param>
+        /// <param name="runspacePool">Local runspace pool.</param>
         /// <param name="host">host for the runspacepool at the client end
         /// from this host, information will be extracted and sent to
         /// server</param>
         /// <param name="applicationArguments">
         /// Application arguments the server can see in <see cref="System.Management.Automation.Remoting.PSSenderInfo.ApplicationArguments"/>
         /// </param>
-        /// <returns>data structure handler message encoded as RemoteDataObject</returns>
+        /// <returns>Data structure handler message encoded as RemoteDataObject.</returns>
         /// The message format is as under for this message
         /// --------------------------------------------------------------------------------------
         /// | D |    TI     |  RPID  |   PID   |   Action   |      Data      |        Type         |
@@ -676,11 +458,7 @@ namespace System.Management.Automation
             dataAsPSObject.Properties.Add(new PSNoteProperty(RemoteDataNameStrings.MinRunspaces, minRunspaces));
             dataAsPSObject.Properties.Add(new PSNoteProperty(RemoteDataNameStrings.MaxRunspaces, maxRunspaces));
             dataAsPSObject.Properties.Add(new PSNoteProperty(RemoteDataNameStrings.ThreadOptions, runspacePool.ThreadOptions));
-#if CORECLR // No ApartmentState In CoreCLR, default to MTA for outgoing objects
-            ApartmentState poolState = ApartmentState.MTA;
-#else
             ApartmentState poolState = runspacePool.ApartmentState;
-#endif
             dataAsPSObject.Properties.Add(new PSNoteProperty(RemoteDataNameStrings.ApartmentState, poolState));
             dataAsPSObject.Properties.Add(new PSNoteProperty(RemoteDataNameStrings.ApplicationArguments, applicationArguments));
 
@@ -698,14 +476,14 @@ namespace System.Management.Automation
 
         /// <summary>
         /// This method generates a Remoting data structure handler message for
-        /// creating a RunspacePool on the server
+        /// creating a RunspacePool on the server.
         /// </summary>
-        /// <param name="clientRunspacePoolId">id of the clientRunspacePool</param>
+        /// <param name="clientRunspacePoolId">Id of the clientRunspacePool.</param>
         /// <param name="minRunspaces">minRunspaces for the RunspacePool
         /// to be created at the server</param>
         /// <param name="maxRunspaces">maxRunspaces for the RunspacePool
         /// to be created at the server</param>
-        /// <returns>data structure handler message encoded as RemoteDataObject</returns>
+        /// <returns>Data structure handler message encoded as RemoteDataObject.</returns>
         /// The message format is as under for this message
         /// --------------------------------------------------------------------------------------
         /// | D |    TI     |  RPID  |   PID   |   Action   |      Data      |        Type         |
@@ -728,6 +506,7 @@ namespace System.Management.Automation
                 dataAsPSObject.Properties.Add(new PSNoteProperty(RemoteDataNameStrings.MinRunspaces, minRunspaces));
                 propertyCount++;
             }
+
             if (maxRunspaces != -1)
             {
                 dataAsPSObject.Properties.Add(new PSNoteProperty(RemoteDataNameStrings.MaxRunspaces, maxRunspaces));
@@ -754,14 +533,14 @@ namespace System.Management.Automation
 
         /// <summary>
         /// Generates a response message to ConnectRunspace that includes
-        /// sufficient information to construction client RunspacePool state
+        /// sufficient information to construction client RunspacePool state.
         /// </summary>
-        /// <param name="runspacePoolId">id of the clientRunspacePool</param>
+        /// <param name="runspacePoolId">Id of the clientRunspacePool.</param>
         /// <param name="minRunspaces">minRunspaces for the RunspacePool
         /// to be created at the server</param>
         /// <param name="maxRunspaces">maxRunspaces for the RunspacePool
         /// to be created at the server</param>
-        /// <returns>data structure handler message encoded as RemoteDataObject</returns>
+        /// <returns>Data structure handler message encoded as RemoteDataObject.</returns>
         /// The message format is as under for this message
         /// --------------------------------------------------------------------------------------
         /// | D |    TI     |  RPID  |   PID   |   Action   |      Data      |        Type         |
@@ -789,13 +568,13 @@ namespace System.Management.Automation
 
         /// <summary>
         /// This method generates a Remoting data structure handler message for
-        /// modifying the maxrunspaces of the specified runspace pool on the server
+        /// modifying the maxrunspaces of the specified runspace pool on the server.
         /// </summary>
-        /// <param name="clientRunspacePoolId">id of the clientRunspacePool</param>
+        /// <param name="clientRunspacePoolId">Id of the clientRunspacePool.</param>
         /// <param name="maxRunspaces">new value of maxRunspaces for the
         /// specified RunspacePool  </param>
-        /// <param name="callId">call id of the call at client</param>
-        /// <returns>data structure handler message encoded as RemoteDataObject</returns>
+        /// <param name="callId">Call id of the call at client.</param>
+        /// <returns>Data structure handler message encoded as RemoteDataObject.</returns>
         /// The message format is as under for this message
         /// --------------------------------------------------------------------------------------
         /// | D |    TI     |  RPID  |   PID   |   Action   |      Data     |        Type         |
@@ -820,13 +599,13 @@ namespace System.Management.Automation
 
         /// <summary>
         /// This method generates a Remoting data structure handler message for
-        /// modifying the maxrunspaces of the specified runspace pool on the server
+        /// modifying the maxrunspaces of the specified runspace pool on the server.
         /// </summary>
-        /// <param name="clientRunspacePoolId">id of the clientRunspacePool</param>
+        /// <param name="clientRunspacePoolId">Id of the clientRunspacePool.</param>
         /// <param name="minRunspaces">new value of minRunspaces for the
         /// specified RunspacePool  </param>
-        /// <param name="callId">call id of the call at client</param>
-        /// <returns>data structure handler message encoded as RemoteDataObject</returns>
+        /// <param name="callId">Call id of the call at client.</param>
+        /// <returns>Data structure handler message encoded as RemoteDataObject.</returns>
         /// The message format is as under for this message
         /// --------------------------------------------------------------------------------------
         /// | D |    TI     |  RPID  |   PID   |   Action   |      Data     |        Type         |
@@ -851,12 +630,12 @@ namespace System.Management.Automation
 
         /// <summary>
         /// This method generates a Remoting data structure handler message for
-        /// that contains a response to SetMaxRunspaces or SetMinRunspaces
+        /// that contains a response to SetMaxRunspaces or SetMinRunspaces.
         /// </summary>
-        /// <param name="clientRunspacePoolId">id of the clientRunspacePool</param>
-        /// <param name="callId">call id of the call at client</param>
-        /// <param name="response">response to the call</param>
-        /// <returns>data structure handler message encoded as RemoteDataObject</returns>
+        /// <param name="clientRunspacePoolId">Id of the clientRunspacePool.</param>
+        /// <param name="callId">Call id of the call at client.</param>
+        /// <param name="response">Response to the call.</param>
+        /// <returns>Data structure handler message encoded as RemoteDataObject.</returns>
         /// The message format is as under for this message
         /// --------------------------------------------------------------------------------------
         /// | D |    TI     |  RPID  |   PID   |   Action   |      Data     |        Type         |
@@ -881,12 +660,12 @@ namespace System.Management.Automation
 
         /// <summary>
         /// This method generates a Remoting data structure handler message for
-        /// getting the available runspaces on the server
+        /// getting the available runspaces on the server.
         /// </summary>
         /// <param name="clientRunspacePoolId">guid of the runspace pool on which
         /// this needs to be queried</param>
-        /// <param name="callId">call id of the call at the client</param>
-        /// <returns>data structure handler message encoded as RemoteDataObject</returns>
+        /// <param name="callId">Call id of the call at the client.</param>
+        /// <returns>Data structure handler message encoded as RemoteDataObject.</returns>
         /// The message format is as under for this message
         /// --------------------------------------------------------------------------
         /// | D |    TI     |  RPID  |   PID   |      Data     |        Type          |
@@ -909,13 +688,13 @@ namespace System.Management.Automation
 
         /// <summary>
         /// This method generates a remoting data structure handler message for
-        /// transferring a roles public key to the other side
+        /// transferring a roles public key to the other side.
         /// </summary>
-        /// <param name="runspacePoolId">runspace pool id</param>
-        /// <param name="publicKey">public key to send across</param>
+        /// <param name="runspacePoolId">Runspace pool id.</param>
+        /// <param name="publicKey">Public key to send across.</param>
         /// <param name="destination">destination that this message is
         /// targeted to</param>
-        /// <returns>data structure message</returns>
+        /// <returns>Data structure message.</returns>
         /// The message format is as under for this message
         /// --------------------------------------------------------------------------
         /// | D |    TI     |  RPID  |   PID   |      Data     |        Type          |
@@ -938,10 +717,10 @@ namespace System.Management.Automation
 
         /// <summary>
         /// This method generates a remoting data structure handler message for
-        /// requesting a public key from the client to the server
+        /// requesting a public key from the client to the server.
         /// </summary>
-        /// <param name="runspacePoolId">runspace pool id</param>
-        /// <returns>data structure message</returns>
+        /// <param name="runspacePoolId">Runspace pool id.</param>
+        /// <returns>Data structure message.</returns>
         /// The message format is as under for this message
         /// --------------------------------------------------------------------------
         /// | D |    TI     |  RPID  |   PID   |      Data     |        Type          |
@@ -960,11 +739,11 @@ namespace System.Management.Automation
 
         /// <summary>
         /// This method generates a remoting data structure handler message for
-        /// sending an encrypted session key to the client
+        /// sending an encrypted session key to the client.
         /// </summary>
-        /// <param name="runspacePoolId">runspace pool id</param>
-        /// <param name="encryptedSessionKey">encrypted session key</param>
-        /// <returns>data structure message</returns>
+        /// <param name="runspacePoolId">Runspace pool id.</param>
+        /// <param name="encryptedSessionKey">Encrypted session key.</param>
+        /// <returns>Data structure message.</returns>
         /// The message format is as under for this message
         /// --------------------------------------------------------------------------
         /// | D |    TI     |  RPID  |   PID   |      Data     |        Type          |
@@ -988,13 +767,13 @@ namespace System.Management.Automation
 
         /// <summary>
         /// This methods generates a Remoting data structure handler message for
-        /// creating a command discovery pipeline on the server
+        /// creating a command discovery pipeline on the server.
         /// </summary>
         /// <param name="shell">The client remote powershell from which the
         /// message needs to be generated.
         /// The data is extracted from parameters of the first command named "Get-Command".
         /// </param>
-        /// <returns>data structure handler message encoded as RemoteDataObject</returns>
+        /// <returns>Data structure handler message encoded as RemoteDataObject.</returns>
         /// The message format is as under for this message
         /// -------------------------------------------------------------------------
         /// | D |    TI     |  RPID  |   PID   |     Data      |        Type         |
@@ -1016,6 +795,7 @@ namespace System.Management.Automation
                     break;
                 }
             }
+
             Dbg.Assert(getCommand != null, "Whoever sets PowerShell.IsGetCommandMetadataSpecialPipeline needs to make sure Get-Command is present");
 
             string[] name = null;
@@ -1068,11 +848,11 @@ namespace System.Management.Automation
 
         /// <summary>
         /// This methods generates a Remoting data structure handler message for
-        /// creating a PowerShell on the server
+        /// creating a PowerShell on the server.
         /// </summary>
         /// <param name="shell">The client remote powershell from which the
         /// create powershell message needs to be generated</param>
-        /// <returns>data structure handler message encoded as RemoteDataObject</returns>
+        /// <returns>Data structure handler message encoded as RemoteDataObject.</returns>
         /// The message format is as under for this message
         /// -------------------------------------------------------------------------
         /// | D |    TI     |  RPID  |   PID   |     Data      |        Type         |
@@ -1110,11 +890,7 @@ namespace System.Management.Automation
                 hostInfo = new HostInfo(null);
                 hostInfo.UseRunspaceHost = true;
 
-#if CORECLR // No ApartmentState In CoreCLR, default to MTA for outgoing objects
-                ApartmentState passedApartmentState = ApartmentState.MTA;
-#else
                 ApartmentState passedApartmentState = rsPool.ApartmentState;
-#endif
                 dataAsPSObject.Properties.Add(new PSNoteProperty(RemoteDataNameStrings.ApartmentState, passedApartmentState));
                 dataAsPSObject.Properties.Add(new PSNoteProperty(RemoteDataNameStrings.RemoteStreamOptions, RemoteStreamOptions.AddInvocationInfo));
                 dataAsPSObject.Properties.Add(new PSNoteProperty(RemoteDataNameStrings.AddToHistory, false));
@@ -1127,11 +903,7 @@ namespace System.Management.Automation
                     hostInfo.UseRunspaceHost = true;
                 }
 
-#if CORECLR // No ApartmentState In CoreCLR, default to MTA for outgoing objects
-                ApartmentState passedApartmentState = ApartmentState.MTA;
-#else
                 ApartmentState passedApartmentState = settings.ApartmentState;
-#endif
                 dataAsPSObject.Properties.Add(new PSNoteProperty(RemoteDataNameStrings.ApartmentState, passedApartmentState));
                 dataAsPSObject.Properties.Add(new PSNoteProperty(RemoteDataNameStrings.RemoteStreamOptions, settings.RemoteStreamOptions));
                 dataAsPSObject.Properties.Add(new PSNoteProperty(RemoteDataNameStrings.AddToHistory, settings.AddToHistory));
@@ -1149,11 +921,11 @@ namespace System.Management.Automation
 
         /// <summary>
         /// This method creates a remoting data structure handler message for transporting
-        /// application private data from server to client
+        /// application private data from server to client.
         /// </summary>
-        /// <param name="clientRunspacePoolId">id of the client RunspacePool</param>
-        /// <param name="applicationPrivateData">application private data</param>
-        /// <returns>data structure handler message encoded as RemoteDataObject</returns>
+        /// <param name="clientRunspacePoolId">Id of the client RunspacePool.</param>
+        /// <param name="applicationPrivateData">Application private data.</param>
+        /// <returns>Data structure handler message encoded as RemoteDataObject.</returns>
         /// The message format is as under for this message
         /// --------------------------------------------------------------------------------------
         /// | D |    TI     |  RPID  |   PID   |   Action   |      Data     |        Type         |
@@ -1178,11 +950,11 @@ namespace System.Management.Automation
 
         /// <summary>
         /// This method creates a remoting data structure handler message for transporting a state
-        /// information from server to client
+        /// information from server to client.
         /// </summary>
-        /// <param name="clientRunspacePoolId">id of the client RunspacePool</param>
-        /// <param name="stateInfo">State information object</param>
-        /// <returns>data structure handler message encoded as RemoteDataObject</returns>
+        /// <param name="clientRunspacePoolId">Id of the client RunspacePool.</param>
+        /// <param name="stateInfo">State information object.</param>
+        /// <returns>Data structure handler message encoded as RemoteDataObject.</returns>
         /// The message format is as under for this message
         /// --------------------------------------------------------------------------------------
         /// | D |    TI     |  RPID  |   PID   |   Action   |      Data     |        Type         |
@@ -1197,19 +969,19 @@ namespace System.Management.Automation
             // BUGBUG: This object creation needs to be relooked
             PSObject dataAsPSObject = CreateEmptyPSObject();
 
-            //Add State Property
+            // Add State Property
             PSNoteProperty stateProperty =
                         new PSNoteProperty(RemoteDataNameStrings.RunspaceState,
                             (int)(stateInfo.State));
             dataAsPSObject.Properties.Add(stateProperty);
 
-            //Add Reason property
+            // Add Reason property
             if (stateInfo.Reason != null)
             {
-                //If Reason is of not type IContainsErrorRecord, a new ErrorRecord is
-                //created using this errorId
-                string errorId = "RemoteRunspaceStateInfoReason";
-                PSNoteProperty exceptionProperty = GetExceptionProperty(stateInfo.Reason, errorId, ErrorCategory.NotSpecified);
+                PSNoteProperty exceptionProperty = GetExceptionProperty(
+                    exception: stateInfo.Reason,
+                    errorId: "RemoteRunspaceStateInfoReason",
+                    category: ErrorCategory.NotSpecified);
                 dataAsPSObject.Properties.Add(exceptionProperty);
             }
 
@@ -1222,11 +994,11 @@ namespace System.Management.Automation
 
         /// <summary>
         /// This method creates a remoting data structure handler message for transporting a PowerShell
-        /// event from server to client
+        /// event from server to client.
         /// </summary>
-        /// <param name="clientRunspacePoolId">id of the client RunspacePool</param>
-        /// <param name="e">PowerShell event</param>
-        /// <returns>data structure handler message encoded as RemoteDataObject</returns>
+        /// <param name="clientRunspacePoolId">Id of the client RunspacePool.</param>
+        /// <param name="e">PowerShell event.</param>
+        /// <returns>Data structure handler message encoded as RemoteDataObject.</returns>
         /// The message format is as under for this message
         /// --------------------------------------------------------------------------------------
         /// | D |    TI     |  RPID  |   PID   |   Action   |      Data     |        Type         |
@@ -1259,8 +1031,8 @@ namespace System.Management.Automation
         /// the single runspace on the server.
         /// </summary>
         /// <param name="clientRunspacePoolId"></param>
-        /// <param name="callId">Caller Id</param>
-        /// <returns>Data structure handler message encoded as RemoteDataObject</returns>
+        /// <param name="callId">Caller Id.</param>
+        /// <returns>Data structure handler message encoded as RemoteDataObject.</returns>
         /// The message format is as under for this message
         /// --------------------------------------------------------------------------------------------
         /// | D |    TI     |  RPID  |   PID   |   Action          |      Data     |        Type        |
@@ -1281,10 +1053,10 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Returns the PS remoting protocol version associated with the provided
+        /// Returns the PS remoting protocol version associated with the provided.
         /// </summary>
-        /// <param name="rsPool">RunspacePool</param>
-        /// <returns>PS remoting protocol version</returns>
+        /// <param name="rsPool">RunspacePool.</param>
+        /// <returns>PS remoting protocol version.</returns>
         internal static Version GetPSRemotingProtocolVersion(RunspacePool rsPool)
         {
             return (rsPool != null && rsPool.RemoteRunspacePoolInternal != null) ?
@@ -1297,12 +1069,12 @@ namespace System.Management.Automation
 
         /// <summary>
         /// This method creates a remoting data structure handler message for sending a powershell
-        /// input data from the client to the server
+        /// input data from the client to the server.
         /// </summary>
-        /// <param name="data">input data to send</param>
-        /// <param name="clientRemoteRunspacePoolId">client runspace pool id</param>
-        /// <param name="clientPowerShellId">client powershell id</param>
-        /// <returns>data structure handler message encoded as RemoteDataObject</returns>
+        /// <param name="data">Input data to send.</param>
+        /// <param name="clientRemoteRunspacePoolId">Client runspace pool id.</param>
+        /// <param name="clientPowerShellId">Client powershell id.</param>
+        /// <returns>Data structure handler message encoded as RemoteDataObject.</returns>
         /// The message format is as under for this message
         /// --------------------------------------------------------------------------------------
         /// | D |    TI     |  RPID  |   PID   |   Action   |      Data     |        Type         |
@@ -1322,11 +1094,11 @@ namespace System.Management.Automation
 
         /// <summary>
         /// This method creates a remoting data structure handler message for signalling
-        /// end of input data for powershell
+        /// end of input data for powershell.
         /// </summary>
-        /// <param name="clientRemoteRunspacePoolId">client runspace pool id</param>
-        /// <param name="clientPowerShellId">client powershell id</param>
-        /// <returns>data structure handler message encoded as RemoteDataObject</returns>
+        /// <param name="clientRemoteRunspacePoolId">Client runspace pool id.</param>
+        /// <param name="clientPowerShellId">Client powershell id.</param>
+        /// <returns>Data structure handler message encoded as RemoteDataObject.</returns>
         /// The message format is as under for this message
         /// --------------------------------------------------------------------------------------
         /// | D |    TI     |  RPID  |   PID   |   Action   |      Data     |        Type         |
@@ -1346,14 +1118,14 @@ namespace System.Management.Automation
 
         /// <summary>
         /// This method creates a remoting data structure handler message for transporting a
-        /// powershell output data from server to client
+        /// powershell output data from server to client.
         /// </summary>
-        /// <param name="data">data to be sent</param>
+        /// <param name="data">Data to be sent.</param>
         /// <param name="clientPowerShellId">id of client powershell
         /// to which this information need to be delivered</param>
         /// <param name="clientRunspacePoolId">id of client runspacepool
         /// associated with this powershell</param>
-        /// <returns>data structure handler message encoded as RemoteDataObject</returns>
+        /// <returns>Data structure handler message encoded as RemoteDataObject.</returns>
         /// The message format is as under for this message
         /// --------------------------------------------------------------------------------------
         /// | D |    TI     |  RPID  |   PID   |   Action   |      Data     |        Type         |
@@ -1374,16 +1146,16 @@ namespace System.Management.Automation
         /// <summary>
         /// This method creates a remoting data structure handler message for transporting a
         /// powershell informational message (debug/verbose/warning/progress)from
-        /// server to client
+        /// server to client.
         /// </summary>
-        /// <param name="data">data to be sent</param>
+        /// <param name="data">Data to be sent.</param>
         /// <param name="clientPowerShellId">id of client powershell
         /// to which this information need to be delivered</param>
         /// <param name="clientRunspacePoolId">id of client runspacepool
         /// associated with this powershell</param>
         /// <param name="dataType">data type of this informational
         /// message</param>
-        /// <returns>data structure handler message encoded as RemoteDataObject</returns>
+        /// <returns>Data structure handler message encoded as RemoteDataObject.</returns>
         /// The message format is as under for this message
         /// --------------------------------------------------------------------------------------
         /// | D |    TI     |  RPID  |   PID   |   Action   |      Data     |        Type         |
@@ -1404,14 +1176,14 @@ namespace System.Management.Automation
         /// <summary>
         /// This method creates a remoting data structure handler message for transporting a
         /// powershell progress message from
-        /// server to client
+        /// server to client.
         /// </summary>
-        /// <param name="progressRecord">progress record to send</param>
+        /// <param name="progressRecord">Progress record to send.</param>
         /// <param name="clientPowerShellId">id of client powershell
         /// to which this information need to be delivered</param>
         /// <param name="clientRunspacePoolId">id of client runspacepool
         /// associated with this powershell</param>
-        /// <returns>data structure handler message encoded as RemoteDataObject</returns>
+        /// <returns>Data structure handler message encoded as RemoteDataObject.</returns>
         /// The message format is as under for this message
         /// --------------------------------------------------------------------------------------
         /// | D |    TI     |  RPID  |   PID   |   Action   |      Data     |        Type         |
@@ -1424,7 +1196,7 @@ namespace System.Management.Automation
         {
             if (progressRecord == null)
             {
-                throw PSTraceSource.NewArgumentNullException("progressRecord");
+                throw PSTraceSource.NewArgumentNullException(nameof(progressRecord));
             }
 
             return RemoteDataObject.CreateFrom(RemotingDestination.Client,
@@ -1437,14 +1209,14 @@ namespace System.Management.Automation
         /// <summary>
         /// This method creates a remoting data structure handler message for transporting a
         /// powershell information stream message from
-        /// server to client
+        /// server to client.
         /// </summary>
-        /// <param name="informationRecord">information record to send</param>
+        /// <param name="informationRecord">Information record to send.</param>
         /// <param name="clientPowerShellId">id of client powershell
         /// to which this information need to be delivered</param>
         /// <param name="clientRunspacePoolId">id of client runspacepool
         /// associated with this powershell</param>
-        /// <returns>data structure handler message encoded as RemoteDataObject</returns>
+        /// <returns>Data structure handler message encoded as RemoteDataObject.</returns>
         /// The message format is as under for this message
         /// -----------------------------------------------------------------------------------------------
         /// | D |    TI     |  RPID  |   PID   |   Action   |      Data     |        Type                 |
@@ -1457,7 +1229,7 @@ namespace System.Management.Automation
         {
             if (informationRecord == null)
             {
-                throw PSTraceSource.NewArgumentNullException("informationRecord");
+                throw PSTraceSource.NewArgumentNullException(nameof(informationRecord));
             }
 
             return RemoteDataObject.CreateFrom(RemotingDestination.Client,
@@ -1469,14 +1241,14 @@ namespace System.Management.Automation
 
         /// <summary>
         /// This method creates a remoting data structure handler message for transporting a
-        /// powershell error record from server to client
+        /// powershell error record from server to client.
         /// </summary>
-        /// <param name="errorRecord">error record to be sent</param>
+        /// <param name="errorRecord">Error record to be sent.</param>
         /// <param name="clientPowerShellId">id of client powershell
         /// to which this information need to be delivered</param>
         /// <param name="clientRunspacePoolId">id of client runspacepool
         /// associated with this powershell</param>
-        /// <returns>data structure handler message encoded as RemoteDataObject</returns>
+        /// <returns>Data structure handler message encoded as RemoteDataObject.</returns>
         /// The message format is as under for this message
         /// --------------------------------------------------------------------------------------
         /// | D |    TI     |  RPID  |   PID   |   Action   |      Data     |        Type         |
@@ -1496,14 +1268,14 @@ namespace System.Management.Automation
 
         /// <summary>
         /// This method creates a remoting data structure handler message for transporting a
-        /// powershell state information from server to client
+        /// powershell state information from server to client.
         /// </summary>
-        /// <param name="stateInfo">state information object</param>
+        /// <param name="stateInfo">State information object.</param>
         /// <param name="clientPowerShellId">id of client powershell
         /// to which this information need to be delivered</param>
         /// <param name="clientRunspacePoolId">id of client runspacepool
         /// associated with this powershell</param>
-        /// <returns>data structure handler message encoded as RemoteDataObject</returns>
+        /// <returns>Data structure handler message encoded as RemoteDataObject.</returns>
         /// The message format is as under for this message
         /// --------------------------------------------------------------------------------------
         /// | D |    TI     |  RPID  |   PID   |   Action   |      Data     |        Type         |
@@ -1514,23 +1286,21 @@ namespace System.Management.Automation
         internal static RemoteDataObject GeneratePowerShellStateInfo(PSInvocationStateInfo stateInfo,
             Guid clientPowerShellId, Guid clientRunspacePoolId)
         {
-            //Encode Pipeline StateInfo as PSObject
+            // Encode Pipeline StateInfo as PSObject
             PSObject dataAsPSObject = CreateEmptyPSObject();
 
-            //Convert the state to int and add as property
+            // Convert the state to int and add as property
             PSNoteProperty stateProperty = new PSNoteProperty(
                 RemoteDataNameStrings.PipelineState, (int)(stateInfo.State));
             dataAsPSObject.Properties.Add(stateProperty);
 
-            //Add exception property
+            // Add exception property
             if (stateInfo.Reason != null)
             {
-                // If Reason is of not type IContainsErrorRecord,
-                // a new ErrorRecord is created using this errorId
-                string errorId = "RemotePSInvocationStateInfoReason";
-                PSNoteProperty exceptionProperty =
-                    GetExceptionProperty(stateInfo.Reason, errorId,
-                        ErrorCategory.NotSpecified);
+                PSNoteProperty exceptionProperty = GetExceptionProperty(
+                    exception: stateInfo.Reason,
+                    errorId: "RemotePSInvocationStateInfoReason",
+                    category: ErrorCategory.NotSpecified);
                 dataAsPSObject.Properties.Add(exceptionProperty);
             }
 
@@ -1551,7 +1321,7 @@ namespace System.Management.Automation
         /// <param name="exception"></param>
         /// <returns>
         /// ErrorRecord if exception is of type IContainsErrorRecord
-        /// Null if if exception is not of type IContainsErrorRecord
+        /// Null if exception is not of type IContainsErrorRecord
         /// </returns>
         internal static ErrorRecord GetErrorRecordFromException(Exception exception)
         {
@@ -1562,19 +1332,23 @@ namespace System.Management.Automation
             if (cer != null)
             {
                 er = cer.ErrorRecord;
-                //Exception inside the error record is ParentContainsErrorRecordException which
-                //doesn't have stack trace. Replace it with top level exception.
+                // Exception inside the error record is ParentContainsErrorRecordException which
+                // doesn't have stack trace. Replace it with top level exception.
                 er = new ErrorRecord(er, exception);
             }
+
             return er;
         }
 
         /// <summary>
         /// Gets a Note Property for the exception.
         /// </summary>
+        /// <remarks>
+        /// If <paramref name="exception"/> is of not type IContainsErrorRecord, a new ErrorRecord is created.
+        /// </remarks>
         /// <param name="exception"></param>
-        /// <param name="errorId">ErrorId to use if exception is not of type IContainsErrorRecord</param>
-        /// <param name="category">ErrorCategory to use if exception is not of type IContainsErrorRecord</param>
+        /// <param name="errorId">ErrorId to use if exception is not of type IContainsErrorRecord.</param>
+        /// <param name="category">ErrorCategory to use if exception is not of type IContainsErrorRecord.</param>
         /// <returns></returns>
         private static PSNoteProperty GetExceptionProperty(Exception exception, string errorId, ErrorCategory category)
         {
@@ -1593,9 +1367,9 @@ namespace System.Management.Automation
         /// This method creates a remoting data structure handler message for transporting a session
         /// capability message. Should be used by client.
         /// </summary>
-        /// <param name="capability">RemoteSession capability object to encode</param>
+        /// <param name="capability">RemoteSession capability object to encode.</param>
         /// <param name="runspacePoolId"></param>
-        /// <returns>data structure handler message encoded as RemoteDataObject</returns>
+        /// <returns>Data structure handler message encoded as RemoteDataObject.</returns>
         /// The message format is as under for this message
         /// --------------------------------------------------------------------------------------
         /// | D |    TI     |  RPID  |   PID   |   Action   |      Data     |        Type         |
@@ -1608,8 +1382,6 @@ namespace System.Management.Automation
                 Guid runspacePoolId)
         {
             PSObject temp = GenerateSessionCapability(capability);
-            temp.Properties.Add(
-                new PSNoteProperty(RemoteDataNameStrings.TimeZone, RemoteSessionCapability.GetCurrentTimeZoneInByteFormat()));
             return RemoteDataObject.CreateFrom(capability.RemotingDestination,
                 RemotingDataType.SessionCapability, runspacePoolId, Guid.Empty, temp);
         }
@@ -1646,7 +1418,7 @@ namespace System.Management.Automation
         {
             if (propertyName == null) // comes from internal caller
             {
-                throw PSTraceSource.NewArgumentNullException("propertyName");
+                throw PSTraceSource.NewArgumentNullException(nameof(propertyName));
             }
 
             if (typeof(T).IsEnum)
@@ -1754,12 +1526,12 @@ namespace System.Management.Automation
         {
             if (psObject == null)
             {
-                throw PSTraceSource.NewArgumentNullException("psObject");
+                throw PSTraceSource.NewArgumentNullException(nameof(psObject));
             }
 
             if (propertyName == null)
             {
-                throw PSTraceSource.NewArgumentNullException("propertyName");
+                throw PSTraceSource.NewArgumentNullException(nameof(propertyName));
             }
 
             PSPropertyInfo property = psObject.Properties[propertyName];
@@ -1776,12 +1548,12 @@ namespace System.Management.Automation
         {
             if (psObject == null)
             {
-                throw PSTraceSource.NewArgumentNullException("psObject");
+                throw PSTraceSource.NewArgumentNullException(nameof(psObject));
             }
 
             if (propertyName == null)
             {
-                throw PSTraceSource.NewArgumentNullException("propertyName");
+                throw PSTraceSource.NewArgumentNullException(nameof(propertyName));
             }
 
             PSPropertyInfo property = GetProperty(psObject, propertyName);
@@ -1793,12 +1565,12 @@ namespace System.Management.Automation
         {
             if (psObject == null)
             {
-                throw PSTraceSource.NewArgumentNullException("psObject");
+                throw PSTraceSource.NewArgumentNullException(nameof(psObject));
             }
 
             if (propertyName == null)
             {
-                throw PSTraceSource.NewArgumentNullException("propertyName");
+                throw PSTraceSource.NewArgumentNullException(nameof(propertyName));
             }
 
             IEnumerable e = GetPropertyValue<IEnumerable>(psObject, propertyName);
@@ -1811,16 +1583,16 @@ namespace System.Management.Automation
             }
         }
 
-        internal static IEnumerable<KeyValuePair<KeyType, ValueType>> EnumerateHashtableProperty<KeyType, ValueType>(PSObject psObject, string propertyName)
+        internal static IEnumerable<KeyValuePair<TKey, TValue>> EnumerateHashtableProperty<TKey, TValue>(PSObject psObject, string propertyName)
         {
             if (psObject == null)
             {
-                throw PSTraceSource.NewArgumentNullException("psObject");
+                throw PSTraceSource.NewArgumentNullException(nameof(psObject));
             }
 
             if (propertyName == null)
             {
-                throw PSTraceSource.NewArgumentNullException("propertyName");
+                throw PSTraceSource.NewArgumentNullException(nameof(propertyName));
             }
 
             Hashtable h = GetPropertyValue<Hashtable>(psObject, propertyName);
@@ -1828,24 +1600,24 @@ namespace System.Management.Automation
             {
                 foreach (DictionaryEntry e in h)
                 {
-                    KeyType key = ConvertPropertyValueTo<KeyType>(propertyName, e.Key);
-                    ValueType value = ConvertPropertyValueTo<ValueType>(propertyName, e.Value);
-                    yield return new KeyValuePair<KeyType, ValueType>(key, value);
+                    TKey key = ConvertPropertyValueTo<TKey>(propertyName, e.Key);
+                    TValue value = ConvertPropertyValueTo<TValue>(propertyName, e.Value);
+                    yield return new KeyValuePair<TKey, TValue>(key, value);
                 }
             }
         }
 
         /// <summary>
-        /// decode and obtain the RunspacePool state info from the
-        /// data object specified
+        /// Decode and obtain the RunspacePool state info from the
+        /// data object specified.
         /// </summary>
-        /// <param name="dataAsPSObject">data object to decode</param>
-        /// <returns>RunspacePoolStateInfo</returns>
+        /// <param name="dataAsPSObject">Data object to decode.</param>
+        /// <returns>RunspacePoolStateInfo.</returns>
         internal static RunspacePoolStateInfo GetRunspacePoolStateInfo(PSObject dataAsPSObject)
         {
             if (dataAsPSObject == null)
             {
-                throw PSTraceSource.NewArgumentNullException("dataAsPSObject");
+                throw PSTraceSource.NewArgumentNullException(nameof(dataAsPSObject));
             }
 
             RunspacePoolState state = GetPropertyValue<RunspacePoolState>(dataAsPSObject, RemoteDataNameStrings.RunspaceState);
@@ -1855,62 +1627,62 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// decode and obtain the application private data from the
-        /// data object specified
+        /// Decode and obtain the application private data from the
+        /// data object specified.
         /// </summary>
-        /// <param name="dataAsPSObject">data object to decode</param>
-        /// <returns>application private data</returns>
+        /// <param name="dataAsPSObject">Data object to decode.</param>
+        /// <returns>Application private data.</returns>
         internal static PSPrimitiveDictionary GetApplicationPrivateData(PSObject dataAsPSObject)
         {
             if (dataAsPSObject == null)
             {
-                throw PSTraceSource.NewArgumentNullException("dataAsPSObject");
+                throw PSTraceSource.NewArgumentNullException(nameof(dataAsPSObject));
             }
 
             return GetPropertyValue<PSPrimitiveDictionary>(dataAsPSObject, RemoteDataNameStrings.ApplicationPrivateData);
         }
 
         /// <summary>
-        /// Gets the public key from the encoded message
+        /// Gets the public key from the encoded message.
         /// </summary>
-        /// <param name="dataAsPSObject">data object to decode</param>
-        /// <returns>public key as string</returns>
-        internal static String GetPublicKey(PSObject dataAsPSObject)
+        /// <param name="dataAsPSObject">Data object to decode.</param>
+        /// <returns>Public key as string.</returns>
+        internal static string GetPublicKey(PSObject dataAsPSObject)
         {
             if (dataAsPSObject == null)
             {
-                throw PSTraceSource.NewArgumentNullException("dataAsPSObject");
+                throw PSTraceSource.NewArgumentNullException(nameof(dataAsPSObject));
             }
 
-            return GetPropertyValue<String>(dataAsPSObject, RemoteDataNameStrings.PublicKey);
+            return GetPropertyValue<string>(dataAsPSObject, RemoteDataNameStrings.PublicKey);
         }
 
         /// <summary>
-        /// Gets the encrypted session key from the encoded message
+        /// Gets the encrypted session key from the encoded message.
         /// </summary>
-        /// <param name="dataAsPSObject">data object to decode</param>
-        /// <returns>encrypted session key as string</returns>
-        internal static String GetEncryptedSessionKey(PSObject dataAsPSObject)
+        /// <param name="dataAsPSObject">Data object to decode.</param>
+        /// <returns>Encrypted session key as string.</returns>
+        internal static string GetEncryptedSessionKey(PSObject dataAsPSObject)
         {
             if (dataAsPSObject == null)
             {
-                throw PSTraceSource.NewArgumentNullException("dataAsPSObject");
+                throw PSTraceSource.NewArgumentNullException(nameof(dataAsPSObject));
             }
 
             return GetPropertyValue<string>(dataAsPSObject, RemoteDataNameStrings.EncryptedSessionKey);
         }
 
         /// <summary>
-        /// decode and obtain the RunspacePool state info from the
-        /// data object specified
+        /// Decode and obtain the RunspacePool state info from the
+        /// data object specified.
         /// </summary>
-        /// <param name="dataAsPSObject">data object to decode</param>
-        /// <returns>RunspacePoolStateInfo</returns>
+        /// <param name="dataAsPSObject">Data object to decode.</param>
+        /// <returns>RunspacePoolStateInfo.</returns>
         internal static PSEventArgs GetPSEventArgs(PSObject dataAsPSObject)
         {
             if (dataAsPSObject == null)
             {
-                throw PSTraceSource.NewArgumentNullException("dataAsPSObject");
+                throw PSTraceSource.NewArgumentNullException(nameof(dataAsPSObject));
             }
 
             int eventIdentifier = GetPropertyValue<int>(dataAsPSObject, RemoteDataNameStrings.PSEventArgsEventIdentifier);
@@ -1920,7 +1692,7 @@ namespace System.Management.Automation
             string computerName = GetPropertyValue<string>(dataAsPSObject, RemoteDataNameStrings.PSEventArgsComputerName);
             Guid runspaceId = GetPropertyValue<Guid>(dataAsPSObject, RemoteDataNameStrings.PSEventArgsRunspaceId);
 
-            ArrayList sourceArgs = new ArrayList();
+            var sourceArgs = new List<object>();
             foreach (object argument in RemotingDecoder.EnumerateListProperty<object>(dataAsPSObject, RemoteDataNameStrings.PSEventArgsSourceArgs))
             {
                 sourceArgs.Add(argument);
@@ -1941,48 +1713,48 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// decode and obtain the minimum runspaces to create in the
-        /// runspace pool from the data object specified
+        /// Decode and obtain the minimum runspaces to create in the
+        /// runspace pool from the data object specified.
         /// </summary>
-        /// <param name="dataAsPSObject">data object to decode</param>
-        /// <returns>minimum runspaces</returns>
-        internal static Int32 GetMinRunspaces(PSObject dataAsPSObject)
+        /// <param name="dataAsPSObject">Data object to decode.</param>
+        /// <returns>Minimum runspaces.</returns>
+        internal static int GetMinRunspaces(PSObject dataAsPSObject)
         {
             if (dataAsPSObject == null)
             {
-                throw PSTraceSource.NewArgumentNullException("dataAsPSObject");
+                throw PSTraceSource.NewArgumentNullException(nameof(dataAsPSObject));
             }
 
-            return GetPropertyValue<Int32>(dataAsPSObject, RemoteDataNameStrings.MinRunspaces);
+            return GetPropertyValue<int>(dataAsPSObject, RemoteDataNameStrings.MinRunspaces);
         }
 
         /// <summary>
-        /// decode and obtain the maximum runspaces to create in the
-        /// runspace pool from the data object specified
+        /// Decode and obtain the maximum runspaces to create in the
+        /// runspace pool from the data object specified.
         /// </summary>
-        /// <param name="dataAsPSObject">data object to decode</param>
-        /// <returns>maximum runspaces</returns>
-        internal static Int32 GetMaxRunspaces(PSObject dataAsPSObject)
+        /// <param name="dataAsPSObject">Data object to decode.</param>
+        /// <returns>Maximum runspaces.</returns>
+        internal static int GetMaxRunspaces(PSObject dataAsPSObject)
         {
             if (dataAsPSObject == null)
             {
-                throw PSTraceSource.NewArgumentNullException("dataAsPSObject");
+                throw PSTraceSource.NewArgumentNullException(nameof(dataAsPSObject));
             }
 
-            return GetPropertyValue<Int32>(dataAsPSObject, RemoteDataNameStrings.MaxRunspaces);
+            return GetPropertyValue<int>(dataAsPSObject, RemoteDataNameStrings.MaxRunspaces);
         }
 
         /// <summary>
-        /// decode and obtain the thread options for the runspaces in the
-        /// runspace pool from the data object specified
+        /// Decode and obtain the thread options for the runspaces in the
+        /// runspace pool from the data object specified.
         /// </summary>
-        /// <param name="dataAsPSObject">data object to decode</param>
-        /// <returns>thread options</returns>
+        /// <param name="dataAsPSObject">Data object to decode.</param>
+        /// <returns>Thread options.</returns>
         internal static PSPrimitiveDictionary GetApplicationArguments(PSObject dataAsPSObject)
         {
             if (dataAsPSObject == null)
             {
-                throw PSTraceSource.NewArgumentNullException("dataAsPSObject");
+                throw PSTraceSource.NewArgumentNullException(nameof(dataAsPSObject));
             }
 
             // rehydration might not work yet (there is no type table before a runspace is created)
@@ -1991,50 +1763,50 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Generates RunspacePoolInitInfo object from a received PSObject
+        /// Generates RunspacePoolInitInfo object from a received PSObject.
         /// </summary>
-        /// <param name="dataAsPSObject">data object to decode</param>
-        /// <returns>RunspacePoolInitInfo generated</returns>
+        /// <param name="dataAsPSObject">Data object to decode.</param>
+        /// <returns>RunspacePoolInitInfo generated.</returns>
         internal static RunspacePoolInitInfo GetRunspacePoolInitInfo(PSObject dataAsPSObject)
         {
             if (dataAsPSObject == null)
             {
-                throw PSTraceSource.NewArgumentNullException("dataAsPSObject");
+                throw PSTraceSource.NewArgumentNullException(nameof(dataAsPSObject));
             }
 
-            int maxRS = GetPropertyValue<Int32>(dataAsPSObject, RemoteDataNameStrings.MaxRunspaces);
-            int minRS = GetPropertyValue<Int32>(dataAsPSObject, RemoteDataNameStrings.MinRunspaces);
+            int maxRS = GetPropertyValue<int>(dataAsPSObject, RemoteDataNameStrings.MaxRunspaces);
+            int minRS = GetPropertyValue<int>(dataAsPSObject, RemoteDataNameStrings.MinRunspaces);
 
             return new RunspacePoolInitInfo(minRS, maxRS);
         }
 
         /// <summary>
-        /// decode and obtain the thread options for the runspaces in the
-        /// runspace pool from the data object specified
+        /// Decode and obtain the thread options for the runspaces in the
+        /// runspace pool from the data object specified.
         /// </summary>
-        /// <param name="dataAsPSObject">data object to decode</param>
-        /// <returns>thread options</returns>
+        /// <param name="dataAsPSObject">Data object to decode.</param>
+        /// <returns>Thread options.</returns>
         internal static PSThreadOptions GetThreadOptions(PSObject dataAsPSObject)
         {
             if (dataAsPSObject == null)
             {
-                throw PSTraceSource.NewArgumentNullException("dataAsPSObject");
+                throw PSTraceSource.NewArgumentNullException(nameof(dataAsPSObject));
             }
 
             return GetPropertyValue<PSThreadOptions>(dataAsPSObject, RemoteDataNameStrings.ThreadOptions);
         }
 
         /// <summary>
-        /// decode and obtain the host info for the host
-        /// associated with the runspace pool
+        /// Decode and obtain the host info for the host
+        /// associated with the runspace pool.
         /// </summary>
-        /// <param name="dataAsPSObject">dataAsPSObject object to decode</param>
-        /// <returns>host information</returns>
+        /// <param name="dataAsPSObject">DataAsPSObject object to decode.</param>
+        /// <returns>Host information.</returns>
         internal static HostInfo GetHostInfo(PSObject dataAsPSObject)
         {
             if (dataAsPSObject == null)
             {
-                throw PSTraceSource.NewArgumentNullException("dataAsPSObject");
+                throw PSTraceSource.NewArgumentNullException(nameof(dataAsPSObject));
             }
 
             PSObject propertyValue = GetPropertyValue<PSObject>(dataAsPSObject, RemoteDataNameStrings.HostInfo);
@@ -2042,24 +1814,24 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Gets the exception if any from the serialized state info object
+        /// Gets the exception if any from the serialized state info object.
         /// </summary>
         /// <param name="stateInfo"></param>
         /// <returns></returns>
         private static Exception GetExceptionFromStateInfoObject(PSObject stateInfo)
         {
-            //Check if exception is encoded as errorrecord
+            // Check if exception is encoded as errorrecord
             PSPropertyInfo property = stateInfo.Properties[RemoteDataNameStrings.ExceptionAsErrorRecord];
             if (property != null && property.Value != null)
             {
                 return GetExceptionFromSerializedErrorRecord(property.Value);
             }
-            //Exception is not present and return null.
+            // Exception is not present and return null.
             return null;
         }
 
         /// <summary>
-        /// Get the exception from serialized error record
+        /// Get the exception from serialized error record.
         /// </summary>
         /// <param name="serializedErrorRecord"></param>
         /// <returns></returns>
@@ -2078,10 +1850,10 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Gets the output from the message
+        /// Gets the output from the message.
         /// </summary>
-        /// <param name="data">object to decode</param>
-        /// <returns>output object</returns>
+        /// <param name="data">Object to decode.</param>
+        /// <returns>Output object.</returns>
         /// <remarks>the current implementation does nothing,
         /// however this method is there in place as the
         /// packaging of output data may change in the future</remarks>
@@ -2091,14 +1863,13 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Gets the PSInvocationStateInfo from the data
+        /// Gets the PSInvocationStateInfo from the data.
         /// </summary>
-        /// <param name="data">object to decode</param>
-        /// <returns>PSInvocationInfo</returns>
+        /// <param name="data">Object to decode.</param>
+        /// <returns>PSInvocationInfo.</returns>
         internal static PSInvocationStateInfo GetPowerShellStateInfo(object data)
         {
-            PSObject dataAsPSObject = data as PSObject;
-            if (dataAsPSObject == null)
+            if (data is not PSObject dataAsPSObject)
             {
                 throw new PSRemotingDataStructureException(
                     RemotingErrorIdStrings.DecodingErrorForPowerShellStateInfo);
@@ -2110,15 +1881,15 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Gets the ErrorRecord from the message
+        /// Gets the ErrorRecord from the message.
         /// </summary>
-        /// <param name="data">data to decode</param>
-        /// <returns>error record</returns>
+        /// <param name="data">Data to decode.</param>
+        /// <returns>Error record.</returns>
         internal static ErrorRecord GetPowerShellError(object data)
         {
             if (data == null)
             {
-                throw PSTraceSource.NewArgumentNullException("data");
+                throw PSTraceSource.NewArgumentNullException(nameof(data));
             }
 
             PSObject dataAsPSObject = data as PSObject;
@@ -2129,46 +1900,46 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Gets the WarningRecord from the message
+        /// Gets the WarningRecord from the message.
         /// </summary>
         internal static WarningRecord GetPowerShellWarning(object data)
         {
             if (data == null)
             {
-                throw PSTraceSource.NewArgumentNullException("data");
+                throw PSTraceSource.NewArgumentNullException(nameof(data));
             }
 
             return new WarningRecord((PSObject)data);
         }
 
         /// <summary>
-        /// Gets the VerboseRecord from the message
+        /// Gets the VerboseRecord from the message.
         /// </summary>
         internal static VerboseRecord GetPowerShellVerbose(object data)
         {
             if (data == null)
             {
-                throw PSTraceSource.NewArgumentNullException("data");
+                throw PSTraceSource.NewArgumentNullException(nameof(data));
             }
 
             return new VerboseRecord((PSObject)data);
         }
 
         /// <summary>
-        /// Gets the DebugRecord from the message
+        /// Gets the DebugRecord from the message.
         /// </summary>
         internal static DebugRecord GetPowerShellDebug(object data)
         {
             if (data == null)
             {
-                throw PSTraceSource.NewArgumentNullException("data");
+                throw PSTraceSource.NewArgumentNullException(nameof(data));
             }
 
             return new DebugRecord((PSObject)data);
         }
 
         /// <summary>
-        /// Gets the ProgressRecord from the message
+        /// Gets the ProgressRecord from the message.
         /// </summary>
         internal static ProgressRecord GetPowerShellProgress(object data)
         {
@@ -2182,7 +1953,7 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Gets the InformationRecord from the message
+        /// Gets the InformationRecord from the message.
         /// </summary>
         internal static InformationRecord GetPowerShellInformation(object data)
         {
@@ -2196,10 +1967,10 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Gets the PowerShell object from the specified data
+        /// Gets the PowerShell object from the specified data.
         /// </summary>
-        /// <param name="data">data to decode</param>
-        /// <returns>Deserialized PowerShell object</returns>
+        /// <param name="data">Data to decode.</param>
+        /// <returns>Deserialized PowerShell object.</returns>
         internal static PowerShell GetPowerShell(object data)
         {
             PSObject dataAsPSObject = PSObject.AsPSObject(data);
@@ -2213,10 +1984,10 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Gets the PowerShell object from the specified data
+        /// Gets the PowerShell object from the specified data.
         /// </summary>
-        /// <param name="data">data to decode</param>
-        /// <returns>Deserialized PowerShell object</returns>
+        /// <param name="data">Data to decode.</param>
+        /// <returns>Deserialized PowerShell object.</returns>
         internal static PowerShell GetCommandDiscoveryPipeline(object data)
         {
             PSObject dataAsPSObject = PSObject.AsPSObject(data);
@@ -2246,7 +2017,7 @@ namespace System.Management.Automation
             }
             else
             {
-                module = new string[] { "" };
+                module = new string[] { string.Empty };
             }
 
             ModuleSpecification[] fullyQualifiedName = null;
@@ -2281,15 +2052,16 @@ namespace System.Management.Automation
             {
                 powerShell.AddParameter("Module", module);
             }
+
             powerShell.AddParameter("ArgumentList", argumentList);
             return powerShell;
         }
 
         /// <summary>
-        /// Gets the NoInput setting from the specified data
+        /// Gets the NoInput setting from the specified data.
         /// </summary>
-        /// <param name="data">data to decode</param>
-        /// <returns><c>true</c> if there is no pipeline input; <c>false</c> otherwise</returns>
+        /// <param name="data">Data to decode.</param>
+        /// <returns><see langword="true"/> if there is no pipeline input; <see langword="false"/> otherwise.</returns>
         internal static bool GetNoInput(object data)
         {
             PSObject dataAsPSObject = PSObject.AsPSObject(data);
@@ -2303,10 +2075,10 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Gets the AddToHistory setting from the specified data
+        /// Gets the AddToHistory setting from the specified data.
         /// </summary>
-        /// <param name="data">data to decode</param>
-        /// <returns><c>true</c> if there is addToHistory data; <c>false</c> otherwise</returns>
+        /// <param name="data">Data to decode.</param>
+        /// <returns><see langword="true"/> if there is addToHistory data; <see langword="false"/> otherwise.</returns>
         internal static bool GetAddToHistory(object data)
         {
             PSObject dataAsPSObject = PSObject.AsPSObject(data);
@@ -2320,10 +2092,10 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Gets the IsNested setting from the specified data
+        /// Gets the IsNested setting from the specified data.
         /// </summary>
-        /// <param name="data">data to decode</param>
-        /// <returns><c>true</c> if there is IsNested data; <c>false</c> otherwise</returns>
+        /// <param name="data">Data to decode.</param>
+        /// <returns><see langword="true"/> if there is IsNested data; <see langword="false"/> otherwise.</returns>
         internal static bool GetIsNested(object data)
         {
             PSObject dataAsPSObject = PSObject.AsPSObject(data);
@@ -2336,9 +2108,8 @@ namespace System.Management.Automation
             return GetPropertyValue<bool>(dataAsPSObject, RemoteDataNameStrings.IsNested);
         }
 
-#if !CORECLR // No ApartmentState In CoreCLR
         /// <summary>
-        /// Gets the invocation settings information from the message
+        /// Gets the invocation settings information from the message.
         /// </summary>
         /// <param name="data"></param>
         /// <returns></returns>
@@ -2347,9 +2118,9 @@ namespace System.Management.Automation
             PSObject dataAsPSObject = PSObject.AsPSObject(data);
             return GetPropertyValue<ApartmentState>(dataAsPSObject, RemoteDataNameStrings.ApartmentState);
         }
-#endif
+
         /// <summary>
-        /// Gets the stream options from the message
+        /// Gets the stream options from the message.
         /// </summary>
         /// <param name="data"></param>
         /// <returns></returns>
@@ -2360,15 +2131,13 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Decodes a RemoteSessionCapability object
+        /// Decodes a RemoteSessionCapability object.
         /// </summary>
-        /// <param name="data">data to decode</param>
-        /// <returns>RemoteSessionCapability object</returns>
+        /// <param name="data">Data to decode.</param>
+        /// <returns>RemoteSessionCapability object.</returns>
         internal static RemoteSessionCapability GetSessionCapability(object data)
         {
-            PSObject dataAsPSObject = data as PSObject;
-
-            if (dataAsPSObject == null)
+            if (data is not PSObject dataAsPSObject)
             {
                 throw new PSRemotingDataStructureException(
                     RemotingErrorIdStrings.CantCastRemotingDataToPSObject, data.GetType().FullName);
@@ -2383,32 +2152,14 @@ namespace System.Management.Automation
                 RemotingDestination.InvalidDestination,
                 protocolVersion, psVersion, serializationVersion);
 
-            if (dataAsPSObject.Properties[RemoteDataNameStrings.TimeZone] != null)
-            {
-                // Binary deserialization of timezone info via BinaryFormatter is unsafe,
-                // so don't deserialize any untrusted client data using this API.
-                //
-                // In addition, the binary data being sent by the client doesn't represent
-                // the client's current TimeZone unless they somehow accessed the
-                // StandardName and DaylightName. These properties are initialized lazily
-                // by the .NET Framework, and would be populated by the server with local
-                // values anyways.
-                //
-                // So just return the CurrentTimeZone.
-
-#if !CORECLR // TimeZone Not In CoreCLR
-                result.TimeZone = TimeZone.CurrentTimeZone;
-#endif
-            }
-
             return result;
         }
 
         /// <summary>
-        /// Checks if the server supports batch invocation
+        /// Checks if the server supports batch invocation.
         /// </summary>
-        /// <param name="runspace">runspace instance</param>
-        /// <returns>true if batch invocation is supported, false if not</returns>
+        /// <param name="runspace">Runspace instance.</param>
+        /// <returns>True if batch invocation is supported, false if not.</returns>
         internal static bool ServerSupportsBatchInvocation(Runspace runspace)
         {
             if (runspace == null || runspace.RunspaceStateInfo.State == RunspaceState.BeforeOpen)
@@ -2416,7 +2167,7 @@ namespace System.Management.Automation
                 return false;
             }
 
-            return (runspace.GetRemoteProtocolVersion() >= RemotingConstants.ProtocolVersionWin8RTM);
+            return (runspace.GetRemoteProtocolVersion() >= RemotingConstants.ProtocolVersion_2_2);
         }
     }
 }

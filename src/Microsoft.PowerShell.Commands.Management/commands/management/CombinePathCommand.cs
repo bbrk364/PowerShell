@@ -1,10 +1,10 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
-using System.Text;
 using System.Collections.ObjectModel;
 using System.Management.Automation;
+
 using Dbg = System.Management.Automation;
 
 namespace Microsoft.PowerShell.Commands
@@ -13,26 +13,27 @@ namespace Microsoft.PowerShell.Commands
     /// A command that adds the parent and child parts of a path together
     /// with the appropriate path separator.
     /// </summary>
-    [Cmdlet(VerbsCommon.Join, "Path", SupportsTransactions = true, HelpUri = "https://go.microsoft.com/fwlink/?LinkID=113347")]
+    [Cmdlet(VerbsCommon.Join, "Path", SupportsTransactions = true, HelpUri = "https://go.microsoft.com/fwlink/?LinkID=2096811")]
     [OutputType(typeof(string))]
     public class JoinPathCommand : CoreCommandWithCredentialsBase
     {
         #region Parameters
 
         /// <summary>
-        /// Gets or sets the path parameter to the command
+        /// Gets or sets the path parameter to the command.
         /// </summary>
         [Parameter(Position = 0, Mandatory = true, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true)]
         [Alias("PSPath")]
         public string[] Path { get; set; }
 
         /// <summary>
-        /// Gets or sets the childPath parameter to the command
+        /// Gets or sets the childPath parameter to the command.
         /// </summary>
         [Parameter(Position = 1, Mandatory = true, ValueFromPipelineByPropertyName = true)]
         [AllowNull]
         [AllowEmptyString]
-        public string ChildPath { get; set; }
+        [AllowEmptyCollection]
+        public string[] ChildPath { get; set; }
 
         /// <summary>
         /// Gets or sets additional childPaths to the command.
@@ -41,14 +42,29 @@ namespace Microsoft.PowerShell.Commands
         [AllowNull]
         [AllowEmptyString]
         [AllowEmptyCollection]
-        public string[] AdditionalChildPath { get; set; } = Utils.EmptyArray<string>();
+        public string[] AdditionalChildPath { get; set; } = Array.Empty<string>();
 
         /// <summary>
-        /// Determines if the path should be resolved after being joined
+        /// Determines if the path should be resolved after being joined.
         /// </summary>
         /// <value></value>
         [Parameter]
         public SwitchParameter Resolve { get; set; }
+
+        /// <summary>
+        /// Gets or sets the extension to use for the resulting path.
+        /// If not specified, the original extension (if any) is preserved.
+        /// <para>
+        /// Behavior:
+        /// - If the path has an existing extension, it will be replaced with the specified extension.
+        /// - If the path does not have an extension, the specified extension will be added.
+        /// - If an empty string is provided, any existing extension will be removed.
+        /// - A leading dot in the extension is optional; if omitted, one will be added automatically.
+        /// </para>
+        /// </summary>
+        [Parameter(ValueFromPipelineByPropertyName = true)]
+        [ValidateNotNull]
+        public string Extension { get; set; }
 
         #endregion Parameters
 
@@ -64,7 +80,15 @@ namespace Microsoft.PowerShell.Commands
                 Path != null,
                 "Since Path is a mandatory parameter, paths should never be null");
 
-            string combinedChildPath = ChildPath;
+            string combinedChildPath = string.Empty;
+
+            if (this.ChildPath != null)
+            {
+                foreach (string childPath in this.ChildPath)
+                {
+                    combinedChildPath = SessionState.Path.Combine(combinedChildPath, childPath, CmdletProviderContext);
+                }
+            }
 
             // join the ChildPath elements
             if (AdditionalChildPath != null)
@@ -117,6 +141,12 @@ namespace Microsoft.PowerShell.Commands
                             pathNotFound.ErrorRecord,
                             pathNotFound));
                     continue;
+                }
+
+                // If Extension parameter is present it is not null due to [ValidateNotNull].
+                if (Extension is not null)
+                {
+                    joinedPath = System.IO.Path.ChangeExtension(joinedPath, Extension.Length == 0 ? null : Extension);
                 }
 
                 if (Resolve)
@@ -203,7 +233,7 @@ namespace Microsoft.PowerShell.Commands
                                     pathNotFound));
                             continue;
                         }
-                    } // for each path
+                    }
                 }
                 else
                 {
@@ -213,9 +243,8 @@ namespace Microsoft.PowerShell.Commands
                     }
                 }
             }
-        } // ProcessRecord
+        }
         #endregion Command code
 
-    } // JoinPathCommand
-} // namespace Microsoft.PowerShell.Commands
-
+    }
+}
